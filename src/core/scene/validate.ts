@@ -28,7 +28,7 @@ export function promotedSpecs(networks: readonly Network[], netId: string, depth
 export function validateDoc(input: unknown): ValidateResult {
   const parsed = SceneDoc.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, errors: parsed.error.issues.map((i) => `${i.path.join(".") || "doc"}: ${i.message}`) };
+    return { ok: false, errors: parsed.error.issues.map((i) => `${i.path.map(String).join(".") || "doc"}: ${i.message}`) };
   }
   const doc = parsed.data;
   const errors: string[] = [];

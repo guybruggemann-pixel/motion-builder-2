@@ -21,7 +21,10 @@ export const Vec2 = z.tuple([z.number(), z.number()]);
 export const Vec3 = z.tuple([z.number(), z.number(), z.number()]);
 /** Colours are hex strings (#RRGGBB or #RRGGBBAA) or a brand token reference like "brand:blue". */
 export const Color = z.string().regex(/^(#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?|brand:[a-z0-9-]+)$/);
-export const Value = z.union([z.number(), Vec2, Vec3, z.string(), z.boolean()]);
+export const Value = z.union([z.number(), Vec2, Vec3, z.string(), z.boolean()], {
+  // zod 4 reports a failed union as a bare "Invalid input"; say what is allowed (the AI reads this).
+  error: "expected a number, [x, y], [x, y, z], a string or a boolean",
+});
 export type Value = z.infer<typeof Value>;
 
 /* ---------- parameter stack ---------- */

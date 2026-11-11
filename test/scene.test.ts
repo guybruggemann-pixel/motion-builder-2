@@ -41,6 +41,22 @@ describe("scene doc v2 validation", () => {
     }
   });
 
+  it("explains structural errors with a path and what is allowed", () => {
+    const d = clone(lowerThird);
+    const name = d.networks[1]!.nodes.find((n) => n.id === "name")!;
+    (name.params.size as { value: unknown }).value = [1, 2, 3, 4];
+    const r = validateDoc(d);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors).toContain("networks.1.nodes.1.params.size.value: expected a number, [x, y], [x, y, z], a string or a boolean");
+    expect(validateDoc(null)).toEqual({ ok: false, errors: [expect.stringMatching(/^doc: .*expected object/)] });
+  });
+
+  it("rejects non-finite numbers", () => {
+    const d = clone(lowerThird);
+    d.networks[0]!.comp!.duration = Infinity;
+    expect(validateDoc(d).ok).toBe(false);
+  });
+
   it("rejects promoted controls that point at unknown params", () => {
     const d = clone(lowerThird);
     d.networks[1]!.promoted!.push({ id: "bad", label: "Bad", target: { node: "name", param: "nope" }, control: "text" });
