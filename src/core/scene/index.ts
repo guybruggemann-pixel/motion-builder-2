@@ -8,4 +8,5 @@ export * from "./text";
 export * from "./phase";
 export * from "./evaluate";
 export * from "./frameCache";
+export * from "./graph";
 export { lowerThird } from "./examples/lowerThird";

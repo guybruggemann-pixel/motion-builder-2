@@ -5,7 +5,9 @@ import { Redo2, Undo2 } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from "@/design-system/motionbuilder---brandbook-c4b4eb";
 import { Library } from "@/panels/Library";
-import { shownNetwork, useDocStore, useUi } from "@/store";
+import { fullPath, useDocStore, useUi } from "@/store";
+import { openDepth } from "@/store/navigation";
+import { Timeline } from "@/timeline/Timeline";
 import { useShortcuts } from "@/useShortcuts";
 import { Transport } from "@/viewer/Transport";
 import { Viewer } from "@/viewer/Viewer";
@@ -34,7 +36,24 @@ function Header() {
         /
       </span>
       <span className="text-sm">{doc.name}</span>
-      <span className="font-mono text-xs text-muted-foreground">{shownNetwork(doc, path).name}</span>
+      <nav aria-label="Open networks" className="flex items-center gap-1 font-mono text-xs">
+        {fullPath(doc, path).map((c, i, all) => {
+          const name = doc.networks.find((n) => n.id === c.network)?.name ?? c.network;
+          const last = i === all.length - 1;
+          return (
+            <span key={i} className="flex items-center gap-1">
+              {i > 0 && <span className="text-muted-foreground" aria-hidden>›</span>}
+              {last ? (
+                <span aria-current="page" className="text-foreground">{name}</span>
+              ) : (
+                <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => openDepth(i)}>
+                  {name}
+                </button>
+              )}
+            </span>
+          );
+        })}
+      </nav>
       <div className="ml-auto flex items-center gap-1">
         <Button variant="ghost" size="icon" aria-label={canUndo ? `Undo ${undoLabel}` : "Undo"} title="Undo (⌘Z)" disabled={!canUndo} onClick={undo}>
           <Undo2 />
@@ -71,7 +90,7 @@ export function App() {
             </TabsList>
           </div>
           <TabsContent value="timeline" className="min-h-0 flex-1">
-            <Placeholder>Timeline · step 1b</Placeholder>
+            <Timeline />
           </TabsContent>
           <TabsContent value="network" className="min-h-0 flex-1">
             <Placeholder>Network · step 1d</Placeholder>

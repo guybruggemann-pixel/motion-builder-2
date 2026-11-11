@@ -433,25 +433,76 @@ function resolvePart(ctx: Ctx, p: Part): Drawable[] {
 
 /* ---------- entry point ---------- */
 
-/** Length of a network that isn't a comp: its first Subnet instance's timing, else the root comp. */
-function inferSpan(doc: SceneDoc, networkId: string): number {
-  for (const net of doc.networks)
-    for (const n of net.nodes) if (n.subnet === networkId && n.timing) return n.timing.out - n.timing.in;
-  return doc.networks.find((n) => n.id === doc.root)?.comp?.duration ?? 0;
+/**
+ * Length of a network in seconds: its comp duration, else the span of the given Subnet instance
+ * (or the first instance with timing), else the root comp's duration.
+ */
+export function networkSpan(doc: SceneDoc, networkId: string, instance?: { network: string; node: string }): number {
+  const net = doc.networks.find((n) => n.id === networkId);
+  if (net?.comp) return net.comp.duration;
+  const root = doc.networks.find((n) => n.id === doc.root)?.comp?.duration ?? 0;
+  if (instance) {
+    const node = doc.networks.find((n) => n.id === instance.network)?.nodes.find((n) => n.id === instance.node);
+    if (node?.timing) return node.timing.out - node.timing.in;
+    return networkSpan(doc, instance.network);
+  }
+  for (const n of doc.networks)
+    for (const node of n.nodes) if (node.subnet === networkId && node.timing) return node.timing.out - node.timing.in;
+  return root;
 }
 
 /**
  * Everything visible in `networkId` at time `t` (seconds), flattened to drawables in paint order.
  * Matrices map into the network's own space (comp pixels for a comp).
  */
-export function evaluateFrame(doc: SceneDoc, networkId: string, t: number, opts: EvaluateOptions = {}): Drawable[] {
+function rootCtx(doc: SceneDoc, networkId: string, t: number, opts: EvaluateOptions): Ctx {
   const net = doc.networks.find((n) => n.id === networkId);
   if (!net) throw new Error(`network "${networkId}" not found`);
-  return evalNetwork(doc, net, t, {
+  return {
+    doc,
+    net,
+    t,
+    memo: new Map(),
     brand: new Map((doc.brand?.colors ?? []).map((c) => [c.token, c.value])),
     measure: opts.measure ?? approxMeasure,
-    span: opts.span ?? net.comp?.duration ?? inferSpan(doc, networkId),
+    span: opts.span ?? networkSpan(doc, networkId),
     instance: [],
     overrides: new Map(),
+  };
+}
+
+export function evaluateFrame(doc: SceneDoc, networkId: string, t: number, opts: EvaluateOptions = {}): Drawable[] {
+  const ctx = rootCtx(doc, networkId, t, opts);
+  return resolveParts(ctx, evalNode(ctx, ctx.net.output));
+}
+
+export interface PhaseRange {
+  /** Layer node the part belongs to, and its index within that layer. */
+  node: string;
+  part: number;
+  /** Seconds in the network's time: when this part's phase starts and ends. */
+  start: number;
+  end: number;
+}
+
+/**
+ * When each part animates under a Phase node (v1's `timing`), for drawing phase bars on the
+ * timeline. Parts are counted at time `t` (text can change, and with it the number of parts).
+ */
+export function phaseRanges(doc: SceneDoc, networkId: string, phaseId: string, t = 0, opts: EvaluateOptions = {}): PhaseRange[] {
+  const ctx = rootCtx(doc, networkId, t, opts);
+  const node = ctx.net.nodes.find((n) => n.id === phaseId);
+  if (!node || node.type !== "Phase") return [];
+  const parts = ctx.net.wires.filter((w) => w.to.node === phaseId).flatMap((w) => evalNode(ctx, w.from.node));
+  const spec = phaseSpec(ctx, node);
+  const delays = phaseDelays(spec, parts.length);
+  const maxD = Math.max(0, ...delays);
+  return parts.map((p, i) => {
+    const d = delays[i] ?? 0;
+    const startMs =
+      spec.mode === "in"
+        ? p.layer.inPt * 1000 + spec.startMs + d
+        : p.layer.outPt * 1000 - spec.startMs - (maxD - d) - spec.durationMs;
+    return { node: p.layer.node.id, part: p.index, start: startMs / 1000, end: (startMs + spec.durationMs) / 1000 };
   });
 }
