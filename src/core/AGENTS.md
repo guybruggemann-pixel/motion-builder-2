@@ -1,0 +1,17 @@
+# src/core rules
+
+- `motion/` is a 1:1 port of the ES3 anime-ae core. Any change must keep `test/parity.test.ts` bit-identical, or be made in the ES3 fixture too (it ships to After Effects).
+- `scene/schema.ts` is the contract with the AI and the exporters. Changing a field = bump `version`, write a migration in `scene/migrate.ts`, add a test with an old doc.
+- `scene/catalog.ts` is the node vocabulary. The AI prompt is generated from it, so labels and option names must be human-readable.
+- `scene/evaluateParam.ts`: base → keys → modifiers, in that order. A key's `ease` shapes the segment that starts at that key (AE outgoing-ease semantics). Text, choices and booleans hold until the next key.
+- Stagger never changes values, only time: it produces a per-part `timeOffset`.
+- Nothing here may import from `src/app` or any renderer.
+- `scene/evaluate.ts` (`evaluateFrame`) turns a doc into flat drawables. Conventions it fixes, which renderers and exporters rely on:
+  - Layer matrix = AE's position · rotation · scale · -anchor. Text runs draw from their baseline start, shapes from [0, 0] to `size`.
+  - Tracking is px after every character (canvas `letterSpacing`). Lines break on newlines only, `size · leading` apart.
+  - Split lays out characters and words the way v1 does: each unit measured on its own, words one space apart. Text measuring is injected (`MeasureText`); core never touches a canvas.
+  - Phase is v1's rig: in starts at the layer in point + `start` + delay, out finishes at the layer out point − `start` − (maxDelay − delay). Offsets act in the layer's parent space around the part's pivot (split units: centre, 0.35 em above the baseline). `test/phase-parity.test.ts` runs it against `fixtures/anime-ae-rig.es3.js` (v1's rig, verbatim).
+  - Promoted control values live on the Subnet instance as params named after the promoted id (full stacks; keys are in parent time). `validateDoc` checks them against the target param.
+  - `brand:` tokens resolve before interpolation; `validateDoc` rejects tokens missing from the kit.
+  - Parts outside their layer's in/out still count for stagger indices, so the order never shifts as layers come and go.
+- `scene/frameCache.ts` keys on doc identity: treat docs as immutable (every edit makes a new doc object) or the cache serves stale frames.
