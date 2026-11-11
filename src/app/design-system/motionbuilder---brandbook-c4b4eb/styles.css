@@ -1,0 +1,157 @@
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Theme entry for the system. Dark is the default (:root); `.light` opts a
+ * subtree into the light theme. Every value below is a token — components
+ * never use raw colors.
+ */
+@theme inline {
+  --font-display: "Inter Tight", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --radius-xs: calc(var(--radius) - 1px);
+  --radius-sm: var(--radius);
+  --radius-md: calc(var(--radius) + 2px);
+  --radius-lg: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-elevated: var(--elevated);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--foreground);
+  --color-popover: var(--elevated);
+  --color-popover-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--elevated);
+  --color-secondary-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-border: var(--border);
+  --color-wire: var(--wire);
+  --color-grid: var(--grid);
+  --color-input: var(--border);
+  --color-ring: var(--ring);
+
+  --color-iris-cyan: var(--iris-cyan);
+  --color-iris-violet: var(--iris-violet);
+  --color-iris-magenta: var(--iris-magenta);
+  --color-iris-amber: var(--iris-amber);
+
+  --color-node-generator: var(--iris-cyan);
+  --color-node-cloner: var(--iris-violet);
+  --color-node-effector: var(--primary);
+  --color-node-field: var(--iris-magenta);
+  --color-node-math: var(--iris-amber);
+
+  --shadow-panel: var(--shadow-panel);
+  --shadow-glow: var(--shadow-glow);
+}
+
+:root {
+  --radius: 0.125rem;
+
+  --background: oklch(0.155 0.006 260);
+  --surface: oklch(0.19 0.007 260);
+  --elevated: oklch(0.225 0.008 260);
+  --muted: oklch(0.205 0.007 260);
+  --accent: oklch(0.255 0.009 260);
+  --foreground: oklch(0.95 0.003 260);
+  --muted-foreground: oklch(0.66 0.012 260);
+  --border: oklch(0.29 0.01 260);
+  --wire: oklch(0.4 0.012 260);
+  --grid: oklch(0.22 0.008 260);
+
+  --primary: oklch(0.92 0.22 125);
+  --primary-foreground: oklch(0.155 0.006 260);
+  --destructive: oklch(0.66 0.22 25);
+  --destructive-foreground: oklch(0.98 0 0);
+  --success: oklch(0.86 0.17 165);
+  --warning: oklch(0.82 0.16 75);
+  --ring: oklch(0.92 0.22 125);
+
+  --iris-cyan: oklch(0.85 0.14 205);
+  --iris-violet: oklch(0.62 0.24 290);
+  --iris-magenta: oklch(0.7 0.27 340);
+  --iris-amber: oklch(0.85 0.16 85);
+
+  --shadow-panel: 0 1px 0 0 oklch(1 0 0 / 4%) inset, 0 12px 32px -12px oklch(0 0 0 / 60%);
+  --shadow-glow: 0 0 0 1px var(--primary), 0 0 24px -4px var(--primary);
+}
+
+.light {
+  --background: oklch(0.975 0.002 260);
+  --surface: oklch(1 0 0);
+  --elevated: oklch(0.955 0.003 260);
+  --muted: oklch(0.955 0.003 260);
+  --accent: oklch(0.93 0.004 260);
+  --foreground: oklch(0.18 0.007 260);
+  --muted-foreground: oklch(0.48 0.012 260);
+  --border: oklch(0.88 0.005 260);
+  --wire: oklch(0.7 0.01 260);
+  --grid: oklch(0.93 0.004 260);
+
+  --primary: oklch(0.92 0.22 125);
+  --primary-foreground: oklch(0.155 0.006 260);
+  --destructive: oklch(0.56 0.22 25);
+  --success: oklch(0.58 0.14 165);
+  --warning: oklch(0.65 0.15 70);
+  --ring: oklch(0.155 0.006 260);
+
+  --iris-cyan: oklch(0.62 0.13 215);
+  --iris-violet: oklch(0.52 0.24 290);
+  --iris-magenta: oklch(0.58 0.25 340);
+  --iris-amber: oklch(0.7 0.16 75);
+
+  --shadow-panel: 0 1px 2px oklch(0 0 0 / 6%), 0 12px 32px -16px oklch(0 0 0 / 18%);
+}
+
+/* Iridescent MoGraph surface — the "Look" mode signature. */
+@utility bg-iridescent {
+  background-image: conic-gradient(
+    from 210deg at 30% 40%,
+    var(--iris-cyan),
+    var(--iris-violet),
+    var(--iris-magenta),
+    var(--iris-amber),
+    var(--iris-cyan)
+  );
+}
+
+/* Glass panel for overlays on the canvas. */
+@utility glass {
+  background-color: color-mix(in oklab, var(--surface) 55%, transparent);
+  backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid color-mix(in oklab, var(--foreground) 12%, transparent);
+}
+
+/* Swiss grid backdrop used by the "Build" wireframe canvas. */
+@utility bg-grid {
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+}

@@ -15,3 +15,7 @@
 | Team | 2 motion designers + 2 designers |
 | Motion Builder v1 | Retired; only its core and ideas carry over |
 | Dev environment | Claude Code in this repo |
+| Promoted control values | Stored on the Subnet instance as params named after the promoted id (full parameter stacks, keys in parent time); `validateDoc` checks them against the target param |
+| App stack | Vite 8 + React 19 + TypeScript, zustand store, immer patches for undo/redo |
+| UI styling | MotionBuilder Brandbook design system (from the Nodal prototype) on Tailwind 4 + class-variance-authority, in `src/app/design-system` |
+| Fonts | Bundled variable web fonts registered under their plain family names (`src/app/render/fonts.ts`); no CDN, so preview and render measure the same glyphs |

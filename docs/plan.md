@@ -11,6 +11,11 @@ Full, current plan with diagrams: https://claude.ai/artifact/DnRUjhGEjxW51N8FoYF
 ## Roadmap (each phase ends with a gate)
 - [x] 0 Foundation — scene doc v2, anime-ae TS core, `evaluateFrame` + frame cache. Gate: all eases match Motion Builder v1 ✅, Phase matches v1's rig bit for bit ✅, `evaluateFrame` tested ✅.
 - [ ] 1 Comp editor — canvas, timeline + graph editor, network view with subnets. Gate: Techonomy lower third rebuilt in under 10 min.
+  - [x] a. Store (validated edits, patch undo/redo) + Canvas 2D viewer with web fonts, safe areas, motion blur, transport
+  - [ ] b. Timeline: layer bars, playhead, keyframe diamonds
+  - [ ] c. Inspector editing with undo: key toggles, prev/next key, modifier list
+  - [ ] d. Network view with subnet dive-in and breadcrumb
+  - [ ] e. Graph editor (speed / value)
 - [ ] 2 Output — AE native layers (one per character), MP4 / ProRes with alpha, motion blur. Gate: preview, render and AE match frame by frame.
 - [ ] 3 Exact import — Figma plugin, SVG/PDF, font check, roles, Techonomy brand kit. Gate: Figma frame imports 1:1 with editable text.
 - [ ] 4 AI first draft — role tagging, three options, prompt steering. Gate: usable options for 8 of 10 test designs.
