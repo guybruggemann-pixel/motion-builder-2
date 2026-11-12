@@ -27,14 +27,23 @@ Full, current plan with diagrams: https://claude.ai/artifact/DnRUjhGEjxW51N8FoYF
   - [x] A. Tokens and shell: light/dark tokens (light default, theme remembered per browser), restyled primitives, grid with rail, collapsible library, viewer card with view pills and floating transport, inspector and timeline cards, top bar with flow stepper; drag handles between the cards (library and inspector width, timeline height)
   - [x] B. One layer list in the timeline (tree with connectors, material dot, role), selection-driven UI: click a layer in the viewer, tree or network and the outline, contextual toolbar (material, in-ease → Graph, key position), inspector (Motion / Look / own params / folded Transform, Modifiers, Layer, "Designers can edit") and network follow. Library is Materials (solid colours: click or drag onto a layer) / Presets / Brand; the node catalog moved to + Add in the timeline card
   - [ ] C. Graph tab presets and motion preview from the core eases
-  - [ ] D. Materials (open decisions first)
+  - [ ] D. Materials → now part of 3D-a below (physical materials on 3D objects; glass and metal on flat layers go through the same renderer)
   - [ ] E. Other screens: Import, Draft, Edit mode, Deliver, Materials editor
+- [ ] 3D — scene layer, cloners and fields, Cinema 4D style (decided 2026-11-12, references in `docs/references/`). A **3D scene** layer is a subnet of 3D nodes that renders into the comp as one layer, so 2D type can sit above or below it. The core evaluates it (what is cloned where, which colour, every transform at time t; pure and seeded); three.js only draws it, the same code in preview and final render, frame-stepped. Gate per step below; preview and render match within tolerance (frame-diff tests).
+  - [ ] a. 3D scene layer: Scene3D subnet, Text 3D (extrude depth + bevel from the real font outlines, opentype.js), Extrude Shape, Camera (position, target, lens, keyed), studio light / environment (soft, hard, overcast), physical materials as nodes wired into a layer's `material` input (solid, plastic, plaster, glass, metal, iridescent, emissive; three.js `MeshPhysicalMaterial` params; brand kit `brand.materials` for reuse). Shadows and ambient occlusion. Flat layers with a non-solid material render through the same pass. AE: the 3D layer exports as a ProRes 4444 pass with alpha in its own precomp; 2D stays native. Gate: a rotating extruded title with soft shadows, preview = render.
+  - [ ] b. Cloners, effectors and fields (moved up from phase 6, work in 2D and 3D): Cloner (grid, linear, radial, object), effectors (random — seeded, plain, step, delay / spring), fields (linear, spherical, noise, random) with falloff, clone index and colour from a palette. Instanced drawing for hundreds of clones. Gate: rebuild the "UNIQUE" grid reference (`3d-cloner-grid.jpg`): cloned 3D words, random palette colours, sliding rows, camera tilt.
+  - [ ] c. Splines and deformers: spline / helix nodes, cloner along a spline, text on path, twist and bend deformers. Gate: rebuild the helix type reference (`3d-helix-type.jpg`): extruded condensed type around a turning helix in a plaster material, with flat 2D labels on top.
+  - [ ] d. Look: live renderer judged against the references; optional slower path-traced final render if the live look falls short (plaster, soft contact shadows). Camera / `.glb` export for C4D later.
 - [ ] 3 Exact import — Figma plugin, SVG/PDF, font check, roles, Techonomy brand kit. Gate: Figma frame imports 1:1 with editable text.
 - [ ] 4 AI first draft — role tagging, three options, prompt steering. Gate: usable options for 8 of 10 test designs.
 - [ ] 5 Assets + subtitles — motion asset library and designer controls; subtitles from .srt (batch from sheets moved to 2b). Gate: a designer ships 20 lower thirds solo.
-- [ ] 6 Procedural nodes — cloners, fields, delay, spring, loop (from the Nodal prototype), usable inside any subnet. Data node: sheet rows feed a cloner inside a comp (credits, speaker lists, leaderboards, chart bars).
+- [ ] 6 Procedural nodes — loop and the rest of the Nodal prototype's nodes, usable inside any subnet (cloners, effectors and fields moved to 3D-b). Data node: sheet rows feed a cloner inside a comp (credits, speaker lists, leaderboards, chart bars).
 - [ ] 7 Reference input — reference video (timing + speed curves), image recreate with overlay diff.
+
+## Order from here
+UI phase C (Graph presets) → 3D-a → 3D-b → 3D-c → UI phase E (other screens) → AE run in real After Effects + 3D pass export → phases 3–7.
 
 ## Sources to reuse
 - Motion Builder v1 (single HTML): presets (pickers, toasts, popups, counters), States, AE importer panel, ProRes path.
 - Nodal prototype (React + three.js): node math for fields, delay, wave, spring, cloners and their tests; WebCodecs capture; xyflow setup.
+- Reference looks for 3D: `docs/references/3d-helix-type.jpg` (extruded type on a turning helix, plaster, studio light) and `docs/references/3d-cloner-grid.jpg` (grid cloner of extruded words, random palette colours, camera tilt).

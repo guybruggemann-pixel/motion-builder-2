@@ -5,8 +5,8 @@
 | Base model | Houdini-style nested networks; a comp is a network, a Subnet node is a precomp |
 | Animation | Every parameter = base value → keyframes → modifiers; keys and procedural motion combine |
 | Motion vocabulary | anime-ae core (anime.js v4.5 port), Motion Builder v1 ease menu and amount mapping |
-| Renderer | Canvas 2D / SVG for layers and type; three.js only as an optional 3D layer type |
-| AE export | Native layers, keys at key times, bake only what AE can't express; one layer per character when it looks better; no expressions |
+| Renderer | Canvas 2D for 2D layers and type, and the compositor. three.js renders 3D scene layers (a Scene3D subnet drawn into the comp as one layer) and layers with non-solid materials. The core evaluates everything (transforms, clones, colours at time t) and never imports three.js; preview and final render run the same three.js code, frame-stepped. Decided 2026-11-12, replacing "three.js only as an optional 3D layer type" |
+| AE export | Native layers, keys at key times, bake only what AE can't express; one layer per character when it looks better; no expressions. 3D scene layers and layers with non-solid materials export as a ProRes 4444 pass with alpha in their own precomp; everything 2D stays native |
 | Web output | Master for social and web jobs; MP4 via WebCodecs, ProRes 4444 with alpha, sub-frame motion blur |
 | AE output | Master for broadcast and client comps |
 | Designer access | Motion assets: subnets with promoted controls |
@@ -23,3 +23,5 @@
 | Batch order | Data-driven batch comes right after phase 2 output (2b), before the AI phases; it needs the renderer and layout that follows content (1f), nothing from the AI |
 | Sheet access | Google Sheet shared as "anyone with the link can view", read as CSV (gviz endpoint), polled while the batch panel is open. No Google sign-in for now |
 | Batch output | Files go into a folder the user picks (File System Access, Chrome/Edge); a manifest there skips rows whose output wouldn't change |
+| 3D and procedural | Cinema 4D style inside the node model: Text 3D / Extrude, Camera, Light, physical Material nodes, Cloner, effectors and fields (seeded, deterministic). Cloners, effectors and fields come before import and AI (roadmap 3D-a to 3D-c), and work on 2D layers too |
+| Materials | Material nodes (three.js `MeshPhysicalMaterial` params) wired into a layer's `material` input; no wire = the layer's `fill` (a Solid). Reusable materials live in the brand kit. Open: whether designers can pick a material in Edit mode, from an approved list |

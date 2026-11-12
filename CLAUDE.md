@@ -17,7 +17,8 @@ Motion design app for a team of 2 motion designers and 2 designers. Drop in a de
 
 ## Outputs
 
-- **After Effects:** native layers, keyframes at key times with ease converted, baking only what AE can't express (spring, elastic, modifiers). One layer per character when per-character motion looks better. No expressions in exported comps.
+- **After Effects:** native layers, keyframes at key times with ease converted, baking only what AE can't express (spring, elastic, modifiers). One layer per character when per-character motion looks better. No expressions in exported comps. 3D scene layers and non-solid materials come in as a ProRes 4444 pass with alpha in their own precomp.
+- **3D:** a Scene3D subnet renders into the comp as one layer through three.js (in `src/app`, never in `src/core`). The core still evaluates every clone, transform and colour.
 - **Web render (master for social and web jobs):** frame-stepped, never wall clock, sub-frame motion blur, WebCodecs MP4; ProRes 4444 with alpha.
 - Preview, render and AE must match. Every phase adds frame-diff tests on reference scenes.
 

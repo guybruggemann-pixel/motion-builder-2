@@ -136,6 +136,8 @@ Keep `docs/plan.md` checkboxes current as items land.
 
 ## 6. Open decisions (ask Guy before phase D)
 
+Answered 2026-11-12: 1 and 2 are decided, and materials grew into a 3D phase (see `docs/plan.md`, "3D", and `docs/decisions.md`). three.js renders 3D scene layers and non-solid materials; those export to AE as ProRes passes in their own precomp. Still open: 3 (materials in Edit mode) and 4 (theme default; light by default, remembered per browser, is what's built).
+
 1. **three.js in the main render path.** `decisions.md` limits three.js to an optional 3D layer type. Glass that refracts the layers below it needs WebGL in preview and render. Option: Canvas 2D stays the compositor; non-solid materials render per layer in an offscreen WebGL pass (three.js) that samples the already-composited layers below, then composite back.
 2. **AE export of non-solid materials.** Proposal: those layers export as a ProRes 4444 pass with alpha in their own precomp; everything else stays native. No expressions either way.
 3. **Edit mode and materials.** Should the motion designer be able to promote a "material" control so designers pick from an approved short list?
