@@ -45,6 +45,50 @@ export function RenderPanel({ onClose }: { onClose: () => void }) {
     }
   };
 
+  /**
+   * The .jsx, plus a ProRes pass per 3D scene layer (AE imports them from the script's folder).
+   * With passes, everything is written into a folder you pick; without folder access, each file downloads.
+   */
+  const exportForAe = async () => {
+    try {
+      cancel.current = false;
+      await loadFonts();
+      const doc = docStore.getState().doc;
+      const { jsx, plan } = exportAe(doc, net.id, canvasMeasure());
+      const scriptName = `${net.name.replace(/[^\w.-]+/g, "_")}.jsx`;
+      const layers = plan.comps.reduce((n, c) => n + c.layers.length, 0);
+      const note = `${layers} layers in ${plan.comps.length} comps${plan.passes.length ? `, ${plan.passes.length} 3D pass${plan.passes.length > 1 ? "es" : ""}` : ""}. In AE: File › Scripts › Run Script File.`;
+      const script = new Blob([jsx], { type: "text/javascript" });
+      if (!plan.passes.length) return setState({ kind: "done", url: URL.createObjectURL(script), name: scriptName, seconds: 0, frames: 0, note });
+
+      const pick = (window as unknown as { showDirectoryPicker?: (o?: object) => Promise<FileSystemDirectoryHandle> }).showDirectoryPicker;
+      const dir = pick ? await pick({ mode: "readwrite", id: "ae-export" }) : undefined;
+      const save = async (name: string, blob: Blob) => {
+        if (dir) {
+          const w = await (await dir.getFileHandle(name, { create: true })).createWritable();
+          await w.write(blob);
+          await w.close();
+        } else {
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = name;
+          a.click();
+        }
+      };
+      const started = performance.now();
+      for (const [i, p] of plan.passes.entries()) {
+        const out = await renderToBlob(doc, p.network, { format: "prores", width: p.width, height: p.height, motionBlur: true, frames: p.frames }, (done, total) => setState({ kind: "busy", done: i * total + done, total: plan.passes.length * total, started }), () => cancel.current);
+        if (!out) return setState({ kind: "idle" });
+        await save(p.file, out.blob);
+      }
+      await save(scriptName, script);
+      setState({ kind: "done", url: "", name: "", seconds: (performance.now() - started) / 1000, frames: 0, note: `${dir ? `Saved ${scriptName} and the passes in “${dir.name}”` : "Downloaded the script and passes; keep them in one folder"}. ${note}` });
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return setState({ kind: "idle" });
+      setState({ kind: "error", message: e instanceof Error ? e.message : String(e) });
+    }
+  };
+
   return (
     <div role="dialog" aria-label="Render" className="absolute right-1 top-[52px] z-50 w-80 rounded-xl bg-card p-4 shadow-float">
       <div className="mb-3 flex items-center">
@@ -99,11 +143,13 @@ export function RenderPanel({ onClose }: { onClose: () => void }) {
             <p className="font-mono text-[11px] text-muted-foreground">
               {state.note ?? `${state.frames} frames in ${state.seconds.toFixed(1)}s`}
             </p>
-            <Button asChild>
-              <a href={state.url} download={state.name}>
-                Save {state.name}
-              </a>
-            </Button>
+            {state.url && (
+              <Button asChild>
+                <a href={state.url} download={state.name}>
+                  Save {state.name}
+                </a>
+              </Button>
+            )}
           </div>
         ) : (
           <>
@@ -112,23 +158,7 @@ export function RenderPanel({ onClose }: { onClose: () => void }) {
               variant="secondary"
               className="mb-2 w-full"
               title="A script for File > Scripts > Run Script File in After Effects: native layers and keyframes, no expressions"
-              onClick={async () => {
-                try {
-                  await loadFonts();
-                  const { jsx, plan } = exportAe(docStore.getState().doc, net.id, canvasMeasure());
-                  const url = URL.createObjectURL(new Blob([jsx], { type: "text/javascript" }));
-                  setState({
-                    kind: "done",
-                    url,
-                    name: `${net.name.replace(/[^\w.-]+/g, "_")}.jsx`,
-                    seconds: 0,
-                    frames: 0,
-                    note: `${plan.comps.reduce((n, c) => n + c.layers.length, 0)} layers in ${plan.comps.length} comps. In AE: File › Scripts › Run Script File.`,
-                  });
-                } catch (e) {
-                  setState({ kind: "error", message: e instanceof Error ? e.message : String(e) });
-                }
-              }}
+              onClick={exportForAe}
             >
               Export for After Effects (.jsx)
             </Button>

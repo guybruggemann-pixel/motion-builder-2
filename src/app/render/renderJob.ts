@@ -8,12 +8,18 @@ import { canvasMeasure } from "./canvas2d";
 import { encodeMp4 } from "./mp4";
 import { prores, proresSource } from "./prores/prores";
 import { renderComp } from "./renderComp";
+import { load3D } from "./three/install";
+
+/** Whether the doc has 3D scene layers (the 3D pass must be loaded before rendering). */
+export const has3D = (doc: SceneDoc) => doc.networks.some((n) => n.nodes.some((x) => x.type === "Scene3D"));
 
 export interface JobOptions {
   format: "prores" | "mp4";
   width: number;
   height: number;
   motionBlur: boolean;
+  /** Render only the first n frames (a 3D pass covers its layer's span, not the whole comp). */
+  frames?: number;
 }
 
 /** A small pool of workers that each run the ProRes encoder; falls back to the page. */
@@ -60,7 +66,7 @@ function encoderPool(w: number, h: number) {
 }
 
 
-/** Render and encode. Resolves undefined when cancelled. Fonts must be loaded first. */
+/** Render and encode. Resolves undefined when cancelled. Fonts must be loaded first; the 3D pass loads here when needed. */
 export async function renderToBlob(
   doc: SceneDoc,
   networkId: string,
@@ -69,13 +75,15 @@ export async function renderToBlob(
   cancelled: () => boolean,
 ): Promise<{ blob: Blob; ext: "mov" | "mp4"; frames: number } | undefined> {
   const comp = doc.networks.find((n) => n.id === networkId)?.comp ?? doc.networks.find((n) => n.id === doc.root)!.comp!;
+  if (has3D(doc)) await load3D(); // never render a 3D layer as its placeholder
+  const to = o.frames;
   if (o.format === "mp4") {
     // H.264 has no alpha: render over the comp background, or black
-    const r = renderComp(doc, networkId, { width: o.width, height: o.height, motionBlur: o.motionBlur, measure: canvasMeasure(), background: comp.background ? undefined : "#000000" });
+    const r = renderComp(doc, networkId, { width: o.width, height: o.height, motionBlur: o.motionBlur, measure: canvasMeasure(), background: comp.background ? undefined : "#000000", to });
     const blob = await encodeMp4(r.width, r.height, r.fps, r.frames, (i) => r.frame(i), (done) => onProgress(done, r.frames), cancelled);
     return blob && { blob, ext: "mp4", frames: r.frames };
   }
-  const r = renderComp(doc, networkId, { width: o.width, height: o.height, motionBlur: o.motionBlur, measure: canvasMeasure() });
+  const r = renderComp(doc, networkId, { width: o.width, height: o.height, motionBlur: o.motionBlur, measure: canvasMeasure(), to });
   const pool = encoderPool(r.width, r.height);
   const pending: Promise<void>[] = [];
   try {

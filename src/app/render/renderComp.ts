@@ -42,7 +42,9 @@ export function renderComp(doc: SceneDoc, networkId: string, opts: RenderOptions
   const cache = new FrameCache({ measure: opts.measure }, 64);
   const canvas = new OffscreenCanvas(width, height);
   const g = canvas.getContext("2d", { willReadFrequently: true }) as Ctx2D;
-  const bg = opts.background ?? (comp.background?.startsWith("brand:") ? doc.brand?.colors.find((c) => c.token === comp.background!.slice(6))?.value : comp.background);
+  // Only a comp has a background; a subnet rendered on its own (a 3D pass, a precomp) keeps alpha.
+  const own = net?.comp?.background;
+  const bg = opts.background ?? (own?.startsWith("brand:") ? doc.brand?.colors.find((c) => c.token === own.slice(6))?.value : own);
 
   const one = (f: number) => {
     g.setTransform(1, 0, 0, 1, 0, 0);

@@ -4,7 +4,7 @@
  * (A run in real After Effects is still the final check; see docs/plan.md, phase 2.)
  */
 import { describe, expect, it } from "vitest";
-import { approxMeasure, evaluateFrame, lowerThird, lowerThirdFit, type Drawable } from "@core/scene";
+import { approxMeasure, evaluateFrame, lowerThird, lowerThirdFit, title3d, type Drawable } from "@core/scene";
 import { bake, type Baked } from "@/export/bake";
 import { buildAePlan, postScriptName, type AePlan } from "@/export/aePlan";
 import { aeScript } from "@/export/exportAe";
@@ -82,16 +82,19 @@ class Comp {
         return L;
       },
       addShape: () => add(new Layer("shape")),
-      add: (item: unknown) => add(new Layer("precomp", item)),
+      addNull: () => add(new Layer("null")),
+      add: (item: unknown) => add(new Layer((item as { kind?: string })?.kind === "footage" ? "footage" : "precomp", item)),
     });
   }
   openInViewer() {}
 }
 
-function runInMockAe(jsx: string) {
+function runInMockAe(jsx: string, files: string[] = []) {
   const comps: Comp[] = [];
+  const imports: string[] = [];
   const app = {
     project: {
+      importFile: (o: { file: { path: string } }) => (imports.push(o.file.path), { kind: "footage", path: o.file.path, parentFolder: undefined as unknown }),
       items: {
         addFolder: (n: string) => ({ name: n }),
         addComp: (...a: ConstructorParameters<typeof Comp>) => {
@@ -111,8 +114,23 @@ function runInMockAe(jsx: string) {
     vertices: number[][] = [];
     closed = false;
   }
+  class File {
+    constructor(public path: string) {}
+    get exists() {
+      return files.some((f) => this.path.endsWith(`/${f}`));
+    }
+    get parent() {
+      return { fsName: "/exports" };
+    }
+  }
+  class ImportOptions {
+    constructor(public file: File) {}
+  }
   const globals = {
     app,
+    File,
+    ImportOptions,
+    $: { fileName: "/exports/main.jsx" },
     KeyframeEase,
     Shape,
     KeyframeInterpolationType: { LINEAR: 6612, BEZIER: 6613, HOLD: 6614 },
@@ -123,7 +141,7 @@ function runInMockAe(jsx: string) {
   };
   // eslint-disable-next-line @typescript-eslint/no-implied-eval
   new Function(...Object.keys(globals), jsx)(...Object.values(globals));
-  return comps;
+  return Object.assign(comps, { imports });
 }
 
 /* ---------- tests ---------- */
@@ -220,5 +238,28 @@ describe("AE build script", () => {
     const jsx = aeScript(buildAePlan(d, "main", approxMeasure));
     expect(/[^\x00-\x7f]/.test(jsx.slice(jsx.indexOf("var PLAN")))).toBe(false);
     expect(jsx).toContain("Zo\\u00eb");
+  });
+});
+
+describe("AE export of 3D scene layers", () => {
+  const plan3d = buildAePlan(title3d, "main", approxMeasure);
+
+  it("plans the 3D layer as footage of a ProRes pass, the 2D label as native text", () => {
+    const main = plan3d.comps.at(-1)!;
+    expect(main.layers.map((l) => l.kind)).toEqual(["footage", "text", "text", "text"]);
+    expect(main.layers[0]).toMatchObject({ name: "Title scene", footage: "Main_v01_Title_scene_3d.mov", start: 0 });
+    expect(plan3d.passes).toEqual([{ file: "Main_v01_Title_scene_3d.mov", network: "title-3d", width: 1920, height: 1080, fps: 25, frames: 150 }]);
+  });
+
+  it("imports the pass from the script's folder and places it like the layer", () => {
+    const comps = runInMockAe(aeScript(plan3d), ["Main_v01_Title_scene_3d.mov"]);
+    expect(comps.imports).toEqual(["/exports/Main_v01_Title_scene_3d.mov"]);
+    const scene = comps.at(-1)!.layers.find((l) => l.name === "Title scene")!;
+    expect(scene.kind).toBe("footage");
+    expect(scene.startTime).toBe(0);
+  });
+
+  it("says which passes are missing instead of failing silently", () => {
+    expect(() => runInMockAe(aeScript(plan3d))).toThrow(/Main_v01_Title_scene_3d\.mov/);
   });
 });

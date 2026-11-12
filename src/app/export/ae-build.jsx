@@ -1,6 +1,7 @@
 /*  Motion Builder 2.0 -> After Effects  (baked: native layers and keyframes, no expressions)
     File > Scripts > Run Script File... and pick this file. Builds the comps in a "Motion Builder"
     folder: one comp per comp, one precomp per motion asset instance, one layer per drawable.
+    3D scene layers come in as ProRes passes (.mov) that must sit next to this script.
     ES3 on purpose (ExtendScript). The plan below is generated; keyframe writing follows v1's importer. */
 (function () {
   var PLAN = /*@PLAN@*/null;
@@ -113,6 +114,19 @@
     if (m.length > 1) for (i = 1; i <= P.numKeys; i++) P.setInterpolationTypeAtKey(i, KeyframeInterpolationType.HOLD, KeyframeInterpolationType.HOLD);
   }
 
+  /* rendered passes (3D scenes) are imported from this script's folder */
+  var BASE = (function () { try { return new File($.fileName).parent.fsName; } catch (e) { return ""; } })(), imported = {}, missing = [];
+  function footageLayer(C, l) {
+    var item = imported[l.footage];
+    if (!item) {
+      var f = new File(BASE + "/" + l.footage);
+      if (!f.exists) { missing.push(l.footage); return C.layers.addNull(); }
+      item = imported[l.footage] = proj.importFile(new ImportOptions(f));
+      item.parentFolder = folder;
+    }
+    return C.layers.add(item);
+  }
+
   app.beginUndoGroup("Motion Builder import");
   var proj = app.project || app.newProject(), folder = proj.items.addFolder("Motion Builder"), made = {}, c, l, i, j, C;
   for (i = 0; i < PLAN.comps.length; i++) {
@@ -123,9 +137,9 @@
     made[c.id] = C;
     for (j = 0; j < c.layers.length; j++) {
       l = c.layers[j];
-      var L = l.kind === "text" ? textLayer(C, l.text) : l.kind === "precomp" ? C.layers.add(made[l.precomp]) : shapeLayer(C, l.shape, l);
+      var L = l.kind === "text" ? textLayer(C, l.text) : l.kind === "precomp" ? C.layers.add(made[l.precomp]) : l.kind === "footage" ? footageLayer(C, l) : shapeLayer(C, l.shape, l);
       L.name = l.name;
-      if (l.kind === "precomp") L.startTime = l.start || 0;
+      if (l.kind === "precomp" || l.kind === "footage") L.startTime = l.start || 0;
       var tr = L.property("ADBE Transform Group");
       tr.property("ADBE Anchor Point").setValue([0, 0]);
       tr.property("ADBE Position").dimensionsSeparated = true;
@@ -146,4 +160,5 @@
   }
   app.endUndoGroup();
   try { C.openInViewer(); } catch (e6) {}
+  if (missing.length) alert("Motion Builder: put these rendered 3D passes next to the script and run it again:\n" + missing.join("\n"));
 })();

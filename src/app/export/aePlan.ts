@@ -15,6 +15,19 @@ export interface AePlan {
   version: 1;
   /** Comps in build order: precomps before the comps that use them. Last = the main comp. */
   comps: AeComp[];
+  /** Rendered passes the script imports from its own folder: 3D scene layers (ProRes 4444 with alpha). */
+  passes: AePass[];
+}
+
+/** A layer AE can't build natively, rendered to a file next to the script. */
+export interface AePass {
+  file: string;
+  /** The network to render on its own (a 3D scene's network), from its local time 0. */
+  network: string;
+  width: number;
+  height: number;
+  fps: number;
+  frames: number;
 }
 
 export interface AeComp {
@@ -32,7 +45,7 @@ export interface AeComp {
 
 export interface AeLayer {
   name: string;
-  kind: "text" | "shape" | "precomp";
+  kind: "text" | "shape" | "precomp" | "footage";
   in: number;
   out: number;
   /** For precomps: where the precomp's time 0 sits. */
@@ -40,6 +53,8 @@ export interface AeLayer {
   text?: { str: string; font: string; size: number; fill: [number, number, number]; tracking: number };
   shape?: { type: "rect" | "ellipse"; radius: number; fill?: [number, number, number]; fillOpacity: number; stroke?: [number, number, number]; strokeWidth: number };
   precomp?: string;
+  /** For footage: the pass file (in the script's folder). */
+  footage?: string;
   ch: Partial<Record<Channel, Baked>>;
   /** Reveal mask in layer space, keyed per frame where it changes: [t, x0, y0, x1, y1]. */
   mask?: [number, number, number, number, number][];
@@ -68,7 +83,10 @@ interface Ctx {
   measure: MeasureText;
   comps: AeComp[];
   done: Set<string>;
+  passes: AePass[];
 }
+
+const fileSafe = (s: string) => s.replace(/[^\w-]+/g, "_").replace(/_+/g, "_").replace(/^_|_$/g, "") || "layer";
 
 /** Build one comp (network + optional instance) and, first, the precomps it uses. */
 function buildComp(ctx: Ctx, networkId: string, id: string, name: string, duration: number, instance?: { network: string; node: string }): AeComp {
@@ -101,7 +119,6 @@ function buildComp(ctx: Ctx, networkId: string, id: string, name: string, durati
   const layers: AeLayer[] = [];
   for (const id of order) {
     const d0 = first.get(id)!;
-    if (d0.kind === "scene3d") continue; // 3D scenes come in as a rendered ProRes pass (roadmap 3D-a, step 4)
     const [f0, f1] = span.get(id)!;
     const t0 = f0 / fps, t1 = f1 / fps;
     const get = (t: number) => at(t).find((x) => x.id === id) ?? at(Math.min(t1, Math.max(t0, t))).find((x) => x.id === id) ?? d0;
@@ -136,6 +153,17 @@ function buildComp(ctx: Ctx, networkId: string, id: string, name: string, durati
       };
       layer.ch.w = chan((d) => (d.kind === "shape" ? d.size[0] : 0), "w");
       layer.ch.h = chan((d) => (d.kind === "shape" ? d.size[1] : 0), "h");
+    } else if (d0.kind === "scene3d") {
+      // 3D: AE gets the scene as a rendered ProRes 4444 pass with alpha, placed like the layer.
+      const node = net.nodes.find((n) => n.id === d0.node)!;
+      const tin = node.timing?.in ?? 0, tout = node.timing?.out ?? duration;
+      const file = `${fileSafe(net.name)}_${fileSafe(node.name)}_3d.mov`;
+      if (!ctx.passes.some((p) => p.file === file))
+        ctx.passes.push({ file, network: d0.subnet, width: Math.round(d0.size[0]), height: Math.round(d0.size[1]), fps, frames: Math.max(1, Math.round((tout - tin) * fps)) });
+      layer.kind = "footage";
+      layer.footage = file;
+      layer.start = tin;
+      layer.name = node.name;
     } else if (d0.kind === "subnet") {
       const inst = { network: networkId, node: d0.node };
       const node = net.nodes.find((n) => n.id === d0.node)!;
@@ -150,7 +178,7 @@ function buildComp(ctx: Ctx, networkId: string, id: string, name: string, durati
       layer.name = node.name;
     }
     // Reveal: a rectangle mask in layer space, keyed on every frame where it changes.
-    if (d0.kind !== "subnet") {
+    if (d0.kind !== "subnet" && d0.kind !== "scene3d") {
       const mask: AeLayer["mask"] = [];
       let last = "";
       for (let f = f0; f <= f1; f++) {
@@ -185,12 +213,12 @@ function maskRect(layer: number[], clip: number[], r: [number, number, number, n
 
 export function buildAePlan(doc: SceneDoc, networkId: string, measure: MeasureText): AePlan {
   const net = doc.networks.find((n) => n.id === networkId)!;
-  const ctx: Ctx = { doc, measure, comps: [], done: new Set() };
+  const ctx: Ctx = { doc, measure, comps: [], done: new Set(), passes: [] };
   const main = buildComp(ctx, networkId, net.id, net.name, net.comp?.duration ?? networkSpan(doc, networkId));
   if (net.comp?.background?.startsWith("brand:")) {
     const c = doc.brand?.colors.find((x) => x.token === net.comp!.background!.slice(6));
     if (c) main.bg = hex(c.value);
   }
   ctx.comps.push(main);
-  return { version: 1, comps: ctx.comps };
+  return { version: 1, comps: ctx.comps, passes: ctx.passes };
 }
