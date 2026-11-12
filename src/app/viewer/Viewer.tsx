@@ -15,6 +15,7 @@ import { docStore } from "@/store";
 import { setValue } from "@/inspector/edits";
 import { rotationAt, turned, turnTarget } from "./turn3d";
 import { Gizmo, handlesFor, sceneDrawableFor } from "./Gizmo";
+import { FieldOverlay } from "./FieldOverlay";
 import { plus, vecAt } from "./manipulate";
 import { planeDelta3D } from "@/render/three/install";
 import { applyDropped, SOLID_MIME } from "@/panels/materials";
@@ -301,6 +302,7 @@ export function Viewer() {
       />
       {layout && measure && <SelectionOverlay net={net} drawables={drawables} view={layout.view} measure={measure} bounds={size} />}
       {handles && <Gizmo handles={handles} />}
+      {layout && selNode && (selNode.type === "SphericalField" || selNode.type === "LinearField") && <FieldOverlay doc={doc} net={net} node={selNode} t={frame / comp.fps} drawables={drawables} view={layout.view} />}
       {!cache && <p className="absolute inset-0 grid place-items-center text-xs text-muted-foreground">Loading fonts</p>}
 
       <div className="absolute left-3 top-3 flex gap-1.5">

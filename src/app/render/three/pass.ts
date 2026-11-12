@@ -182,6 +182,16 @@ export class ScenePass {
     return { origin: uv(p0), ends, unit };
   }
 
+  /** World points on screen, in layer uv (0..1 from the top-left). */
+  project(data: Scene3D, points: [number, number, number][]): [number, number][] {
+    const cam = camera(data);
+    cam.updateMatrixWorld(true);
+    return points.map((p) => {
+      const q = new THREE.Vector3(...p).project(cam);
+      return [(q.x + 1) / 2, (1 - q.y) / 2];
+    });
+  }
+
   /** The world move that shifts an object by (du, dv) of the layer, parallel to the screen at its depth. */
   planeDelta(data: Scene3D, node: string, du: number, dv: number): [number, number, number] {
     const o = data.objects.find((x) => x.node === node);

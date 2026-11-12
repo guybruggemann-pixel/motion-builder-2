@@ -42,6 +42,9 @@ export const planeDelta3D = (scene: Scene3DDrawable["scene"], node: string, du: 
 /** Nearest and farthest view depth of a scene's objects, once the pass is loaded. */
 export const depthRange3D = (scene: Scene3DDrawable["scene"]) => shared.pass?.depthRange(scene);
 
+/** World points of a scene on screen (layer uv), once the pass is loaded. */
+export const project3D = (scene: Scene3DDrawable["scene"], points: [number, number, number][]) => shared.pass?.project(scene, points);
+
 export function install3D() {
   setScene3DRenderer((ctx, d: Scene3DDrawable, mode) => {
     const pass = shared.pass;
