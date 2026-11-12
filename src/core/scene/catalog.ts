@@ -203,6 +203,111 @@ export const CATALOG = {
       angle: { kind: "number", default: 40, min: 1, max: 89, animatable: true },
     },
   },
+  /**
+   * Makes copies of the object wired into it, in its own space: a grid (centred), a line (step
+   * per clone) or a circle. Effectors after it change the clones; it has its own 3D transform.
+   */
+  Cloner: {
+    category: "split",
+    label: "Cloner",
+    inputs: 1,
+    params: {
+      mode: { kind: "choice", default: "grid", options: ["grid", "linear", "radial"] },
+      /** Grid: columns, rows, layers. Linear and radial: the first number is the count. */
+      count: { kind: "vec3", default: [3, 3, 1] },
+      spacing: { kind: "vec3", default: [300, 200, 200], animatable: true },
+      /** Linear: position and rotation added per clone. */
+      step: { kind: "vec3", default: [250, 0, 0], animatable: true },
+      stepRotation: { kind: "vec3", default: [0, 0, 0], animatable: true },
+      radius: { kind: "number", default: 400, min: 0, animatable: true },
+      plane: { kind: "choice", default: "xy", options: ["xy", "xz", "zy"] },
+      /** Radial: turn each clone to face along the circle. */
+      align: { kind: "toggle", default: true },
+      /** Grid: odd rows slide +x, even rows −x by this many px. Key it to make rows run past each other. */
+      rowSlide: { kind: "number", default: 0, animatable: true },
+      ...transform3d,
+    },
+  },
+  /** Random offsets per clone, and colours from a palette. Wire a field into it to say where. */
+  Random: {
+    category: "animate",
+    label: "Random effector",
+    inputs: 1,
+    ports: ["field"],
+    params: {
+      strength: { kind: "number", default: 1, min: 0, max: 1, animatable: true },
+      position: { kind: "vec3", default: [0, 0, 0], animatable: true },
+      rotation: { kind: "vec3", default: [0, 0, 0], animatable: true },
+      /** ± percent. */
+      scale: { kind: "number", default: 0, animatable: true },
+      /** Colours to pick from, comma separated: hex or brand tokens (brand:primary). */
+      palette: { kind: "text", default: "" },
+      seed: { kind: "number", default: 1 },
+    },
+  },
+  /** Moves, turns and scales every clone by the same amount (where its field says so). */
+  Plain: {
+    category: "animate",
+    label: "Plain effector",
+    inputs: 1,
+    ports: ["field"],
+    params: {
+      strength: { kind: "number", default: 1, min: 0, max: 1, animatable: true },
+      position: { kind: "vec3", default: [0, 0, 0], animatable: true },
+      rotation: { kind: "vec3", default: [0, 0, 0], animatable: true },
+      scale: { kind: "number", default: 0, animatable: true },
+    },
+  },
+  /** Like Plain, ramped from nothing on the first clone to all of it on the last. */
+  Step: {
+    category: "animate",
+    label: "Step effector",
+    inputs: 1,
+    ports: ["field"],
+    params: {
+      strength: { kind: "number", default: 1, min: 0, max: 1, animatable: true },
+      position: { kind: "vec3", default: [0, 0, 0], animatable: true },
+      rotation: { kind: "vec3", default: [0, 90, 0], animatable: true },
+      scale: { kind: "number", default: 0, animatable: true },
+    },
+  },
+  /** Full weight on one side of a plane, none on the other, ramping over `length`. */
+  LinearField: {
+    category: "field",
+    label: "Linear field",
+    inputs: 0,
+    params: {
+      position: { kind: "vec3", default: [0, 0, 0], animatable: true },
+      direction: { kind: "choice", default: "x", options: ["x", "-x", "y", "-y", "z", "-z"] },
+      length: { kind: "number", default: 600, min: 1, animatable: true },
+      invert: { kind: "toggle", default: false },
+    },
+  },
+  /** Full weight inside a sphere, fading out over its edge. */
+  SphericalField: {
+    category: "field",
+    label: "Spherical field",
+    inputs: 0,
+    params: {
+      position: { kind: "vec3", default: [0, 0, 0], animatable: true },
+      radius: { kind: "number", default: 400, min: 0, animatable: true },
+      /** 0 = hard edge, 1 = fades from the centre. */
+      falloff: { kind: "number", default: 0.5, min: 0, max: 1, animatable: true },
+      invert: { kind: "toggle", default: false },
+    },
+  },
+  /** Smooth 3D noise, moving over time. */
+  NoiseField: {
+    category: "field",
+    label: "Noise field",
+    inputs: 0,
+    params: {
+      scale: { kind: "number", default: 400, min: 1, animatable: true },
+      speed: { kind: "number", default: 0.5, animatable: true },
+      seed: { kind: "number", default: 1 },
+      invert: { kind: "toggle", default: false },
+    },
+  },
   /** A physical material (three.js MeshPhysicalMaterial). Wire it into an object's `material` input. */
   Material: {
     category: "material",

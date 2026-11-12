@@ -37,6 +37,11 @@ interface Object3DBase {
   depth: number;
   bevel: number;
   material: Material3D;
+  /**
+   * From a Cloner: draw one copy per clone (scene matrix, colour tint, opacity) instead of the
+   * object at `matrix`. A clone's colour replaces the material's colour.
+   */
+  clones?: { matrix: Mat4; color?: string; opacity: number }[];
 }
 
 export interface Text3D extends Object3DBase {

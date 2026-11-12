@@ -15,3 +15,5 @@ export { lowerThirdFit } from "./examples/lowerThirdFit";
 export * from "./scene3d";
 export { title3d } from "./examples/title3d";
 export * from "./materials";
+export * from "./clone";
+export { uniqueGrid } from "./examples/uniqueGrid";

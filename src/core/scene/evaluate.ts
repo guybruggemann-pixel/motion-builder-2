@@ -30,6 +30,7 @@ import { evaluateParam, type EvalContext } from "./evaluateParam";
 import { applyMat, layerMatrix, mul, rotate, scale, scaleOf, translate, type Mat } from "./matrix";
 import { applyPhase, phaseDelays, phaseProgress, REST, type PartAnim, type PhaseSpec } from "./phase";
 import type { Network, Node, Param, Role, SceneDoc, Value } from "./schema";
+import { applyEffector, cloneMatrix, clonePoint, fieldWeight, makeClones, type EffectorSpec, type FieldSpec } from "./clone";
 import { objectMatrix, verticalFov, zoomFor, type Camera3D, type Light3D, type Material3D, type Object3D, type Scene3D } from "./scene3d";
 import { approxMeasure, fitStyle, layoutLines, PIVOT_RISE, runsBox, splitRun, type FontSpec, type MeasureText, type Run, type TextStyle } from "./text";
 
@@ -189,9 +190,10 @@ const oneOf = <T extends string>(v: Value, options: readonly T[], d: T): T =>
   typeof v === "string" && (options as readonly string[]).includes(v) ? (v as T) : d;
 
 function resolveBrand(p: Param, brand: Map<string, string>): Param {
-  const map = (v: Value): Value =>
-    typeof v === "string" && v.startsWith("brand:") ? brand.get(v.slice(6)) ?? MISSING_COLOR : v;
-  const hasToken = (v: Value) => typeof v === "string" && v.startsWith("brand:");
+  // only a whole value that is a token (a palette text with tokens inside is resolved where it's read)
+  const isToken = (v: Value) => typeof v === "string" && /^brand:[a-z0-9-]+$/.test(v);
+  const map = (v: Value): Value => (isToken(v) ? brand.get((v as string).slice(6)) ?? MISSING_COLOR : v);
+  const hasToken = isToken;
   if (!hasToken(p.value) && !(p.keys ?? []).some((k) => hasToken(k.v))) return p;
   return { ...p, value: map(p.value), keys: p.keys?.map((k) => ({ ...k, v: map(k.v) })) };
 }
@@ -376,6 +378,9 @@ function evalNode(ctx: Ctx, id: string, stack: string[] = []): Part[] {
       case "Camera":
       case "Light":
       case "Material":
+      case "LinearField":
+      case "SphericalField":
+      case "NoiseField":
         out = []; // only meaningful inside a 3D scene (evalScene3D reads them)
         break;
       case "Split": {
@@ -581,7 +586,79 @@ function buildScene(ctx: Ctx, settings: Omit<Scene3D, "camera" | "lights" | "obj
       };
     }
   }
+  attachClones(ctx, order.filter(visible), objects);
   return { ...settings, camera: camera ?? defaultCamera(settings.size), lights, objects };
+}
+
+const EFFECTORS = new Set(["Random", "Plain", "Step"]);
+
+/** A field node's spec at the context's time. */
+function fieldSpec(ctx: Ctx, f: Node): FieldSpec | undefined {
+  const v = (name: string) => paramValue(ctx, f, name);
+  const invert = v("invert") === true;
+  if (f.type === "LinearField") {
+    const dir = oneOf(v("direction"), ["x", "-x", "y", "-y", "z", "-z"] as const, "x");
+    return { kind: "linear", position: vec3(v("position")), axis: ("xyz".indexOf(dir.slice(-1)) as 0 | 1 | 2), sign: dir.startsWith("-") ? -1 : 1, length: num(v("length"), 600), invert };
+  }
+  if (f.type === "SphericalField") return { kind: "spherical", position: vec3(v("position")), radius: num(v("radius"), 400), falloff: num(v("falloff"), 0.5), invert };
+  if (f.type === "NoiseField") return { kind: "noise", scale: num(v("scale"), 400), speed: num(v("speed"), 0.5), seed: num(v("seed"), 1), t: ctx.t, invert };
+  return undefined;
+}
+
+/** Palette text ("#ff0000, brand:primary") as resolved colours. */
+function palette(ctx: Ctx, text: string): string[] {
+  return text
+    .split(/[\s,;]+/)
+    .map((x) => (x.startsWith("brand:") ? ctx.brand.get(x.slice(6)) ?? "" : x))
+    .filter((x) => /^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/.test(x));
+}
+
+function effectorSpec(ctx: Ctx, e: Node): EffectorSpec {
+  const v = (name: string) => paramValue(ctx, e, name);
+  const common = { position: vec3(v("position")), rotation: vec3(v("rotation")), scale: num(v("scale")), strength: num(v("strength"), 1) };
+  if (e.type === "Random") return { kind: "random", ...common, palette: palette(ctx, str(v("palette"))), seed: num(v("seed"), 1) };
+  return { kind: e.type === "Step" ? "step" : "plain", ...common };
+}
+
+/**
+ * Cloners: each enabled Cloner clones the object wired into it; the effectors wired after it (in a
+ * chain) change the clones, weighted by the field wired into each. The object then draws as its clones.
+ */
+function attachClones(ctx: Ctx, nodes: Node[], objects: Object3D[]) {
+  const net = ctx.net;
+  for (const cl of nodes.filter((n) => n.type === "Cloner")) {
+    const src = net.wires.find((w) => w.to.node === cl.id && w.to.port === "in")?.from.node;
+    const obj = objects.find((o) => o.node === src);
+    if (!obj) continue;
+    const v = (name: string) => paramValue(ctx, cl, name);
+    const clonerM = objectMatrix(vec3(v("position")), vec3(v("rotation")), vec3(v("scale"), [100, 100, 100]), vec3(v("anchor")));
+    let clones = makeClones({
+      mode: oneOf(v("mode"), ["grid", "linear", "radial"] as const, "grid"),
+      count: vec3(v("count"), [3, 3, 1]),
+      spacing: vec3(v("spacing"), [300, 200, 200]),
+      step: vec3(v("step"), [250, 0, 0]),
+      stepRotation: vec3(v("stepRotation")),
+      radius: num(v("radius"), 400),
+      plane: oneOf(v("plane"), ["xy", "xz", "zy"] as const, "xy"),
+      align: v("align") !== false,
+      rowSlide: num(v("rowSlide")),
+    });
+    // effectors downstream of the cloner, in wire order
+    const seen = new Set<string>();
+    for (let at = cl.id; ; ) {
+      const next = net.wires.map((w) => (w.from.node === at && w.to.port === "in" ? net.nodes.find((n) => n.id === w.to.node) : undefined)).find((n) => n && EFFECTORS.has(n.type));
+      if (!next || seen.has(next.id)) break;
+      seen.add(next.id);
+      at = next.id;
+      if (!next.enabled) continue;
+      const fw = net.wires.find((w) => w.to.node === next.id && w.to.port === "field");
+      const fnode = fw && net.nodes.find((n) => n.id === fw.from.node && n.enabled);
+      const field = fnode && fieldSpec(ctx, fnode);
+      clones = applyEffector(clones, effectorSpec(ctx, next), field ? (c) => fieldWeight(field, clonePoint(clonerM, c)) : () => 1);
+    }
+    const opacity = clamp01(num(v("opacity"), 100) / 100);
+    obj.clones = clones.map((c) => ({ matrix: cloneMatrix(clonerM, c, obj.matrix), ...(c.color ? { color: c.color } : {}), opacity: c.opacity * opacity * obj.opacity }));
+  }
 }
 
 /** Text 3D layout: the 2D text layout (no max width), centred per `align` by the caller. */

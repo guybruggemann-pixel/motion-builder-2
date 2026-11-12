@@ -34,7 +34,9 @@ export function validateDoc(input: unknown): ValidateResult {
   const doc = parsed.data;
   const errors: string[] = [];
   const tokens = new Set((doc.brand?.colors ?? []).map((c) => c.token));
-  const isMissingToken = (v: Value) => typeof v === "string" && v.startsWith("brand:") && !tokens.has(v.slice(6));
+  // a colour value that is a brand token; palettes (text lists of colours) are checked token by token
+  const isMissingToken = (v: Value) => typeof v === "string" && /^brand:[a-z0-9-]+$/.test(v) && !tokens.has(v.slice(6));
+  const missingInList = (v: Value) => (typeof v === "string" ? (v.match(/brand:[a-z0-9-]+/g) ?? []).filter((t) => !tokens.has(t.slice(6))) : []);
 
   for (const net of doc.networks) {
     for (const node of net.nodes) {
@@ -54,6 +56,7 @@ export function validateDoc(input: unknown): ValidateResult {
       for (const [name, p] of Object.entries(node.params))
         for (const v of [p.value, ...(p.keys ?? []).map((k) => k.v)])
           if (isMissingToken(v)) errors.push(`${net.id}/${node.id}.${name}: brand colour "${v}" is not in the brand kit`);
+          else if (name === "palette") for (const t of missingInList(v)) errors.push(`${net.id}/${node.id}.${name}: brand colour "${t}" is not in the brand kit`);
     }
     // Wires must not loop: evaluation pulls from the output upstream and would never end.
     const state = new Map<string, 1 | 2>();
@@ -78,6 +81,7 @@ export function validateDoc(input: unknown): ValidateResult {
         portCounts.set(key, (portCounts.get(key) ?? 0) + 1);
         const from = net.nodes.find((x) => x.id === w.from.node);
         if (w.to.port === "material" && from && from.type !== "Material") errors.push(`${net.id}/${w.to.node}: only a Material can feed the material input (got ${from.type})`);
+        if (w.to.port === "field" && from && !(isNodeType(from.type) && CATALOG[from.type].category === "field")) errors.push(`${net.id}/${w.to.node}: only a field can feed the field input (got ${from.type})`);
         continue;
       }
       counts.set(w.to.node, (counts.get(w.to.node) ?? 0) + 1);
@@ -88,6 +92,8 @@ export function validateDoc(input: unknown): ValidateResult {
       const to = net.nodes.find((x) => x.id === w.to.node);
       if (from?.type === "Material" && to && w.to.port !== "material")
         errors.push(`${net.id}/${w.from.node}: a Material only wires into a material input`);
+      if (from && isNodeType(from.type) && CATALOG[from.type].category === "field" && to && w.to.port !== "field")
+        errors.push(`${net.id}/${w.from.node}: a field only wires into a field input`);
     }
     for (const [id, n] of counts) {
       const node = net.nodes.find((x) => x.id === id);
