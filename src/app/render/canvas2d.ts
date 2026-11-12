@@ -41,6 +41,8 @@ const images = new Map<string, HTMLImageElement>();
 /** Images load asynchronously; `onImage` is called when one arrives so the caller can redraw. */
 let onImage: (() => void) | undefined;
 export const setImageListener = (fn: (() => void) | undefined) => void (onImage = fn);
+/** Ask the viewer to draw again: something that loads asynchronously (an image, fonts, the 3D pass) is ready. */
+export const requestRedraw = () => onImage?.();
 
 function image(src: string): HTMLImageElement | undefined {
   let img = images.get(src);
