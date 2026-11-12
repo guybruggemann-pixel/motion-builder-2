@@ -53,6 +53,10 @@ export const CATALOG = {
       tracking: { kind: "number", default: 0, animatable: true },
       leading: { kind: "number", default: 1.2, min: 0.5, max: 3 },
       align: { kind: "choice", default: "left", options: ["left", "center", "right"] },
+      /** Widest a line may be, in px (0 = no limit). What happens beyond it is `overflow`. */
+      maxWidth: { kind: "number", default: 0, min: 0 },
+      /** Past maxWidth: leave it, shrink the type to fit, or wrap onto more lines. */
+      overflow: { kind: "choice", default: "none", options: ["none", "shrink", "wrap"] },
       fill: { kind: "color", default: "#FFFFFF", animatable: true },
       ...transform,
     },

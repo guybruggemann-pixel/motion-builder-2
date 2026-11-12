@@ -113,10 +113,11 @@ const node = (n: Partial<Node> & Pick<Node, "id" | "type">): Node => ({ name: n.
 
 function textDoc(text: string, phase: Record<string, Param>, by = "words"): SceneDoc {
   return valid({
-    version: 2,
+    version: 3,
     name: "t",
     root: "main",
     assets: [],
+    batches: [],
     networks: [
       {
         id: "main",
@@ -190,10 +191,11 @@ describe("stagger order", () => {
 
 describe("subnet timing", () => {
   const doc = valid({
-    version: 2,
+    version: 3,
     name: "sub",
     root: "main",
     assets: [],
+    batches: [],
     networks: [
       {
         id: "main",

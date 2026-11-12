@@ -7,11 +7,12 @@
 import type { SceneDoc } from "../schema";
 
 export const lowerThird: SceneDoc = {
-  version: 2,
+  version: 3,
   name: "Lower third reference",
   root: "main",
   source: { kind: "blank" },
   assets: [],
+  batches: [],
   brand: {
     name: "Brand placeholder (replace with the Techonomy kit)",
     colors: [

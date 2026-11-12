@@ -19,3 +19,7 @@
 | App stack | Vite 8 + React 19 + TypeScript, zustand store, immer patches for undo/redo |
 | UI styling | MotionBuilder Brandbook design system (from the Nodal prototype) on Tailwind 4 + class-variance-authority, in `src/app/design-system` |
 | Fonts | Bundled variable web fonts registered under their plain family names (`src/app/render/fonts.ts`); no CDN, so preview and render measure the same glyphs |
+| Batch data | A live Google Sheet is the main source (CSV as fallback). Rows map to a motion asset's promoted controls; the doc stays one template and each render is template + row overrides. Batch renders through the web render (master for batch); AE stays the master for single hero comps |
+| Batch order | Data-driven batch comes right after phase 2 output (2b), before the AI phases; it needs the renderer and layout that follows content (1f), nothing from the AI |
+| Sheet access | Google Sheet shared as "anyone with the link can view", read as CSV (gviz endpoint), polled while the batch panel is open. No Google sign-in for now |
+| Batch output | Files go into a folder the user picks (File System Access, Chrome/Edge); a manifest there skips rows whose output wouldn't change |

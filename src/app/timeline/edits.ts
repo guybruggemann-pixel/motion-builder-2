@@ -60,8 +60,9 @@ export function deleteKeys(d: Draft<SceneDoc>, networkId: string, refs: readonly
 export type BarDrag = "move" | "in" | "out";
 
 /**
- * Move or trim a layer bar by dt. Moving shifts the layer's own keys with it (AE); a Subnet's
- * contents follow anyway because they run on local time. Trimming leaves keys alone.
+ * Move or trim a layer bar by dt. Moving shifts the layer's own keys with it (AE), Subnets
+ * included: keys on the instance (its transform, its promoted controls) are in the parent's time.
+ * What's inside a Subnet follows by itself, because it runs on local time. Trimming leaves keys alone.
  * A layer without timing gets [0, span] first.
  */
 export function dragLayer(d: Draft<SceneDoc>, networkId: string, nodeId: string, mode: BarDrag, dt: number, span: number, minLen: number) {
@@ -71,12 +72,11 @@ export function dragLayer(d: Draft<SceneDoc>, networkId: string, nodeId: string,
     const shift = Math.max(dt, -timing.in);
     timing.in += shift;
     timing.out += shift;
-    if (node.type !== "Subnet")
-      for (const p of Object.values(node.params))
-        if (p.keys) {
-          for (const k of p.keys) k.t = Math.max(0, k.t + shift);
-          sortKeys(p.keys);
-        }
+    for (const p of Object.values(node.params))
+      if (p.keys) {
+        for (const k of p.keys) k.t = Math.max(0, k.t + shift);
+        sortKeys(p.keys);
+      }
   } else if (mode === "in") timing.in = Math.min(Math.max(0, timing.in + dt), timing.out - minLen);
   else timing.out = Math.max(timing.out + dt, timing.in + minLen);
 }

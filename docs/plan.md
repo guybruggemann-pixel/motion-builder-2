@@ -13,14 +13,20 @@ Full, current plan with diagrams: https://claude.ai/artifact/DnRUjhGEjxW51N8FoYF
 - [ ] 1 Comp editor — canvas, timeline + graph editor, network view with subnets. Gate: Techonomy lower third rebuilt in under 10 min.
   - [x] a. Store (validated edits, patch undo/redo) + Canvas 2D viewer with web fonts, safe areas, motion blur, transport
   - [x] b. Timeline: ruler scrub, playhead, layer bars (move/trim), key diamonds (drag, delete, J/K), Phase ranges per part, subnet dive-in with breadcrumb
-  - [ ] c. Inspector editing with undo: key toggles, prev/next key, modifier list
-  - [ ] d. Network view with subnet dive-in and breadcrumb
-  - [ ] e. Graph editor (speed / value)
+  - [x] c. Inspector editing with undo: key diamond, prev/next key, ease of the key at the playhead (v1 menu + amount), modifier list (wave, noise, stagger), promoted controls with reset, layer timing and role, comp settings
+  - [x] d. Network view (@xyflow/react): drag nodes, draw and delete wires, delete nodes, add from the library, double-click a Subnet to dive in, breadcrumb back up; wire loops rejected by `validateDoc`
+  - [x] e. Graph editor (value / speed per axis): click a segment, drag bezier handles (stored as the segment's `cubicBezier` ease), "Make curve editable" turns a menu ease into its closest bezier
+  - [x] f. Layout follows content (done: Text `maxWidth` + `overflow` shrink/wrap, read-only `bounds` on layers, `link` modifier with scale/offset/min/max; example `lowerThirdFit` in the library): Bounds/Fit node (shape size = measured text + padding, max width with shrink or wrap) and the `link` modifier, so animation targets the fitted size. Needed before any data-driven template.
 - [ ] 2 Output — AE native layers (one per character), MP4 / ProRes with alpha, motion blur. Gate: preview, render and AE match frame by frame.
+  - [x] ProRes 4444 with alpha (.mov) from the app: frame-stepped render (`render/renderComp.ts`), float premultiplied motion blur, v1's encoder (verbatim, checked with ffprobe) in parallel workers
+  - [x] MP4 via WebCodecs (H.264 + mp4-muxer, over the comp background or black; checked in a <video> element: size, length, colour)
+  - [~] AE export (built, not yet run in real AE): `.jsx` from the Render panel; one comp per comp, one precomp per Subnet instance, one layer per drawable (per character / word when split), every channel baked by v1's baker into AE bezier keys within tolerance, reveals as keyed masks, no expressions. Tested against a mock AE object model. Open: a run in After Effects, blur calibration (canvas blur vs AE Blurriness), animated colours and text content, non-uniform scale keys (linear for now)
+  - [ ] Frame-diff tests: preview vs render vs AE on reference scenes
+- [x] 2b Data-driven batch (first version): Batch panel reads a Google Sheet shared by link (polled every 30 s while open), maps columns to the asset's controls (auto-matched, Dutch and English), file name template, row preview, QC (empty cells, duplicate names, outside action safe), renders ProRes/MP4 into a chosen folder with a manifest so re-runs only render changed rows. Settings live in the doc (v3, `batches`). Open: render in workers off the page, 1000-row gate run, glyph coverage check.
 - [ ] 3 Exact import — Figma plugin, SVG/PDF, font check, roles, Techonomy brand kit. Gate: Figma frame imports 1:1 with editable text.
 - [ ] 4 AI first draft — role tagging, three options, prompt steering. Gate: usable options for 8 of 10 test designs.
-- [ ] 5 Assets + batch — motion assets with designer controls; subtitles from .srt, lower thirds from CSV. Gate: a designer ships 20 lower thirds solo.
-- [ ] 6 Procedural nodes — cloners, fields, delay, wave, spring (from the Nodal prototype), usable inside any subnet.
+- [ ] 5 Assets + subtitles — motion asset library and designer controls; subtitles from .srt (batch from sheets moved to 2b). Gate: a designer ships 20 lower thirds solo.
+- [ ] 6 Procedural nodes — cloners, fields, delay, spring, loop (from the Nodal prototype), usable inside any subnet. Data node: sheet rows feed a cloner inside a comp (credits, speaker lists, leaderboards, chart bars).
 - [ ] 7 Reference input — reference video (timing + speed curves), image recreate with overlay diff.
 
 ## Sources to reuse

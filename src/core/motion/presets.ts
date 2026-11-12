@@ -46,3 +46,29 @@ export const CHARACTERS = {
   playful: { eases: ["spring", "outBack", "outElastic", "outBounce"], durationMs: [450, 900], staggerMs: [30, 70] },
 } as const;
 export type Character = keyof typeof CHARACTERS;
+
+const round2 = (x: number) => Math.round(x * 100) / 100;
+
+/** Slider amounts equal to anime's defaults: back 1.7, elastic period 0.3, spring bounce 0.5. */
+const BARE_AMOUNT: Record<string, number> = { outBack: 42.5, inBack: 42.5, inOutBack: 42.5, outElastic: 66.67, spring: 50 };
+
+/**
+ * Inverse of `easeString`: the menu choice an anime-ae ease string came from, so the UI can show
+ * v1's ease names and amount slider. Undefined for strings outside the menu (e.g. "hold", "steps(4)").
+ */
+export function easeChoice(s: string): EaseChoice | undefined {
+  const str = s.replace(/\s+/g, "");
+  if ((MENU_EASES as readonly string[]).includes(str) && str !== "custom") {
+    // A bare amount ease runs on anime's defaults; give the slider the amount that reproduces them.
+    return AMOUNT_EASES.has(str) ? { ease: str as MenuEase, amount: BARE_AMOUNT[str] ?? 40 } : { ease: str as MenuEase };
+  }
+  let m = /^(outBack|inBack|inOutBack)\(([-\d.]+)\)$/.exec(str);
+  if (m) return { ease: m[1] as MenuEase, amount: round2(+m[2]! * 25) };
+  m = /^outElastic\(1,([-\d.]+)\)$/.exec(str);
+  if (m) return { ease: "outElastic", amount: round2(((0.6 - +m[1]!) / 0.45) * 100) };
+  m = /^spring\(([-\d.]+),628\)$/.exec(str);
+  if (m) return { ease: "spring", amount: round2(+m[1]! * 100) };
+  m = /^cubicBezier\(([-\d.]+),([-\d.]+),([-\d.]+),([-\d.]+)\)$/.exec(str);
+  if (m) return { ease: "custom", bezier: [+m[1]!, +m[2]!, +m[3]!, +m[4]!] };
+  return undefined;
+}

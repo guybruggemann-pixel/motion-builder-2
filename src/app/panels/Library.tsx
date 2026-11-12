@@ -1,6 +1,17 @@
-/** Left panel: node catalog, motion assets and brand kit. Read-only until drag-to-add lands. */
-import { CATALOG, type Category } from "@core/scene";
-import { useDocStore } from "@/store";
+/** Left panel: node catalog (click to add to the open network), motion assets and brand kit. */
+import { CATALOG, lowerThird, lowerThirdFit, type Category, type NodeType, type SceneDoc } from "@core/scene";
+import { docStore, shownNetwork, useDocStore, useUi } from "@/store";
+import { addNode } from "@/network/edits";
+
+/** Add a node to the open network, right of everything already there, and select it. */
+function add(type: NodeType) {
+  const ui = useUi.getState();
+  const net = shownNetwork(docStore.getState().doc, ui.path);
+  const x = net.nodes.length ? Math.max(...net.nodes.map((n) => n.ui.x)) + 240 : 0;
+  const y = net.nodes.length ? Math.min(...net.nodes.map((n) => n.ui.y)) : 0;
+  let id = "";
+  if (docStore.getState().edit(`Add ${CATALOG[type].label}`, (d) => void (id = addNode(d, net.id, type, { x, y })))) ui.selectNodes([id]);
+}
 
 const GROUPS: [Category, string][] = [
   ["layer", "Layers"],
@@ -25,8 +36,16 @@ export function Library() {
             {Object.entries(CATALOG)
               .filter(([, s]) => s.category === cat)
               .map(([type, s]) => (
-                <li key={type} className="px-3 py-1 text-foreground">
-                  {s.label}
+                <li key={type}>
+                  <button
+                    type="button"
+                    disabled={type === "Output"}
+                    title={type === "Output" ? "Every network has one output" : `Add ${s.label} to the open network`}
+                    onClick={() => add(type as NodeType)}
+                    className="w-full px-3 py-1 text-left text-foreground hover:bg-accent focus-visible:bg-accent focus-visible:outline-none disabled:text-muted-foreground disabled:hover:bg-transparent"
+                  >
+                    {s.label}
+                  </button>
                 </li>
               ))}
           </ul>
@@ -41,6 +60,25 @@ export function Library() {
           </li>
         ))}
         {!assets.length && <li className="px-3 py-1 text-muted-foreground">None in this brand kit</li>}
+      </ul>
+
+      <Heading>Examples</Heading>
+      <ul>
+        {([["Lower third", lowerThird], ["Lower third, fits any name", lowerThirdFit]] as [string, SceneDoc][]).map(([label, ex]) => (
+          <li key={label}>
+            <button
+              type="button"
+              title="Open this example (replaces the current doc and clears undo)"
+              onClick={() => {
+                if (!window.confirm(`Open "${label}"? This replaces the current doc and clears undo.`)) return;
+                if (docStore.getState().load(ex)) useUi.getState().setPath([], 0);
+              }}
+              className="w-full px-3 py-1 text-left text-foreground hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
+            >
+              {label}
+            </button>
+          </li>
+        ))}
       </ul>
 
       <Heading>Brand kit</Heading>

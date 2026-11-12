@@ -46,15 +46,50 @@ export interface TextStyle {
   tracking: number;
   leading: number;
   align: "left" | "center" | "right";
+  /** 0 = no limit. */
+  maxWidth?: number;
+  overflow?: "none" | "shrink" | "wrap";
 }
 
 const widthOf = (s: string, st: TextStyle, measure: MeasureText) =>
   s === "" ? 0 : measure(s, st.font) + st.tracking * [...s].length;
 
-/** One run per line, aligned around x = 0. */
+/** Greedy word wrap of one line to `max` px; a single word wider than `max` keeps its own line. */
+function wrapLine(line: string, max: number, st: TextStyle, measure: MeasureText): string[] {
+  const out: string[] = [];
+  let cur = "";
+  for (const word of line.split(" ")) {
+    const next = cur === "" ? word : `${cur} ${word}`;
+    if (cur !== "" && widthOf(next, st, measure) > max) {
+      out.push(cur);
+      cur = word;
+    } else cur = next;
+  }
+  out.push(cur);
+  return out;
+}
+
+/**
+ * The style after `overflow: "shrink"`: font size scaled down until the widest line fits maxWidth
+ * (a few passes, since tracking doesn't scale with the size). Other styles come back unchanged.
+ */
+export function fitStyle(text: string, st: TextStyle, measure: MeasureText): TextStyle {
+  if (st.overflow !== "shrink" || !st.maxWidth) return st;
+  let style = st;
+  for (let pass = 0; pass < 4; pass++) {
+    const widest = Math.max(...text.split(/\r\n|\r|\n/).map((l) => widthOf(l, style, measure)));
+    if (widest <= st.maxWidth + 0.01) break;
+    style = { ...style, font: { ...style.font, size: style.font.size * (st.maxWidth / widest) } };
+  }
+  return style;
+}
+
+/** One run per line (after wrapping, if the style wraps), aligned around x = 0. */
 export function layoutLines(text: string, st: TextStyle, measure: MeasureText): Run[] {
   const lineH = st.font.size * st.leading;
-  return text.split(/\r\n|\r|\n/).map((line, i) => {
+  const lines = text.split(/\r\n|\r|\n/);
+  const wrapped = st.overflow === "wrap" && st.maxWidth ? lines.flatMap((l) => wrapLine(l, st.maxWidth!, st, measure)) : lines;
+  return wrapped.map((line, i) => {
     const width = widthOf(line, st, measure);
     const x = st.align === "center" ? -width / 2 : st.align === "right" ? -width : 0;
     return { text: line, x, y: i * lineH, width, line: i };

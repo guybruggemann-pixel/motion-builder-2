@@ -15,3 +15,7 @@
   - `brand:` tokens resolve before interpolation; `validateDoc` rejects tokens missing from the kit.
   - Parts outside their layer's in/out still count for stagger indices, so the order never shifts as layers come and go.
 - `scene/frameCache.ts` keys on doc identity: treat docs as immutable (every edit makes a new doc object) or the cache serves stale frames.
+- `link` modifiers resolve in `evaluate.ts` (same network, same time). Every layer has a read-only `bounds` param ([width, height] of what it draws) to link to; it isn't in the catalog and can't be set. Link loops stop at a fixed depth and contribute nothing.
+- Modifier outputs may be numbers or vectors; `apply` works per component and respects `axis`.
+- `batch/`: a sheet row only ever sets params named after promoted ids on one Subnet instance; the template doc is never mutated (`applyRow` clones and validates). Keep QC pure so it can run in a worker over 1000 rows.
+- `evaluateFrame` options for exporters: `flattenSubnets: false` returns a Subnet instance as one `SubnetDrawable` (a precomp layer) instead of its contents; `instance` evaluates a network as the inside of a given Subnet instance (its promoted values, local time).

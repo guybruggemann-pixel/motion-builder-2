@@ -50,6 +50,17 @@ describe("timeline edits", () => {
     expect(node(s, "panel").timing!.out).toBeCloseTo(1.54, 9);
   });
 
+  it("moves a Subnet's own keys with its bar (they're in parent time)", () => {
+    const s = store();
+    s.getState().edit("Key", (d) => {
+      d.networks[0]!.nodes[0]!.params.position = { value: [120, 860], keys: [{ t: 2, v: [120, 860], ease: "linear" }, { t: 3, v: [700, 860], ease: "linear" }] };
+    });
+    s.getState().edit("Move", (d) => dragLayer(d, "main", "lt", "move", -0.4, 6, 0.04));
+    const lt = s.getState().doc.networks[0]!.nodes[0]!;
+    expect(lt.timing!.in).toBeCloseTo(0.1, 9);
+    expect(keyTimes(lt.params.position).map((t) => +t.toFixed(9))).toEqual([1.6, 2.6]);
+  });
+
   it("doesn't move a layer before zero", () => {
     const s = store();
     s.getState().edit("Move", (d) => dragLayer(d, NET, "panel", "move", -3, 5, 0.04));

@@ -34,23 +34,26 @@ function useScale(width: number, duration: number, fps: number): Scale {
 
 const snap = (t: number, fps: number) => Math.round(t * fps) / fps;
 
-/** Pointer drag helper: calls move with the px offset since pointerdown, end on release. */
+/**
+ * Pointer drag helper: calls move with the px offset since pointerdown, end on release.
+ * Listens on window, not the pressed element: a drag re-renders the timeline (a moved key gets a
+ * new time, a row can re-mount), and the gesture must survive its element going away.
+ */
 function startDrag(e: React.PointerEvent, move: (dx: number, ev: PointerEvent) => void, end?: () => void) {
   e.preventDefault();
   e.stopPropagation();
-  const x0 = e.clientX;
-  const el = e.currentTarget as HTMLElement;
-  el.setPointerCapture(e.pointerId);
-  const onMove = (ev: PointerEvent) => move(ev.clientX - x0, ev);
-  const onUp = () => {
-    el.removeEventListener("pointermove", onMove);
-    el.removeEventListener("pointerup", onUp);
-    el.removeEventListener("pointercancel", onUp);
+  const x0 = e.clientX, id = e.pointerId;
+  const onMove = (ev: PointerEvent) => ev.pointerId === id && move(ev.clientX - x0, ev);
+  const onUp = (ev: PointerEvent) => {
+    if (ev.pointerId !== id) return;
+    window.removeEventListener("pointermove", onMove);
+    window.removeEventListener("pointerup", onUp);
+    window.removeEventListener("pointercancel", onUp);
     end?.();
   };
-  el.addEventListener("pointermove", onMove);
-  el.addEventListener("pointerup", onUp);
-  el.addEventListener("pointercancel", onUp);
+  window.addEventListener("pointermove", onMove);
+  window.addEventListener("pointerup", onUp);
+  window.addEventListener("pointercancel", onUp);
 }
 
 let gesture = 0;
@@ -141,12 +144,16 @@ function Diamond({ k, selected, onPointerDown, hold }: { k: KeyRef; selected: bo
       aria-label={`Key ${k.param} at ${k.t.toFixed(2)}s`}
       aria-pressed={selected}
       onPointerDown={onPointerDown}
-      className={cn(
-        "absolute top-1/2 size-[9px] -translate-x-1/2 -translate-y-1/2 border focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-        hold ? "rounded-none" : "rotate-45",
-        selected ? "border-primary bg-primary" : "border-foreground/70 bg-elevated hover:bg-foreground",
-      )}
-    />
+      className="group absolute top-1/2 grid size-[18px] -translate-x-1/2 -translate-y-1/2 cursor-ew-resize place-items-center focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+    >
+      <span
+        className={cn(
+          "size-[9px] border",
+          hold ? "rounded-none" : "rotate-45",
+          selected ? "border-primary bg-primary" : "border-foreground/70 bg-elevated group-hover:bg-foreground",
+        )}
+      />
+    </button>
   );
 }
 
@@ -182,10 +189,10 @@ function KeyTrack({ net, node, param, scale }: { net: Network; node: Node; param
 
   return (
     <>
-      {keys.map((k) => {
+      {keys.map((k, i) => {
         const ref = { node: node.id, param, t: k.t };
         return (
-          <div key={k.t} className="absolute inset-y-0" style={{ left: scale.x(k.t) }}>
+          <div key={i} className="absolute inset-y-0" style={{ left: scale.x(k.t) }}>
             <Diamond k={ref} hold={k.ease === "hold"} selected={selectedKeys.some((s) => sameKey(s, ref))} onPointerDown={(e) => down(e, ref)} />
           </div>
         );
@@ -253,8 +260,14 @@ function PhaseBar({ ranges, scale, mode }: { ranges: PhaseRange[]; scale: Scale;
 
 function LayerRows({ doc, net, node, scale, width, phases, unwired }: { doc: SceneDoc; net: Network; node: Node; scale: Scale; width: number; phases: Map<string, PhaseRange[]>; unwired?: boolean }) {
   const sub = rowsFor(doc, net, node, phases);
-  const { open, selected, setExpanded, selectNodes } = useUi(
-    useShallow((s) => ({ open: s.expanded[node.id] ?? sub.length > 0, selected: s.selectedNodes.includes(node.id), setExpanded: s.setExpanded, selectNodes: s.selectNodes })),
+  const { open, selected, selectedIds, setExpanded, selectNodes } = useUi(
+    useShallow((s) => ({
+      open: s.expanded[node.id] ?? sub.length > 0,
+      selected: s.selectedNodes.includes(node.id),
+      selectedIds: s.selectedNodes,
+      setExpanded: s.setExpanded,
+      selectNodes: s.selectNodes,
+    })),
   );
   const label = isNodeType(node.type) ? CATALOG[node.type].label : node.type;
 
@@ -296,8 +309,13 @@ function LayerRows({ doc, net, node, scale, width, phases, unwired }: { doc: Sce
         sub.map((r) => (
           <div key={r.kind === "param" ? `p:${r.param}` : `ph:${r.phase.id}`} className="flex" style={{ height: ROW_H }}>
             <div
-              className="z-10 flex shrink-0 items-center gap-2 border-b border-r border-border bg-surface pl-9 pr-2"
+              className={cn(
+                "z-10 flex shrink-0 items-center gap-2 border-b border-r border-border bg-surface pl-9 pr-2",
+                r.kind === "phase" && "cursor-pointer hover:bg-accent",
+                r.kind === "phase" && selectedIds.includes(r.phase.id) && "bg-accent",
+              )}
               style={{ width: NAME_W }}
+              onClick={r.kind === "phase" ? () => selectNodes([r.phase.id]) : undefined}
             >
               {r.kind === "param" ? (
                 <span className="truncate font-mono text-xs text-muted-foreground">{r.label}</span>

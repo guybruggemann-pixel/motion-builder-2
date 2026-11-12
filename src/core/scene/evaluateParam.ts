@@ -59,21 +59,46 @@ function wave(m: Modifier, t: number) {
   }
 }
 
-/** Modifier output at time t; `part` lets per-part modifiers (noise seed, stagger) differ per character. */
-function modifierValue(m: Modifier, t: number, part: number): number {
+/**
+ * Modifier output at time t; `part` lets per-part modifiers (noise seed, stagger) differ per character.
+ * Undefined = no effect (stagger shifts time instead; an unresolved link or audio does nothing).
+ */
+function modifierValue(m: Modifier, t: number, part: number, ctx: EvalContext): Value | undefined {
   switch (m.type) {
     case "wave": return wave(m, t);
     case "noise": return nParam(m, "amplitude", 10) * noise1(t * nParam(m, "frequency", 1), nParam(m, "seed", 1) + part * 17);
-    default: return 0; // stagger shifts time (see evaluateParam), link/audio resolve in the scene evaluator
+    case "link": return linkValue(m, ctx.resolve?.(m));
+    default: return undefined;
   }
 }
 
-function apply(v: Value, m: Modifier, d: number): Value {
-  const op = (x: number) => (m.blend === "multiply" ? x * d : m.blend === "replace" ? d : x + d);
-  if (typeof v === "number") return op(v);
+/**
+ * Link: the followed value × scale + offset, then clamped to min/max. Scale, offset, min and max
+ * are numbers or per-axis [x, y] pairs.
+ */
+function linkValue(m: Modifier, src: Value | undefined): Value | undefined {
+  if (typeof src !== "number" && !Array.isArray(src)) return undefined;
+  const at = (k: string, i: number, d: number | undefined) => {
+    const p = m.params[k];
+    return typeof p === "number" ? p : Array.isArray(p) ? p[i] ?? d : d;
+  };
+  const one = (x: number, i: number) => {
+    let y = x * at("scale", i, 1)! + at("offset", i, 0)!;
+    const lo = at("min", i, undefined), hi = at("max", i, undefined);
+    if (lo !== undefined) y = Math.max(lo, y);
+    if (hi !== undefined) y = Math.min(hi, y);
+    return y;
+  };
+  return typeof src === "number" ? one(src, 0) : (src.map(one) as Value);
+}
+
+function apply(v: Value, m: Modifier, d: Value): Value {
+  const op = (x: number, dx: number) => (m.blend === "multiply" ? x * dx : m.blend === "replace" ? dx : x + dx);
+  const dAt = (i: number) => (typeof d === "number" ? d : Array.isArray(d) ? d[i] ?? d[0] ?? 0 : 0);
+  if (typeof v === "number") return op(v, dAt(0));
   if (Array.isArray(v)) {
     const axis = m.params.axis; // "x" | "y" | "z" | undefined (= all)
-    return v.map((x, i) => (axis === undefined || ["x", "y", "z"][i] === axis ? op(x) : x)) as Value;
+    return v.map((x, i) => (axis === undefined || ["x", "y", "z"][i] === axis ? op(x, dAt(i)) : x)) as Value;
   }
   return v;
 }
@@ -84,6 +109,8 @@ export interface EvalContext {
   parts?: number;
   /** Per-part time offset in seconds, from a stagger upstream. */
   timeOffset?: number;
+  /** Supplied by the scene evaluator: the value a `link` modifier follows (another node's param). */
+  resolve?: (m: Modifier) => Value | undefined;
 }
 
 /**
@@ -107,7 +134,8 @@ export function evaluateParam(p: Param, t: number, ctx: EvalContext = {}): Value
   let v = p.keys && p.keys.length ? sampleKeys(p.keys, lt) : p.value;
   for (const m of p.modifiers ?? []) {
     if (!m.enabled) continue;
-    v = apply(v, m, modifierValue(m, lt, part));
+    const d = modifierValue(m, lt, part, ctx);
+    if (d !== undefined) v = apply(v, m, d);
   }
   return v;
 }

@@ -152,17 +152,43 @@ export const Asset = z.object({
   meta: z.record(z.string(), z.unknown()).optional(),
 });
 
+/* ---------- batch ---------- */
+
+/**
+ * A data-driven batch: rows of a sheet rendered through one motion asset instance.
+ * The rows themselves stay outside the doc (like any linked asset); the doc holds how to use them.
+ */
+export const Batch = z.object({
+  id: Id,
+  name: z.string(),
+  /** A Google Sheet shared as "anyone with the link can view", or a CSV pasted in. */
+  source: z.object({ kind: z.enum(["sheet-link", "csv"]), url: z.string().optional(), csv: z.string().optional() }),
+  /** The Subnet instance a row fills, and which column feeds which promoted control. */
+  target: z.object({ network: Id, instance: Id, mapping: z.record(z.string(), z.string()) }),
+  /** File name per row: {Column} for a cell, {#} for the row number. No extension. */
+  fileTemplate: z.string().default("{#}"),
+  format: z.enum(["prores", "mp4"]).default("prores"),
+  /** Seconds into the comp at which QC checks the layout (when everything is in). */
+  qcAt: z.number().min(0).default(0),
+});
+export type Batch = z.infer<typeof Batch>;
+
 /* ---------- doc ---------- */
+
+/** Current scene doc version. Older docs are upgraded by `migrate` (migrate.ts) before validation. */
+export const DOC_VERSION = 3;
 
 export const SceneDoc = z
   .object({
-    version: z.literal(2),
+    version: z.literal(3),
     name: z.string(),
     /** The network opened at the top level. Must be a comp. */
     root: Id,
     networks: z.array(Network),
     brand: BrandKit.optional(),
     assets: z.array(Asset).default([]),
+    /** Data-driven batches (v3). */
+    batches: z.array(Batch).default([]),
     /** Where the design came from, for the overlay diff. */
     source: z
       .object({ kind: z.enum(["figma", "svg", "pdf", "image", "prompt", "blank"]), ref: z.string().optional() })

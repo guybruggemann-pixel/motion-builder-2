@@ -25,7 +25,7 @@ import { evaluateParam, type EvalContext } from "./evaluateParam";
 import { applyMat, layerMatrix, mul, rotate, scale, scaleOf, translate, type Mat } from "./matrix";
 import { applyPhase, phaseDelays, phaseProgress, REST, type PartAnim, type PhaseSpec } from "./phase";
 import type { Network, Node, Param, Role, SceneDoc, Value } from "./schema";
-import { approxMeasure, layoutLines, PIVOT_RISE, runsBox, splitRun, type FontSpec, type MeasureText, type Run, type TextStyle } from "./text";
+import { approxMeasure, fitStyle, layoutLines, PIVOT_RISE, runsBox, splitRun, type FontSpec, type MeasureText, type Run, type TextStyle } from "./text";
 
 /* ---------- output ---------- */
 
@@ -86,13 +86,34 @@ export interface ImageDrawable extends DrawableBase {
   src?: string;
 }
 
-export type Drawable = TextDrawable | ShapeDrawable | ImageDrawable;
+/**
+ * A Subnet instance as one layer, emitted instead of its contents when `flattenSubnets` is false
+ * (exporters keep the comp structure: this becomes a precomp layer). Its matrix, opacity and blur
+ * are the instance's own; clips are not applied to precomp layers.
+ */
+export interface SubnetDrawable extends DrawableBase {
+  kind: "subnet";
+  /** The network the instance opens into. */
+  subnet: string;
+}
+
+export type Drawable = TextDrawable | ShapeDrawable | ImageDrawable | SubnetDrawable;
 
 export interface EvaluateOptions {
   /** Text measuring; defaults to `approxMeasure`. The app passes canvas measureText. */
   measure?: MeasureText;
   /** Length of the evaluated network in seconds, if it isn't a comp. Used as the default out point. */
   span?: number;
+  /**
+   * False keeps Subnet instances as single `SubnetDrawable`s (for exporters) instead of merging
+   * their contents into this network's list. Default true (what renderers want).
+   */
+  flattenSubnets?: boolean;
+  /**
+   * Evaluate the network as the inside of this Subnet instance: its promoted values apply, and
+   * `t` is the instance's local time.
+   */
+  instance?: { network: string; node: string };
 }
 
 /* ---------- internal parts ---------- */
@@ -111,7 +132,8 @@ type Content =
   | { kind: "text"; runs: Run[]; style: TextStyle }
   | { kind: "shape" }
   | { kind: "image" }
-  | { kind: "container"; children: Drawable[] };
+  | { kind: "container"; children: Drawable[] }
+  | { kind: "subnet"; subnet: string };
 
 interface Part {
   layer: Layer;
@@ -133,6 +155,10 @@ interface Ctx {
   instance: string[];
   overrides: Map<string, Record<string, Param>>;
   memo: Map<string, Part[]>;
+  /** False: Subnet instances stay single parts (exporters). */
+  flatten?: boolean;
+  /** How deep we are in link resolution (a link can follow a param that is linked itself). */
+  linkDepth?: number;
 }
 
 /* ---------- value helpers ---------- */
@@ -167,8 +193,60 @@ function getParam(ctx: Ctx, node: Node, name: string): Param | undefined {
 
 function paramValue(ctx: Ctx, node: Node, name: string, ectx?: EvalContext): Value {
   const p = getParam(ctx, node, name);
-  return p ? evaluateParam(p, ctx.t, ectx) : 0;
+  return p ? evaluateParam(p, ctx.t, { ...ectx, resolve: (m) => resolveLink(ctx, m) }) : 0;
 }
+
+const MAX_LINK_DEPTH = 16;
+
+/**
+ * The value a `link` modifier follows: another node's param in the same network at the same time,
+ * or its read-only `bounds` ([width, height] of what it draws). Links that loop stop after a
+ * fixed depth and contribute nothing.
+ */
+function resolveLink(ctx: Ctx, m: { params: Record<string, Value> }): Value | undefined {
+  const target = ctx.net.nodes.find((n) => n.id === m.params.node);
+  const param = m.params.param;
+  if (!target || typeof param !== "string") return undefined;
+  const depth = ctx.linkDepth ?? 0;
+  if (depth >= MAX_LINK_DEPTH) return undefined;
+  ctx.linkDepth = depth + 1;
+  try {
+    return param === "bounds" ? boundsOf(ctx, target) : paramValue(ctx, target, param);
+  } finally {
+    ctx.linkDepth = depth;
+  }
+}
+
+/** Text style and lines of a Text node at the context's time, after overflow handling. */
+function textLayout(ctx: Ctx, node: Node): { runs: Run[]; style: TextStyle } {
+  const v = (name: string) => paramValue(ctx, node, name);
+  const text = String(v("text"));
+  const style = fitStyle(
+    text,
+    {
+      font: { family: str(v("font"), "Inter"), weight: num(v("weight"), 600), size: num(v("size"), 64) },
+      tracking: num(v("tracking")),
+      leading: num(v("leading"), 1.2),
+      align: oneOf(v("align"), ["left", "center", "right"] as const, "left"),
+      maxWidth: num(v("maxWidth")),
+      overflow: oneOf(v("overflow"), ["none", "shrink", "wrap"] as const, "none"),
+    },
+    ctx.measure,
+  );
+  return { runs: layoutLines(text, style, ctx.measure), style };
+}
+
+/** [width, height] of what a node draws, in its own space: the text box, or a shape's size. */
+function boundsOfNode(ctx: Ctx, node: Node): [number, number] {
+  if (node.type === "Text") {
+    const { runs, style } = textLayout(ctx, node);
+    const [, , w, h] = runsBox(runs, style.font.size);
+    return [w, h];
+  }
+  if (node.type === "Shape") return vec2(paramValue(ctx, node, "size"), [400, 120]);
+  return [0, 0];
+}
+const boundsOf = boundsOfNode;
 
 /* ---------- network evaluation ---------- */
 
@@ -252,14 +330,7 @@ function evalNode(ctx: Ctx, id: string, stack: string[] = []): Part[] {
     switch (node.type) {
       case "Text": {
         const layer = makeLayer(ctx, node);
-        const v = (name: string) => layer.param(name);
-        const style: TextStyle = {
-          font: { family: str(v("font"), "Inter"), weight: num(v("weight"), 600), size: num(v("size"), 64) },
-          tracking: num(v("tracking")),
-          leading: num(v("leading"), 1.2),
-          align: oneOf(v("align"), ["left", "center", "right"] as const, "left"),
-        };
-        out = [part(layer, { kind: "text", runs: layoutLines(String(v("text")), style, ctx.measure), style })];
+        out = [part(layer, { kind: "text", ...textLayout(ctx, node) })];
         break;
       }
       case "Shape":
@@ -275,7 +346,7 @@ function evalNode(ctx: Ctx, id: string, stack: string[] = []): Part[] {
       }
       case "Subnet": {
         const layer = makeLayer(ctx, node);
-        out = [part(layer, { kind: "container", children: layer.visible ? evalSubnet(ctx, node) : [] })];
+        out = [part(layer, ctx.flatten === false ? { kind: "subnet", subnet: node.subnet ?? "" } : { kind: "container", children: layer.visible ? evalSubnet(ctx, node) : [] })];
         break;
       }
       case "Split": {
@@ -302,9 +373,8 @@ function evalNode(ctx: Ctx, id: string, stack: string[] = []): Part[] {
   return out;
 }
 
-function evalSubnet(ctx: Ctx, node: Node): Drawable[] {
-  const net = ctx.doc.networks.find((n) => n.id === node.subnet);
-  if (!net) return [];
+/** Promoted values of a Subnet instance, as overrides for the nodes inside (evaluated at the parent's time). */
+function instanceOverrides(ctx: Ctx, node: Node, net: Network): Map<string, Record<string, Param>> {
   const overrides = new Map<string, Record<string, Param>>();
   for (const pr of net.promoted ?? []) {
     const raw = ctx.overrides.get(node.id)?.[pr.id] ?? node.params[pr.id];
@@ -313,6 +383,13 @@ function evalSubnet(ctx: Ctx, node: Node): Drawable[] {
     rec[pr.target.param] = { value: evaluateParam(resolveBrand(raw, ctx.brand), ctx.t) };
     overrides.set(pr.target.node, rec);
   }
+  return overrides;
+}
+
+function evalSubnet(ctx: Ctx, node: Node): Drawable[] {
+  const net = ctx.doc.networks.find((n) => n.id === node.subnet);
+  if (!net) return [];
+  const overrides = instanceOverrides(ctx, node, net);
   const span = node.timing ? node.timing.out - node.timing.in : net.comp?.duration ?? ctx.span;
   return evalNetwork(ctx.doc, net, ctx.t - (node.timing?.in ?? 0), {
     brand: ctx.brand,
@@ -418,6 +495,8 @@ function resolvePart(ctx: Ctx, p: Part): Drawable[] {
       const src = ctx.doc.assets.find((a) => a.id === asset)?.src;
       return [{ ...base, kind: "image", id: idOf(), matrix: M, asset, ...(src === undefined ? {} : { src }) }];
     }
+    case "subnet":
+      return [{ ...base, clips: [], kind: "subnet", id: idOf(), matrix: M, subnet: content.subnet }];
     case "container": {
       const k = scaleOf(M);
       return content.children.map((d) => ({
@@ -458,17 +537,28 @@ export function networkSpan(doc: SceneDoc, networkId: string, instance?: { netwo
 function rootCtx(doc: SceneDoc, networkId: string, t: number, opts: EvaluateOptions): Ctx {
   const net = doc.networks.find((n) => n.id === networkId);
   if (!net) throw new Error(`network "${networkId}" not found`);
-  return {
+  const ctx: Ctx = {
     doc,
     net,
     t,
     memo: new Map(),
     brand: new Map((doc.brand?.colors ?? []).map((c) => [c.token, c.value])),
     measure: opts.measure ?? approxMeasure,
-    span: opts.span ?? networkSpan(doc, networkId),
+    span: opts.span ?? networkSpan(doc, networkId, opts.instance),
     instance: [],
     overrides: new Map(),
+    flatten: opts.flattenSubnets,
   };
+  if (opts.instance) {
+    // Promoted values are evaluated at the parent's time: local time + the instance's in point.
+    const parentNet = doc.networks.find((n) => n.id === opts.instance!.network);
+    const inst = parentNet?.nodes.find((n) => n.id === opts.instance!.node);
+    if (parentNet && inst) {
+      const parent = rootCtx(doc, parentNet.id, t + (inst.timing?.in ?? 0), { ...opts, instance: undefined });
+      ctx.overrides = instanceOverrides(parent, inst, net);
+    }
+  }
+  return ctx;
 }
 
 export function evaluateFrame(doc: SceneDoc, networkId: string, t: number, opts: EvaluateOptions = {}): Drawable[] {

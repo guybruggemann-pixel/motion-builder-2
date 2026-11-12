@@ -3,6 +3,7 @@
  * Structural checks (zod) first, then catalog checks per node.
  */
 import { CATALOG, checkParams, isNodeType, type ParamSpec } from "./catalog";
+import { migrate } from "./migrate";
 import { SceneDoc, type Network, type Value } from "./schema";
 
 export type ValidateResult = { ok: true; doc: SceneDoc } | { ok: false; errors: string[] };
@@ -26,7 +27,7 @@ export function promotedSpecs(networks: readonly Network[], netId: string, depth
 }
 
 export function validateDoc(input: unknown): ValidateResult {
-  const parsed = SceneDoc.safeParse(input);
+  const parsed = SceneDoc.safeParse(migrate(input));
   if (!parsed.success) {
     return { ok: false, errors: parsed.error.issues.map((i) => `${i.path.map(String).join(".") || "doc"}: ${i.message}`) };
   }
@@ -42,9 +43,30 @@ export function validateDoc(input: unknown): ValidateResult {
       if (node.type === "Subnet" && !node.subnet) errors.push(`${net.id}/${node.id}: Subnet node needs a subnet network`);
       if (node.subnet && node.type !== "Subnet") errors.push(`${net.id}/${node.id}: only Subnet nodes can open a network`);
       for (const [name, p] of Object.entries(node.params))
+        for (const m of p.modifiers ?? []) {
+          if (m.type !== "link") continue;
+          const target = net.nodes.find((x) => x.id === m.params.node);
+          const param = m.params.param;
+          if (!target) errors.push(`${net.id}/${node.id}.${name}: link ${m.id} follows missing node "${String(m.params.node)}"`);
+          else if (typeof param !== "string" || (param !== "bounds" && !(isNodeType(target.type) && param in CATALOG[target.type].params) && !(target.subnet && param in promotedSpecs(doc.networks, target.subnet))))
+            errors.push(`${net.id}/${node.id}.${name}: link ${m.id} follows unknown param ${target.type}.${String(param)}`);
+        }
+      for (const [name, p] of Object.entries(node.params))
         for (const v of [p.value, ...(p.keys ?? []).map((k) => k.v)])
           if (isMissingToken(v)) errors.push(`${net.id}/${node.id}.${name}: brand colour "${v}" is not in the brand kit`);
     }
+    // Wires must not loop: evaluation pulls from the output upstream and would never end.
+    const state = new Map<string, 1 | 2>();
+    const loops = (id: string): boolean => {
+      if (state.get(id) === 2) return false;
+      if (state.get(id) === 1) return true;
+      state.set(id, 1);
+      const hit = net.wires.some((w) => w.to.node === id && loops(w.from.node));
+      state.set(id, 2);
+      return hit;
+    };
+    if (net.nodes.some((n) => loops(n.id))) errors.push(`${net.id}: wires form a loop`);
+
     const counts = new Map<string, number>();
     for (const w of net.wires) counts.set(w.to.node, (counts.get(w.to.node) ?? 0) + 1);
     for (const [id, n] of counts) {

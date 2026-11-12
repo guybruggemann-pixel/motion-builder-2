@@ -14,6 +14,7 @@ export function useShortcuts() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (typing(e.target)) return;
+      if (e.target instanceof Element && e.target.closest("[data-network-view]") && (e.key === "Delete" || e.key === "Backspace")) return;
       const ui = useUi.getState();
       const last = frameCount(viewComp(docStore.getState().doc, ui.path)) - 1;
       const go = (f: number) => {

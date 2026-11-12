@@ -57,6 +57,14 @@ describe("scene doc v2 validation", () => {
     expect(validateDoc(d).ok).toBe(false);
   });
 
+  it("rejects wires that loop", () => {
+    const d = clone(lowerThird);
+    d.networks[1]!.wires.push({ from: { node: "name-in", port: "out" }, to: { node: "split", port: "in" } });
+    const r = validateDoc(d);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.join()).toMatch(/loop/);
+  });
+
   it("rejects promoted controls that point at unknown params", () => {
     const d = clone(lowerThird);
     d.networks[1]!.promoted!.push({ id: "bad", label: "Bad", target: { node: "name", param: "nope" }, control: "text" });
@@ -113,5 +121,21 @@ describe("parameter stack", () => {
 
   it("shifts time per part for stagger", () => {
     expect(evaluateParam(size, 0.3, { timeOffset: 0.3 })).toEqual([0, 120]);
+  });
+});
+
+describe("migration", () => {
+  it("opens a v2 doc as v3 with no batches", () => {
+    const v2 = { ...structuredClone(lowerThird), version: 2 } as Record<string, unknown>;
+    delete v2.batches;
+    const r = validateDoc(v2);
+    if (!r.ok) throw new Error(r.errors.join("\n"));
+    expect(r.doc.version).toBe(3);
+    expect(r.doc.batches).toEqual([]);
+  });
+
+  it("rejects versions it doesn't know", () => {
+    expect(validateDoc({ ...structuredClone(lowerThird), version: 1 }).ok).toBe(false);
+    expect(validateDoc({ ...structuredClone(lowerThird), version: 9 }).ok).toBe(false);
   });
 });

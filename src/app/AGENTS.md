@@ -8,5 +8,15 @@
 - Styling: brandbook tokens and components from `design-system/` (see its `system.md` rules in the Nodal reference): tokens only, no raw colours in UI, Volt (`primary`) only for live/active state.
 - Ease names in the UI come from `MENU_EASES` (Motion Builder v1 vocabulary).
 - Timeline edits live in `timeline/edits.ts` as plain immer recipes (tested in `test/timelineEdits.test.ts`); components only translate pointer gestures into them. Times are snapped to whole frames before they reach a recipe.
-- Moving a layer bar shifts its own keys (AE); trimming doesn't. Subnet contents run on local time, so moving a Subnet moves everything inside it.
+- Moving a layer bar shifts its own keys (AE), Subnets included (instance keys are in parent time); trimming doesn't. Subnet contents run on local time, so they follow on their own.
+- Drags listen on `window`, never on the pressed element: edits re-render the timeline mid-gesture and the element can be replaced.
 - The open-network path is a list of crumbs `{ network, node }` in `uiStore`; use `store/navigation.ts` to open or leave a subnet so the playhead stays on the same moment.
+- Inspector edits live in `inspector/edits.ts` (tested in `test/inspectorEdits.test.ts`). Value semantics follow AE: on a keyed param, a change at the playhead sets or adds the key there; otherwise it sets the base value. "At the playhead" means within half a frame.
+- Inspector controls call `onChange(value, final)`; intermediate values coalesce into one undo step and the final one commits it. Keep that contract for any new control.
+- A Subnet's promoted controls are edited as params on the instance; reset deletes the param so the asset's own value shows again.
+- Network view: xyflow's controlled pattern. A local node list takes xyflow's own changes (`applyNodeChanges`: measured sizes, drag positions) and is re-synced from the doc on every edit, keeping the measured sizes; never rebuild nodes from the doc without them (wires vanish until re-measured). Graph edits live in `network/edits.ts`.
+- Testing in a background browser tab: ResizeObserver doesn't run until the tab paints, so xyflow nodes read as hidden there. Take a screenshot of the tab first.
+- Graph editor (`timeline/GraphEditor.tsx`): a segment's shape is its starting key's ease string; handles write `cubicBezier(x1,y1,x2,y2)` through `setKeyEase`. Menu eases convert via `BEZIER_OF` (standard approximations, tested within 0.08).
+- `render/prores/anime-ae-prores.es3.js` is v1's ProRes 4444 encoder, verbatim. Don't edit it; it's loaded as text (`?raw`) and evaluated so the page, workers and tests run the same code. `test/prores.test.ts` checks its output with ffprobe/ffmpeg when they are installed.
+- Batch (`batch/BatchPanel.tsx`): settings are `doc.batches[0]` (undoable edits); rows are view data fetched from the sheet and never stored in the doc. A row's output key is a hash of the row-applied doc, so any template change re-renders every row.
+- AE export (`export/`): `anime-ae-bake.es3.js` is v1's baker, verbatim. `aePlan.ts` samples `evaluateFrame(…, { flattenSubnets: false, instance })` and bakes channels; `ae-build.jsx` (ES3) builds AE from the plan. `test/aeExport.test.ts` runs the .jsx against a recording mock of AE; keep the mock in step when the script uses new AE calls.
