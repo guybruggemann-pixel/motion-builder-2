@@ -11,16 +11,16 @@ Motion design app for a team of 2 motion designers and 2 designers. Drop in a de
 - **Comps are networks; subnets are precomps.** A network with `comp` settings has a timeline. A `Subnet` node opens into another network. No cycles.
 - **Every parameter is a stack:** base value → keyframes → modifiers. Keys and procedural modifiers add up; never make the user choose between them.
 - **Motion assets** are subnets with promoted controls. Designers only see the promoted controls.
-- **The anime-ae core must stay identical to `fixtures/anime-ae-core.es3.js`.** That ES3 file is the After Effects runtime. `test/parity.test.ts` enforces it. Change both or neither.
+- **The anime-ae core must stay identical to `fixtures/anime-ae-core.es3.js`.** It keeps Motion Builder v1's ease feel (and is the runtime of the frozen native AE export). `test/parity.test.ts` enforces it. Change both or neither.
 - **Time in the doc is seconds.** anime-ae works in ms internally; convert at the edge.
 - **Catalog first.** A new node type is added to `src/core/scene/catalog.ts` with its params, then its evaluator, then tests, then UI.
 
 ## Outputs
 
-- **After Effects:** native layers, keyframes at key times with ease converted, baking only what AE can't express (spring, elastic, modifiers). One layer per character when per-character motion looks better. No expressions in exported comps. 3D scene layers and non-solid materials come in as a ProRes 4444 pass with alpha in their own precomp.
+- **After Effects (decided 2026-11-12):** AE gets our renders, not a rebuild: a beauty pass per top-level layer (ProRes 4444 with alpha) plus AOVs to play with in comp (alpha mattes, puzzle mattes, depth; later normals, AO, motion vectors, EXR + Cryptomatte), assembled by a generated .jsx in the comp structure. No keyframes, no expressions. New features never need an AE equivalent. The native-layer export (keys baked by v1's baker) is frozen as a simple-2D option: keep it working, don't extend it.
 - **3D:** a Scene3D subnet renders into the comp as one layer through three.js (in `src/app`, never in `src/core`). The core still evaluates every clone, transform and colour.
 - **Web render (master for social and web jobs):** frame-stepped, never wall clock, sub-frame motion blur, WebCodecs MP4; ProRes 4444 with alpha.
-- Preview, render and AE must match. Every phase adds frame-diff tests on reference scenes.
+- Preview and render must match, and every pass must line up pixel for pixel with the beauty. Every phase adds frame-diff tests on reference scenes.
 
 ## How Guy works (respect this in the app and in code you touch)
 
