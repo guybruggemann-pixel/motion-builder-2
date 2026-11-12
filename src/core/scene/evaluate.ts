@@ -30,7 +30,7 @@ import { evaluateParam, type EvalContext } from "./evaluateParam";
 import { applyMat, layerMatrix, mul, rotate, scale, scaleOf, translate, type Mat } from "./matrix";
 import { applyPhase, phaseDelays, phaseProgress, REST, type PartAnim, type PhaseSpec } from "./phase";
 import type { Network, Node, Param, Role, SceneDoc, Value } from "./schema";
-import { applyEffector, cloneMatrix, clonePoint, fieldWeight, makeClones, type EffectorSpec, type FieldSpec } from "./clone";
+import { applyEffector, applyReveal, cloneMatrix, clonePoint, fieldWeight, makeClones, type EffectorSpec, type FieldSpec } from "./clone";
 import { objectMatrix, verticalFov, zoomFor, type Camera3D, type Light3D, type Material3D, type Object3D, type Scene3D } from "./scene3d";
 import { approxMeasure, fitStyle, layoutLines, PIVOT_RISE, runsBox, splitRun, type FontSpec, type MeasureText, type Run, type TextStyle } from "./text";
 
@@ -590,7 +590,7 @@ function buildScene(ctx: Ctx, settings: Omit<Scene3D, "camera" | "lights" | "obj
   return { ...settings, camera: camera ?? defaultCamera(settings.size), lights, objects };
 }
 
-const EFFECTORS = new Set(["Random", "Plain", "Step"]);
+const EFFECTORS = new Set(["Random", "Plain", "Step", "Reveal"]);
 
 /** A field node's spec at the context's time. */
 function fieldSpec(ctx: Ctx, f: Node): FieldSpec | undefined {
@@ -651,6 +651,12 @@ function attachClones(ctx: Ctx, nodes: Node[], objects: Object3D[]) {
       seen.add(next.id);
       at = next.id;
       if (!next.enabled) continue;
+      if (next.type === "Reveal") {
+        const ps = phaseSpec(ctx, next);
+        const e = (name: string) => paramValue(ctx, next, name);
+        clones = applyReveal(clones, { phase: ps, delays: phaseDelays(ps, clones.length), position: vec3(e("offsetPosition"), [0, -300, 0]), rotation: vec3(e("offsetRotation"), [-90, 0, 0]), scale: num(e("offsetScale"), 100) }, ctx.t * 1000, 0, ctx.span * 1000);
+        continue;
+      }
       const fw = net.wires.find((w) => w.to.node === next.id && w.to.port === "field");
       const fnode = fw && net.nodes.find((n) => n.id === fw.from.node && n.enabled);
       const field = fnode && fieldSpec(ctx, fnode);

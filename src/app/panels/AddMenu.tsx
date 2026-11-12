@@ -45,7 +45,7 @@ const GROUPS_2D: [string, (t: NodeType) => boolean][] = [
   ["Animate", (t) => CATALOG[t].category === "animate"],
   ["Utility", (t) => CATALOG[t].category === "utility"],
 ];
-const CLONING = ["Cloner", "Random", "Plain", "Step"];
+const CLONING = ["Cloner", "Random", "Plain", "Step", "Reveal"];
 const GROUPS_3D: [string, (t: NodeType) => boolean][] = [
   ["3D objects", (t) => CATALOG[t].category === "3d"],
   ["Cloners and effectors", (t) => CLONING.includes(t)],
@@ -57,9 +57,10 @@ const GROUPS_3D: [string, (t: NodeType) => boolean][] = [
 /** What a new node chains after when that's what's selected. */
 const CHAIN_AFTER: Partial<Record<NodeType, string[]>> = {
   Cloner: ["Text3D", "Shape3D"],
-  Random: ["Cloner", "Random", "Plain", "Step"],
-  Plain: ["Cloner", "Random", "Plain", "Step"],
-  Step: ["Cloner", "Random", "Plain", "Step"],
+  Random: ["Cloner", "Random", "Plain", "Step", "Reveal"],
+  Plain: ["Cloner", "Random", "Plain", "Step", "Reveal"],
+  Step: ["Cloner", "Random", "Plain", "Step", "Reveal"],
+  Reveal: ["Cloner", "Random", "Plain", "Step", "Reveal"],
 };
 const HINT: Partial<Record<NodeType, string>> = {
   Scene3D: "Extruded title, camera and light, ready to edit",
@@ -67,6 +68,7 @@ const HINT: Partial<Record<NodeType, string>> = {
   Random: "After the selected cloner",
   Plain: "After the selected cloner",
   Step: "After the selected cloner",
+  Reveal: "Clones arrive one by one, after the selected cloner",
   LinearField: "Into the selected effector",
   SphericalField: "Into the selected effector",
   NoiseField: "Into the selected effector",

@@ -105,3 +105,25 @@ describe("the UNIQUE grid", () => {
     expect(validateDoc(d).ok).toBe(false);
   });
 });
+
+describe("Reveal effector", () => {
+  const withReveal = () => {
+    const d = structuredClone(uniqueGrid);
+    const net = d.networks[1]!;
+    net.nodes.push({ id: "reveal", type: "Reveal", name: "Reveal", enabled: true, params: { duration: { value: 0.5 }, stagger: { value: 0.05 }, offsetScale: { value: 0 } }, ui: { x: 0, y: 0 } });
+    net.wires = net.wires.filter((w) => !(w.from.node === "random" && w.to.node === "merge"));
+    net.wires.push({ from: { node: "random", port: "out" }, to: { node: "reveal", port: "in" } }, { from: { node: "reveal", port: "out" }, to: { node: "merge", port: "in" } });
+    return d;
+  };
+  const scaleOf = (m: number[]) => Math.hypot(m[0]!, m[1]!, m[2]!);
+  const clones = (d: SceneDoc, t: number) => (evaluateFrame(d, "main", t, { measure: approxMeasure }).find((x) => x.kind === "scene3d") as Scene3DDrawable).scene.objects[0]!.clones!;
+
+  it("brings clones in one after another: first ones settled while later ones are still on their way", () => {
+    const d = withReveal();
+    expect(validateDoc(d).ok).toBe(true);
+    const early = clones(d, 0.6); // clone 0 arrived (0.5 s), clone 40 starts at 2 s
+    const settled = clones(d, 5.9);
+    expect(scaleOf(early[0]!.matrix)).toBeCloseTo(scaleOf(settled[0]!.matrix), 6);
+    expect(scaleOf(early[40]!.matrix)).toBeCloseTo(0, 6); // still at 0 % scale
+  });
+});

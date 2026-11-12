@@ -245,6 +245,27 @@ export const CATALOG = {
       seed: { kind: "number", default: 1 },
     },
   },
+  /**
+   * Clones arrive or leave one after another (Motion Builder's animate in / out, per clone): each
+   * starts offset by these values and settles at rest, staggered. A spring ease gives overshoot.
+   */
+  Reveal: {
+    category: "animate",
+    label: "Reveal effector",
+    inputs: 1,
+    params: {
+      mode: { kind: "choice", default: "in", options: ["in", "out"] },
+      start: { kind: "number", default: 0, min: 0 },
+      duration: { kind: "number", default: 0.8, min: 0 },
+      ease: { kind: "ease", default: "outExpo" },
+      stagger: { kind: "number", default: 0.04, min: 0 },
+      from: { kind: "choice", default: "first", options: ["first", "last", "center", "random", "edges"] },
+      offsetPosition: { kind: "vec3", default: [0, -300, 0] },
+      offsetRotation: { kind: "vec3", default: [-90, 0, 0] },
+      /** Percent at the start of the move (0 = grows from nothing, 100 = no scaling). */
+      offsetScale: { kind: "number", default: 100, min: 0 },
+    },
+  },
   /** Moves, turns and scales every clone by the same amount (where its field says so). */
   Plain: {
     category: "animate",

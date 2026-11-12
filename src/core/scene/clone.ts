@@ -5,6 +5,7 @@
  * Deterministic: randomness is Park-Miller seeded per (seed, clone index), noise is seeded.
  */
 import { apply4, mul4, objectMatrix, type Mat4 } from "./scene3d";
+import { phaseProgress, type PhaseSpec } from "./phase";
 
 export interface Clone {
   index: number;
@@ -154,3 +155,29 @@ export function cloneMatrix(cloner: Mat4, c: Clone, object: Mat4): Mat4 {
 
 /** Where a clone sits in the scene (for fields). */
 export const clonePoint = (cloner: Mat4, c: Clone) => apply4(cloner, c.position);
+
+/** Reveal: clones arrive (in) or leave (out) one after another, Motion Builder's phase timing per clone. */
+export interface RevealSpec {
+  phase: PhaseSpec;
+  /** Per-clone delays in ms (from `phaseDelays`). */
+  delays: number[];
+  position: [number, number, number];
+  rotation: [number, number, number];
+  /** Scale at the far end of the move, percent (100 = no scaling, 0 = grows from nothing). */
+  scale: number;
+}
+
+export function applyReveal(clones: Clone[], r: RevealSpec, tMs: number, inMs: number, outMs: number): Clone[] {
+  return clones.map((c, i) => {
+    const p = phaseProgress(r.phase, r.delays, i, tMs, inMs, outMs);
+    const k = r.phase.mode === "in" ? 1 - p : p; // how far from rest
+    if (k <= 0) return c;
+    const s = 1 + (r.scale / 100 - 1) * k;
+    return {
+      ...c,
+      position: c.position.map((v, j) => v + r.position[j]! * k) as Clone["position"],
+      rotation: c.rotation.map((v, j) => v + r.rotation[j]! * k) as Clone["rotation"],
+      scale: c.scale.map((v) => v * s) as Clone["scale"],
+    };
+  });
+}
