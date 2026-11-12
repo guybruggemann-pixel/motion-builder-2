@@ -55,10 +55,10 @@ export const uniqueGrid: SceneDoc = {
           "Grid",
           {
             mode: { value: "grid" },
-            count: { value: [4, 11, 1] },
-            spacing: { value: [650, 160, 0] },
+            count: { value: [5, 15, 1] },
+            spacing: { value: [660, 150, 0] },
             // one spacing over the shot: the rows run past each other and the loop is seamless
-            rowSlide: { value: 0, keys: [{ t: 0, v: 0, ease: "linear" }, { t: 6, v: 650, ease: "linear" }] },
+            rowSlide: { value: 0, keys: [{ t: 0, v: 0, ease: "linear" }, { t: 6, v: 660, ease: "linear" }] },
             rotation: { value: [0, 0, -12] },
           },
           240,
@@ -69,7 +69,7 @@ export const uniqueGrid: SceneDoc = {
           "camera",
           "Camera",
           "Camera",
-          { position: { value: [0, 0, 0], keys: [{ t: 0, v: [380, -980, 1750], ease: "inOutSine" }, { t: 6, v: [-260, -620, 1850], ease: "linear" }] }, target: { value: [0, 60, 0] }, lens: { value: 40 } },
+          { position: { value: [0, 0, 0], keys: [{ t: 0, v: [240, -620, 1050], ease: "inOutSine" }, { t: 6, v: [-170, -380, 1150], ease: "linear" }] }, target: { value: [0, 90, 0] }, lens: { value: 35 } },
           240,
           160,
         ),

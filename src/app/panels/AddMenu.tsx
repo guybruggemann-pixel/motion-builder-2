@@ -4,7 +4,7 @@ import { Plus } from "lucide-react";
 import { CATALOG, portsOf, sceneOwner, type NodeType } from "@core/scene";
 import { Button } from "@/design-system/motionbuilder---brandbook-c4b4eb";
 import { docStore, shownNetwork, useDocStore, useUi } from "@/store";
-import { addNode, wireToOutput } from "@/network/edits";
+import { addNode, insertAfter, wireToOutput } from "@/network/edits";
 
 /**
  * Add a node to the open network, right of everything already there, and select it. Layers and 3D
@@ -21,8 +21,16 @@ export function addToNetwork(type: NodeType) {
   let id = "";
   const ok = docStore.getState().edit(`Add ${CATALOG[type].label}`, (d) => {
     id = addNode(d, net.id, type, { x, y });
-    if (cat === "layer" || cat === "3d") wireToOutput(d, net.id, id);
     const dn = d.networks.find((n) => n.id === net.id)!;
+    const chainable = selected && (CHAIN_AFTER[type] ?? []).includes(selected.type);
+    if (chainable) {
+      // a Cloner after the selected object, an effector after the selected Cloner or effector
+      insertAfter(d, net.id, selected.id, id);
+      const placed = dn.nodes.find((n) => n.id === id)!;
+      placed.ui = { x: selected.ui.x + 240, y: selected.ui.y };
+    } else if (cat === "layer" || cat === "3d") wireToOutput(d, net.id, id);
+    if (cat === "field" && selected && portsOf(selected.type).includes("field"))
+      dn.wires = [...dn.wires.filter((w) => !(w.to.node === selected.id && w.to.port === "field")), { from: { node: id, port: "out" }, to: { node: selected.id, port: "field" } }];
     if (type === "Material" && selected && portsOf(selected.type).includes("material") && !dn.wires.some((w) => w.to.node === selected.id && w.to.port === "material"))
       dn.wires.push({ from: { node: id, port: "out" }, to: { node: selected.id, port: "material" } });
   });
@@ -37,12 +45,32 @@ const GROUPS_2D: [string, (t: NodeType) => boolean][] = [
   ["Animate", (t) => CATALOG[t].category === "animate"],
   ["Utility", (t) => CATALOG[t].category === "utility"],
 ];
+const CLONING = ["Cloner", "Random", "Plain", "Step"];
 const GROUPS_3D: [string, (t: NodeType) => boolean][] = [
   ["3D objects", (t) => CATALOG[t].category === "3d"],
+  ["Cloners and effectors", (t) => CLONING.includes(t)],
+  ["Fields", (t) => CATALOG[t].category === "field"],
   ["Materials", (t) => CATALOG[t].category === "material"],
   ["Utility", (t) => CATALOG[t].category === "utility"],
 ];
-const HINT: Partial<Record<NodeType, string>> = { Scene3D: "Extruded title, camera and light, ready to edit" };
+
+/** What a new node chains after when that's what's selected. */
+const CHAIN_AFTER: Partial<Record<NodeType, string[]>> = {
+  Cloner: ["Text3D", "Shape3D"],
+  Random: ["Cloner", "Random", "Plain", "Step"],
+  Plain: ["Cloner", "Random", "Plain", "Step"],
+  Step: ["Cloner", "Random", "Plain", "Step"],
+};
+const HINT: Partial<Record<NodeType, string>> = {
+  Scene3D: "Extruded title, camera and light, ready to edit",
+  Cloner: "Select an object first: it gets cloned",
+  Random: "After the selected cloner",
+  Plain: "After the selected cloner",
+  Step: "After the selected cloner",
+  LinearField: "Into the selected effector",
+  SphericalField: "Into the selected effector",
+  NoiseField: "Into the selected effector",
+};
 
 export function AddMenu() {
   const [at, setAt] = useState<{ top: number; right: number }>();

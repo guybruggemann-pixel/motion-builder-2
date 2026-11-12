@@ -18,7 +18,13 @@ import type { OutlineFonts } from "../outlines";
 export type PassMode = { kind: "beauty" } | { kind: "id"; colors: Record<string, [number, number, number]> } | { kind: "depth"; near: number; far: number };
 
 const DEPTH_VERTEX = `varying float vDepth;
-void main() { vec4 v = modelViewMatrix * vec4(position, 1.0); vDepth = -v.z; gl_Position = projectionMatrix * v; }`;
+void main() {
+  vec4 p = vec4(position, 1.0);
+  #ifdef USE_INSTANCING
+  p = instanceMatrix * p;
+  #endif
+  vec4 v = modelViewMatrix * p; vDepth = -v.z; gl_Position = projectionMatrix * v;
+}`;
 const DEPTH_FRAGMENT = `uniform float near; uniform float far; varying float vDepth;
 void main() { float g = 1.0 - clamp((vDepth - near) / max(far - near, 1e-3), 0.0, 1.0); gl_FragColor = vec4(vec3(g), 1.0); }`;
 
@@ -66,9 +72,9 @@ export class ScenePass {
             ? new THREE.ShaderMaterial({ vertexShader: DEPTH_VERTEX, fragmentShader: DEPTH_FRAGMENT, uniforms: { near: { value: mode.near }, far: { value: mode.far } } })
             : this.material(o.material, o.opacity);
       disposable.push(mat);
-      const mesh = new THREE.Mesh(geo, mat);
+      const mesh = o.clones ? instanced(geo, mat, o.clones, beauty) : new THREE.Mesh(geo, mat);
       mesh.matrixAutoUpdate = false;
-      mesh.matrix.fromArray(o.matrix);
+      if (!o.clones) mesh.matrix.fromArray(o.matrix);
       mesh.castShadow = mesh.receiveShadow = beauty && data.shadows && o.material.kind !== "solid";
       scene.add(mesh);
     }
@@ -98,9 +104,9 @@ export class ScenePass {
     for (const o of data.objects) {
       const geo = this.geometry(o);
       if (!geo || o.opacity <= 0.01) continue;
-      const mesh = new THREE.Mesh(geo, mat);
+      const mesh = o.clones ? instanced(geo, mat, o.clones, false) : new THREE.Mesh(geo, mat);
       mesh.matrixAutoUpdate = false;
-      mesh.matrix.fromArray(o.matrix);
+      if (!o.clones) mesh.matrix.fromArray(o.matrix);
       mesh.userData.node = o.node;
       scene.add(mesh);
     }
@@ -120,16 +126,21 @@ export class ScenePass {
     const geo = o && this.geometry(o);
     if (!o || !geo) return undefined;
     if (!geo.boundingBox) geo.computeBoundingBox();
-    const bb = geo.boundingBox!, m = new THREE.Matrix4().fromArray(o.matrix), cam = camera(data);
+    const bb = geo.boundingBox!, cam = camera(data);
     cam.updateMatrixWorld(true);
     let u0 = Infinity, v0 = Infinity, u1 = -Infinity, v1 = -Infinity;
-    for (const x of [bb.min.x, bb.max.x])
-      for (const y of [bb.min.y, bb.max.y])
-        for (const z of [bb.min.z, bb.max.z]) {
-          const p = new THREE.Vector3(x, y, z).applyMatrix4(m).project(cam);
-          const u = (p.x + 1) / 2, v = (1 - p.y) / 2;
-          u0 = Math.min(u0, u), v0 = Math.min(v0, v), u1 = Math.max(u1, u), v1 = Math.max(v1, v);
-        }
+    for (const mat of o.clones ? o.clones.map((c) => c.matrix) : [o.matrix]) {
+      const m = new THREE.Matrix4().fromArray(mat);
+      for (const x of [bb.min.x, bb.max.x])
+        for (const y of [bb.min.y, bb.max.y])
+          for (const z of [bb.min.z, bb.max.z]) {
+            const p = new THREE.Vector3(x, y, z).applyMatrix4(m).project(cam);
+            const u = (p.x + 1) / 2, v = (1 - p.y) / 2;
+            u0 = Math.min(u0, u), v0 = Math.min(v0, v), u1 = Math.max(u1, u), v1 = Math.max(v1, v);
+          }
+    }
+    // clones running off screen: keep the box on the layer
+    u0 = Math.max(0, u0), v0 = Math.max(0, v0), u1 = Math.min(1, u1), v1 = Math.min(1, v1);
     return [u0, v0, u1, v1];
   }
 
@@ -142,11 +153,13 @@ export class ScenePass {
       const geo = this.geometry(o);
       if (!geo || o.opacity <= 0.01) continue;
       if (!geo.boundingSphere) geo.computeBoundingSphere();
-      const m = new THREE.Matrix4().fromArray(o.matrix);
-      const c = geo.boundingSphere!.center.clone().applyMatrix4(m).applyMatrix4(cam.matrixWorldInverse);
-      const r = geo.boundingSphere!.radius * m.getMaxScaleOnAxis();
-      near = Math.min(near, -c.z - r);
-      far = Math.max(far, -c.z + r);
+      for (const mat of o.clones ? o.clones.map((c) => c.matrix) : [o.matrix]) {
+        const m = new THREE.Matrix4().fromArray(mat);
+        const c = geo.boundingSphere!.center.clone().applyMatrix4(m).applyMatrix4(cam.matrixWorldInverse);
+        const r = geo.boundingSphere!.radius * m.getMaxScaleOnAxis();
+        near = Math.min(near, -c.z - r);
+        far = Math.max(far, -c.z + r);
+      }
     }
     return near === Infinity ? undefined : [Math.max(1, near), far];
   }
@@ -317,6 +330,25 @@ export function textShapes(fonts: OutlineFonts, o: Text3D): THREE.Shape[] {
         shapes.push(...sp.toShapes());
       }
     return shapes;
+}
+
+/**
+ * An object drawn as its clones: one instanced mesh. With `tint`, clone colours replace the
+ * material's colour (the material goes white and each instance carries its colour).
+ */
+function instanced(geo: THREE.BufferGeometry, mat: THREE.Material, clones: NonNullable<Object3D["clones"]>, tint: boolean): THREE.InstancedMesh {
+  const mesh = new THREE.InstancedMesh(geo, mat, clones.length);
+  const m = new THREE.Matrix4();
+  clones.forEach((c, i) => mesh.setMatrixAt(i, m.fromArray(c.matrix)));
+  if (tint && clones.some((c) => c.color) && "color" in mat) {
+    const base = (mat as THREE.MeshPhysicalMaterial).color.clone();
+    (mat as THREE.MeshPhysicalMaterial).color.set(0xffffff);
+    const col = new THREE.Color();
+    clones.forEach((c, i) => mesh.setColorAt(i, c.color ? col.set(c.color.slice(0, 7)) : base));
+  }
+  mesh.instanceMatrix.needsUpdate = true;
+  mesh.computeBoundingSphere();
+  return mesh;
 }
 
 /** The scene's camera as three.js sees it (AE lens maths and roll already in the data). */

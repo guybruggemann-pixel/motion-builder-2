@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { evaluateFrame, lowerThird } from "@core/scene";
 import { createDocStore } from "@/store/docStore";
-import { addNode, connect, deleteNodes, disconnect, moveNodes, wireToOutput } from "@/network/edits";
+import { addNode, connect, deleteNodes, disconnect, insertAfter, moveNodes, wireToOutput } from "@/network/edits";
 import { approxMeasure, title3d, validateDoc } from "@core/scene";
 
 const NET = "lower-third";
@@ -116,5 +116,23 @@ describe("material inputs in the network", () => {
   it("refuses a non-material in a material input", () => {
     const s = createDocStore(title3d);
     expect(s.getState().edit("Wire", (d) => connect(d, "title-3d", "camera", "word", "material"))).toBe(false);
+  });
+});
+
+describe("chaining cloners and effectors", () => {
+  it("puts a Cloner right after an object and keeps the chain going to the output", () => {
+    const s = createDocStore(title3d);
+    let id = "";
+    expect(
+      s.getState().edit("Add Cloner", (d) => {
+        id = addNode(d, "title-3d", "Cloner", { x: 0, y: 0 });
+        insertAfter(d, "title-3d", "word", id);
+      }),
+    ).toBe(true);
+    const w = s.getState().doc.networks[1]!.wires.map((x) => `${x.from.node}>${x.to.node}.${x.to.port}`);
+    expect(w).toEqual(expect.arrayContaining([`word>${id}.in`, `${id}>merge.in`, "plaster>word.material"]));
+    expect(w).not.toContain("word>merge.in");
+    const scene = evaluateFrame(s.getState().doc, "main", 1, { measure: approxMeasure }).find((x) => x.kind === "scene3d");
+    expect(scene?.kind === "scene3d" && scene.scene.objects[0]!.clones).toHaveLength(9); // the default 3 × 3 grid
   });
 });

@@ -78,11 +78,11 @@ describe("effectors", () => {
 describe("the UNIQUE grid", () => {
   const scene = (t: number, d: SceneDoc = uniqueGrid) => (evaluateFrame(d, "main", t, { measure: approxMeasure }).find((x) => x.kind === "scene3d") as Scene3DDrawable).scene;
 
-  it("validates, and draws the word as 44 coloured clones", () => {
+  it("validates, and draws the word as 75 coloured clones", () => {
     const r = validateDoc(uniqueGrid);
     expect(r.ok, r.ok ? "" : r.errors.join("\n")).toBe(true);
     const o = scene(1).objects[0]!;
-    expect(o.clones).toHaveLength(44);
+    expect(o.clones).toHaveLength(75);
     const colours = new Set(o.clones!.map((c) => c.color));
     expect(colours.size).toBeGreaterThan(3);
     expect([...colours].every((c) => /^#[0-9A-F]{6}$/i.test(c ?? ""))).toBe(true);

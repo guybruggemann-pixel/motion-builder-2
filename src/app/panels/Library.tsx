@@ -6,7 +6,7 @@
  */
 import { useState } from "react";
 import { Search } from "lucide-react";
-import { lowerThird, lowerThirdFit, MATERIAL_PRESETS, sceneOwner, title3d, type SceneDoc } from "@core/scene";
+import { lowerThird, lowerThirdFit, MATERIAL_PRESETS, sceneOwner, title3d, uniqueGrid, type SceneDoc } from "@core/scene";
 import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from "@/design-system/motionbuilder---brandbook-c4b4eb";
 import { docStore, shownNetwork, useDocStore, useUi } from "@/store";
 import { cssColor, Sphere } from "@/shell/look";
@@ -109,9 +109,9 @@ function Presets() {
   return (
     <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
       <h3 className="px-1 pb-1 pt-1 text-[13px] font-semibold">
-        Examples <span className="font-normal text-faint">(3)</span>
+        Examples <span className="font-normal text-faint">(4)</span>
       </h3>
-      {([["Lower third", lowerThird], ["Lower third, fits any name", lowerThirdFit], ["3D title", title3d]] as [string, SceneDoc][]).map(([label, ex]) => (
+      {([["Lower third", lowerThird], ["Lower third, fits any name", lowerThirdFit], ["3D title", title3d], ["Cloner grid", uniqueGrid]] as [string, SceneDoc][]).map(([label, ex]) => (
         <div key={label}>
           <button
             type="button"
@@ -121,7 +121,7 @@ function Presets() {
             className={row}
           >
             {label}
-            <span className="block text-[11px] text-muted-foreground">Test content · 16:9</span>
+            <span className="block text-[11px] text-muted-foreground">Test content · {ex.networks[0]!.comp ? `${ex.networks[0]!.comp.width}×${ex.networks[0]!.comp.height}` : ""}</span>
           </button>
           {asking === label && (
             // in-app confirm: the browser's confirm() is blocked in some embedded views

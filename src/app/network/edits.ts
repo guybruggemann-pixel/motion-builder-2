@@ -40,7 +40,7 @@ export function addNode(d: Draft<SceneDoc>, netId: string, type: NodeType, at: {
     type,
     name: sameType ? `${label} ${sameType + 1}` : label,
     enabled: true,
-    params: type === "Text" || type === "Shape" || type === "Text3D" || type === "Shape3D" || type === "Material" ? defaultParams(type) : {},
+    params: ["Text", "Shape", "Text3D", "Shape3D", "Material", "Cloner"].includes(type) ? defaultParams(type as NodeType) : {},
     ui: { x: Math.round(at.x), y: Math.round(at.y) },
   } as Draft<SceneDoc>["networks"][number]["nodes"][number];
   if (type === "Scene3D") {
@@ -104,6 +104,19 @@ export function wireToOutput(d: Draft<SceneDoc>, netId: string, nodeId: string) 
   wire(into.from.node, mid);
   wire(nodeId, mid);
   wire(mid, out.id);
+}
+
+/**
+ * Put `nodeId` right after `after` in its chain (a Cloner after an object, an effector after a
+ * Cloner): whatever `after` fed now comes from the new node. If `after` fed nothing, the new node
+ * is wired into what the network draws.
+ */
+export function insertAfter(d: Draft<SceneDoc>, netId: string, after: string, nodeId: string) {
+  const net = netOf(d, netId);
+  const outs = net.wires.filter((w) => w.from.node === after && w.to.port === "in");
+  if (outs.length) for (const w of outs) w.from.node = nodeId;
+  net.wires.push({ from: { node: after, port: "out" }, to: { node: nodeId, port: "in" } });
+  if (!outs.length) wireToOutput(d, netId, nodeId);
 }
 
 /**
