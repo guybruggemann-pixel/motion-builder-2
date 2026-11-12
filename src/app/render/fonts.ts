@@ -26,6 +26,9 @@ const FAMILIES: Record<string, [string, string][]> = {
 };
 
 export const knownFamilies = () => Object.keys(FAMILIES);
+
+/** The bundled WOFF2 files of a family, in subset order (latin first). For glyph outlines (3D text). */
+export const fontFiles = (family: string): string[] => (FAMILIES[family] ?? []).map(([url]) => url);
 export const missingFonts = (families: Iterable<string>) => [...new Set(families)].filter((f) => !(f in FAMILIES));
 
 let ready: Promise<void> | undefined;
