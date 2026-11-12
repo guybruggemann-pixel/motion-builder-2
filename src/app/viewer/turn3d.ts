@@ -18,7 +18,7 @@ export interface TurnTarget {
   t: number;
 }
 
-const turnable = (n: Node) => n.type === "Text3D" || n.type === "Shape3D";
+const turnable = (n: Node) => n.type === "Text3D" || n.type === "Shape3D" || n.type === "Cloner";
 
 /** What a drag on `node` (selected in the shown network `net`, at local time `t`) turns, if anything. */
 export function turnTarget(doc: SceneDoc, net: Network, node: Node, t: number): TurnTarget | undefined {

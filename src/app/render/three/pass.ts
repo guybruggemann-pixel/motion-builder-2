@@ -122,7 +122,7 @@ export class ScenePass {
 
   /** An object's on-screen box in the layer, as [u0, v0, u1, v1] (0..1 from the top-left), or undefined. */
   box(data: Scene3D, node: string): [number, number, number, number] | undefined {
-    const o = data.objects.find((x) => x.node === node);
+    const o = data.objects.find((x) => x.node === node || x.cloner?.node === node);
     const geo = o && this.geometry(o);
     if (!o || !geo) return undefined;
     if (!geo.boundingBox) geo.computeBoundingBox();
@@ -169,11 +169,11 @@ export class ScenePass {
    * (0..1 from the top-left). Each axis endpoint is `unit` world px from the origin. For the gizmo.
    */
   axes(data: Scene3D, node: string, unit = 100): { origin: [number, number]; ends: [[number, number], [number, number], [number, number]]; unit: number } | undefined {
-    const o = data.objects.find((x) => x.node === node);
+    const o = data.objects.find((x) => x.node === node || x.cloner?.node === node);
     if (!o) return undefined;
     const cam = camera(data);
     cam.updateMatrixWorld(true);
-    const p0 = new THREE.Vector3(0, 0, 0).applyMatrix4(new THREE.Matrix4().fromArray(o.matrix));
+    const p0 = new THREE.Vector3(0, 0, 0).applyMatrix4(new THREE.Matrix4().fromArray(o.cloner?.node === node ? o.cloner.matrix : o.matrix));
     const uv = (p: THREE.Vector3): [number, number] => {
       const q = p.clone().project(cam);
       return [(q.x + 1) / 2, (1 - q.y) / 2];
@@ -194,11 +194,11 @@ export class ScenePass {
 
   /** The world move that shifts an object by (du, dv) of the layer, parallel to the screen at its depth. */
   planeDelta(data: Scene3D, node: string, du: number, dv: number): [number, number, number] {
-    const o = data.objects.find((x) => x.node === node);
+    const o = data.objects.find((x) => x.node === node || x.cloner?.node === node);
     if (!o) return [0, 0, 0];
     const cam = camera(data);
     cam.updateMatrixWorld(true);
-    const p0 = new THREE.Vector3(0, 0, 0).applyMatrix4(new THREE.Matrix4().fromArray(o.matrix));
+    const p0 = new THREE.Vector3(0, 0, 0).applyMatrix4(new THREE.Matrix4().fromArray(o.cloner?.node === node ? o.cloner.matrix : o.matrix));
     const q = p0.clone().project(cam);
     const moved = new THREE.Vector3(q.x + du * 2, q.y - dv * 2, q.z).unproject(cam);
     const d = moved.sub(p0);

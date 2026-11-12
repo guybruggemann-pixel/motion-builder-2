@@ -47,6 +47,10 @@ export function useShortcuts() {
       } else if (e.key === "ArrowRight") {
         e.preventDefault();
         go(ui.frame + (e.shiftKey ? 10 : 1));
+      } else if (e.key === "Escape") {
+        // deselect: the inspector falls back to the comp's settings
+        ui.selectNodes([]);
+        ui.selectKeys([]);
       } else if (e.key === "Home") go(0);
       else if (e.key === "End") go(last);
       else if (!mod && (e.key === "j" || e.key === "k")) jumpToKey(e.key === "j" ? -1 : 1);

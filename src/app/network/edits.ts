@@ -99,7 +99,7 @@ export function wireToOutput(d: Draft<SceneDoc>, netId: string, nodeId: string) 
   if (feeder?.type === "Merge") return void wire(nodeId, feeder.id);
   // Output takes one input: put a Merge in front, with the old input below the new layer
   const mid = freeId((x) => net.nodes.some((n) => n.id === x), "merge");
-  net.nodes.push({ id: mid, type: "Merge", name: "Merge", enabled: true, params: {}, ui: { x: out.ui.x - 200, y: out.ui.y } } as Draft<SceneDoc>["networks"][number]["nodes"][number]);
+  net.nodes.push({ id: mid, type: "Merge", name: "Merge", enabled: true, params: {}, ui: { x: out.ui.x - 240, y: out.ui.y + 160 } } as Draft<SceneDoc>["networks"][number]["nodes"][number]);
   net.wires = net.wires.filter((w) => w !== into);
   wire(into.from.node, mid);
   wire(nodeId, mid);

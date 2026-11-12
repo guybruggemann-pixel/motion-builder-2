@@ -17,6 +17,7 @@ import { Rail } from "@/shell/Rail";
 import { TopBar } from "@/shell/TopBar";
 import { Splitter } from "@/shell/Splitter";
 import { AddMenu } from "@/panels/AddMenu";
+import { ScrubBar } from "@/timeline/ScrubBar";
 import type { BottomTab } from "@/store/uiStore";
 import { useEffect, useState } from "react";
 
@@ -120,11 +121,17 @@ export function App() {
           <TabsContent value="timeline" className="min-h-0 flex-1">
             <Timeline />
           </TabsContent>
-          <TabsContent value="graph" className="min-h-0 flex-1">
-            <GraphEditor />
+          <TabsContent value="graph" className="flex min-h-0 flex-1 flex-col">
+            <ScrubBar />
+            <div className="min-h-0 flex-1">
+              <GraphEditor />
+            </div>
           </TabsContent>
-          <TabsContent value="network" className="min-h-0 flex-1">
-            <NetworkView />
+          <TabsContent value="network" className="flex min-h-0 flex-1 flex-col">
+            <ScrubBar />
+            <div className="min-h-0 flex-1">
+              <NetworkView />
+            </div>
           </TabsContent>
         </Tabs>
       </section>

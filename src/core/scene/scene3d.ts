@@ -42,6 +42,8 @@ interface Object3DBase {
    * object at `matrix`. A clone's colour replaces the material's colour.
    */
   clones?: { matrix: Mat4; color?: string; opacity: number }[];
+  /** The Cloner that made the clones, and its matrix (so it can be picked and moved as a whole). */
+  cloner?: { node: string; matrix: Mat4 };
 }
 
 export interface Text3D extends Object3DBase {

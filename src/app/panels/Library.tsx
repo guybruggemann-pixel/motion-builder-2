@@ -11,6 +11,7 @@ import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from "@/design-syste
 import { docStore, shownNetwork, useDocStore, useUi } from "@/store";
 import { cssColor, Sphere } from "@/shell/look";
 import { applyItem, libraryTarget, SOLID_MIME, type LibraryItem } from "./materials";
+import { insertPreset } from "./insertPreset";
 
 function Tile({ label, item, sphere, onApply }: { label: string; item: LibraryItem; sphere: React.ReactNode; onApply: () => void }) {
   return (
@@ -104,34 +105,46 @@ function Presets() {
     setAsking(undefined);
     if (docStore.getState().load(ex)) useUi.getState().setPath([], 0);
   };
+  const path = useUi((s) => s.path);
+  const shown = shownNetwork(doc, path);
+  const add = (ex: SceneDoc, label: string) => {
+    let id = "";
+    if (docStore.getState().edit(`Add ${label}`, (d) => void (id = insertPreset(d, shown.id, ex)))) useUi.getState().selectNodes([id]);
+  };
   const assets = doc.brand?.assets ?? [];
   const row = "w-full rounded-md px-2.5 py-2 text-left hover:bg-field";
   return (
     <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
       <h3 className="px-1 pb-1 pt-1 text-[13px] font-semibold">
-        Examples <span className="font-normal text-faint">(4)</span>
+        Presets <span className="font-normal text-faint">(4)</span>
       </h3>
       {([["Lower third", lowerThird], ["Lower third, fits any name", lowerThirdFit], ["3D title", title3d], ["Cloner grid", uniqueGrid]] as [string, SceneDoc][]).map(([label, ex]) => (
-        <div key={label}>
+        <div key={label} className="group relative">
           <button
             type="button"
-            title="Open this example (replaces the current doc)"
-            aria-expanded={asking === label}
-            onClick={() => (edits ? setAsking(asking === label ? undefined : label) : open(ex))}
+            title={`Add ${label} to ${shown.name} as a precomp`}
+            onClick={() => add(ex, label)}
             className={row}
           >
             {label}
-            <span className="block text-[11px] text-muted-foreground">Test content · {ex.networks[0]!.comp ? `${ex.networks[0]!.comp.width}×${ex.networks[0]!.comp.height}` : ""}</span>
+            <span className="block text-[11px] text-muted-foreground">Adds to {shown.name} · {ex.networks[0]!.comp ? `${ex.networks[0]!.comp.width}×${ex.networks[0]!.comp.height}` : ""}</span>
+          </button>
+          <button
+            type="button"
+            title="Open this preset on its own, as a new document"
+            aria-expanded={asking === label}
+            onClick={() => (edits ? setAsking(asking === label ? undefined : label) : open(ex))}
+            className="absolute right-1.5 top-2 rounded-full px-2 py-0.5 text-[11px] text-muted-foreground opacity-0 hover:bg-field hover:text-foreground focus:opacity-100 group-hover:opacity-100"
+          >
+            Open alone
           </button>
           {asking === label && (
             // in-app confirm: the browser's confirm() is blocked in some embedded views
-            <div role="alertdialog" aria-label={`Open ${label}?`} className="mx-1 mb-2 rounded-md bg-field p-2.5 text-xs">
-              <p className="mb-2">
-                Replace the current doc? Your {edits} {edits === 1 ? "edit" : "edits"} can't be undone after.
-              </p>
+            <div role="alertdialog" aria-label={`Open ${label} on its own?`} className="mx-1 mb-2 rounded-md bg-field p-2.5 text-xs">
+              <p className="mb-2">Open {label} as its own document? Your current comp and its {edits} {edits === 1 ? "edit" : "edits"} are closed (there's no save yet).</p>
               <div className="flex gap-1.5">
                 <Button size="sm" onClick={() => open(ex)}>
-                  Open {label}
+                  Open alone
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => setAsking(undefined)}>
                   Cancel

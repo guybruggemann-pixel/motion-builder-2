@@ -128,7 +128,11 @@ export function Viewer() {
       if (d.kind === "scene3d") {
         const obj = pick3D(d.scene, lx / d.size[0], ly / d.size[1]);
         if (!obj) continue;
-        if (net.id === d.subnet) return net.nodes.find((n) => n.id === obj);
+        if (net.id === d.subnet) {
+          // a cloned object is picked as its Cloner: the copies move as one (Shift+click for the object)
+          const cl = net.wires.find((w) => w.from.node === obj && w.to.port === "in" && net.nodes.find((n) => n.id === w.to.node && n.type === "Cloner" && n.enabled));
+          return net.nodes.find((n) => n.id === (cl ? cl.to.node : obj));
+        }
       }
       const n = net.nodes.find((x) => x.id === ownerIn(net.id, d));
       if (n) return n;
@@ -168,7 +172,7 @@ export function Viewer() {
   const selected = useUi((s) => s.selectedNodes[0]);
   const tool = useUi((s) => s.tool);
   const selNode = net.nodes.find((n) => n.id === selected);
-  const handles = layout && selNode && cache ? handlesFor(doc, net, selNode, frame / comp.fps, drawables, layout.view, layout.k) : undefined;
+  const handles = layout && selNode && cache ? handlesFor(doc, net, selNode, frame / comp.fps, drawables, layout.view, layout.k, tool) : undefined;
   void tool; // re-render the handles when the tool changes
 
   /**
@@ -192,7 +196,7 @@ export function Viewer() {
       if (!target) return;
       const start = rotationAt(doc0, target);
       apply = (dx, dy, ev) => docStore.getState().edit(`Turn ${target.name}`, (d) => setValue(d, target.net, target.node, "rotation", turned(start, dx, dy, ev.shiftKey), target.t, tol), { coalesce: key });
-    } else if (target && sd) {
+    } else if (target && sd && n.type !== "Scene3D") {
       const start = vecAt(doc0, target.net, target.node, "position", target.t, 3);
       const [w, h] = [sd.size[0] * layout.k * Math.hypot(sd.matrix[0], sd.matrix[1]), sd.size[1] * layout.k * Math.hypot(sd.matrix[2], sd.matrix[3])];
       const scene0 = sd.scene;
@@ -200,7 +204,8 @@ export function Viewer() {
         const delta = planeDelta3D(scene0, target.node, dx / w, dy / h);
         if (delta) docStore.getState().edit(`Move ${target.name}`, (d) => setValue(d, target.net, target.node, "position", plus(start, delta) as never, target.t, tol), { coalesce: key });
       };
-    } else if (!target && n.params && n.type !== "Scene3D") {
+    } else if ((!target || n.type === "Scene3D") && n.params) {
+      // a 2D layer, or a whole 3D scene layer: moves in the comp
       const start = vecAt(doc0, net.id, n.id, "position", t, 2);
       apply = (dx, dy) => docStore.getState().edit(`Move ${n.name}`, (d) => setValue(d, net.id, n.id, "position", plus(start, [dx / layout.k, dy / layout.k]) as never, t, tol), { coalesce: key });
     } else return;

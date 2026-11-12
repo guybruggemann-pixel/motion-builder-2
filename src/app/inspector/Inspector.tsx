@@ -6,7 +6,7 @@
  * previous/next key, the ease of the key under the playhead and its modifiers.
  */
 import { useState } from "react";
-import { ChevronDown, ChevronLeft, ChevronRight, RotateCcw, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, RotateCcw, Settings2, X } from "lucide-react";
 import {
   CATALOG,
   MATERIAL_KINDS,
@@ -14,6 +14,7 @@ import {
   phaseRanges,
   isNodeType,
   promotedSpecs,
+  sceneOwner,
   Role as RoleSchema,
   type Modifier,
   type Network,
@@ -587,6 +588,15 @@ function NodePanel({ doc, net, node }: { doc: SceneDoc; net: Network; node: Node
             {!node.enabled && " · off"}
           </span>
         </div>
+        <button
+          type="button"
+          title="Comp settings (Esc)"
+          aria-label="Comp settings"
+          onClick={() => useUi.getState().selectNodes([])}
+          className="mt-1.5 grid size-8 place-items-center rounded-full text-muted-foreground hover:bg-field hover:text-foreground"
+        >
+          <Settings2 className="size-4" />
+        </button>
         <Switch
           className="mt-2"
           aria-label={`${node.name} enabled`}
@@ -812,6 +822,19 @@ export function Inspector() {
   const net = shownNetwork(doc, path);
   const node = net.nodes.find((n) => n.id === selected[0]);
   if (node) return <NodePanel key={node.id} doc={doc} net={net} node={node} />;
-  if (net.comp) return <CompPanel doc={doc} net={net} />;
-  return <p className="grid h-full place-items-center px-6 text-center text-xs text-muted-foreground">Select a layer in the viewer or the timeline</p>;
+  if (net.comp && path.length === 0) return <CompPanel doc={doc} net={net} />;
+  // inside a precomp or 3D scene: say where you are, and how to get to the comp
+  const root = doc.networks.find((n) => n.id === doc.root)!;
+  return (
+    <div className="flex flex-col gap-3 p-3.5">
+      <div className="flex flex-col gap-0.5 px-0.5">
+        <h2 className="font-display text-[22px] font-semibold tracking-[-0.02em]">{net.name}</h2>
+        <p className="text-xs text-muted-foreground">{sceneOwner(doc, net.id) ? "3D scene" : "Precomp"} inside {root.name} · select something to edit it</p>
+      </div>
+      {net.comp && <CompPanel doc={doc} net={net} />}
+      <Button variant="secondary" onClick={() => (useUi.getState().setPath([]), useUi.getState().selectNodes([]))}>
+        <Settings2 /> {root.name} settings
+      </Button>
+    </div>
+  );
 }

@@ -705,6 +705,7 @@ function attachClones(ctx: Ctx, nodes: Node[], objects: Object3D[]) {
       clones = applyEffector(clones, effectorSpec(ctx, next), field ? (c) => fieldWeight(field, clonePoint(clonerM, c)) : () => 1);
     }
     const opacity = clamp01(num(v("opacity"), 100) / 100);
+    obj.cloner = { node: cl.id, matrix: clonerM };
     obj.clones = clones.map((c) => ({ matrix: cloneMatrix(clonerM, c, obj.matrix), ...(c.color ? { color: c.color } : {}), opacity: c.opacity * opacity * obj.opacity }));
   }
 }

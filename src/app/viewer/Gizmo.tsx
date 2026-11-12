@@ -32,8 +32,9 @@ export function sceneDrawableFor(drawables: readonly Drawable[], net: Network, n
 }
 
 /** Where the selected node's handles go on screen, or undefined if it has none. */
-export function handlesFor(doc: Parameters<typeof turnTarget>[0], net: Network, node: Node, t: number, drawables: readonly Drawable[], view: Mat, k: number): Handles | undefined {
-  const t3 = turnTarget(doc, net, node, t);
+export function handlesFor(doc: Parameters<typeof turnTarget>[0], net: Network, node: Node, t: number, drawables: readonly Drawable[], view: Mat, k: number, tool: "move" | "turn" = "move"): Handles | undefined {
+  // a whole 3D scene layer moves in the comp (2D handles); it turns its object in 3D
+  const t3 = node.type === "Scene3D" && tool === "move" ? undefined : turnTarget(doc, net, node, t);
   if (t3) {
     const sd = sceneDrawableFor(drawables, net, node);
     const ax = sd && axes3D(sd.scene, t3.node);

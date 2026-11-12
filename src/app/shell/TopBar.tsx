@@ -3,13 +3,13 @@
  * stepper, Animate / Edit mode and the Deliver pill. Deliver and Batch open their popovers.
  */
 import { useState } from "react";
-import { Redo2, Rows3, Undo2 } from "lucide-react";
+import { Redo2, Rows3, Settings2, Undo2 } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { Button, PhaseStepper } from "@/design-system/motionbuilder---brandbook-c4b4eb";
 import { cn } from "@/design-system/motionbuilder---brandbook-c4b4eb/lib/utils";
 import { BatchPanel } from "@/batch/BatchPanel";
 import { RenderPanel } from "@/render/RenderPanel";
-import { useDocStore } from "@/store";
+import { useDocStore, useUi } from "@/store";
 
 const STEPS = ["Import", "Draft", "Refine", "Deliver"];
 
@@ -52,10 +52,19 @@ export function TopBar() {
         <span aria-hidden className="text-line2">
           /
         </span>
-        <span className="flex items-center gap-1.5 font-semibold">
+        <button
+          type="button"
+          title="Comp settings (Esc)"
+          onClick={() => {
+            useUi.getState().setPath([]);
+            useUi.getState().selectNodes([]);
+          }}
+          className="flex items-center gap-1.5 rounded-full px-2 py-1 font-semibold hover:bg-card"
+        >
           {name}
           {version && <span className="rounded-full bg-card px-[7px] py-0.5 font-mono text-[11px] font-medium text-muted-foreground">{version}</span>}
-        </span>
+          <Settings2 aria-hidden className="size-3.5 text-muted-foreground" />
+        </button>
         <span role="status" className="flex h-7 items-center gap-1.5 whitespace-nowrap rounded-full bg-card px-2.5 text-xs text-muted-foreground">
           <span aria-hidden className={cn("size-[7px] rounded-full", edits ? "bg-faint" : "bg-ok-dot")} />
           {edits ? `${edits} ${edits === 1 ? "edit" : "edits"} · not saved` : "No changes"}
