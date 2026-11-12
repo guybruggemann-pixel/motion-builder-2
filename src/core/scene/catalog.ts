@@ -9,7 +9,9 @@ export type Category =
   | "layer" //      draws something; shows on the timeline (text, shape, image, group, subnet)
   | "split" //      turns one part into many (characters, words, lines, clones)
   | "animate" //    changes parts over time (phase, state)
-  | "field" //      spatial influence (linear, spherical) — phase 6
+  | "field" //      spatial influence (linear, spherical) — roadmap 3D-b
+  | "3d" //         lives in a 3D scene: objects, camera, lights (on the timeline, like layers)
+  | "material" //   surface looks, wired into an object's or layer's `material` input
   | "utility"; //   output, null, merge
 
 export type ParamKind = "number" | "vec2" | "vec3" | "color" | "text" | "choice" | "toggle" | "ease" | "font";
@@ -27,7 +29,9 @@ export interface ParamSpec {
 export interface NodeSpec {
   category: Category;
   label: string;
-  inputs: number; // max incoming wires; Infinity for merges
+  inputs: number; // max incoming wires on the main input; Infinity for merges
+  /** Named inputs besides the main one, e.g. `material`. Each takes one wire. */
+  ports?: readonly string[];
   params: Record<string, ParamSpec>;
 }
 
@@ -39,6 +43,21 @@ const transform: Record<string, ParamSpec> = {
   opacity: { kind: "number", default: 100, min: 0, max: 100, animatable: true },
   blur: { kind: "number", default: 0, min: 0, animatable: true },
 };
+
+/**
+ * 3D transform (inside a 3D scene). World units are px, y up, origin at the scene's centre,
+ * +z towards the default camera. Rotation is degrees, X then Y then Z (three.js 'XYZ').
+ */
+const transform3d: Record<string, ParamSpec> = {
+  position: { kind: "vec3", default: [0, 0, 0], animatable: true },
+  rotation: { kind: "vec3", default: [0, 0, 0], animatable: true },
+  scale: { kind: "vec3", default: [100, 100, 100], animatable: true },
+  anchor: { kind: "vec3", default: [0, 0, 0], animatable: true },
+  opacity: { kind: "number", default: 100, min: 0, max: 100, animatable: true },
+};
+
+/** Material kinds. `solid` is an unlit flat colour; the others are lit physical materials. */
+export const MATERIAL_KINDS = ["solid", "plastic", "plaster", "glass", "metal", "iridescent", "emissive"] as const;
 
 export const CATALOG = {
   Text: {
@@ -95,6 +114,114 @@ export const CATALOG = {
     label: "Subnet",
     inputs: Infinity,
     params: { ...transform },
+  },
+  /**
+   * A 3D scene drawn into the comp as one layer, from [0, 0] to `size`. Its contents live in the
+   * network it opens into (3D objects, camera, lights, materials). Without a camera, the default
+   * one shows the z = 0 plane 1:1, like After Effects.
+   */
+  Scene3D: {
+    category: "layer",
+    label: "3D scene",
+    inputs: 0,
+    params: {
+      size: { kind: "vec2", default: [1920, 1080] },
+      environment: { kind: "choice", default: "studio-soft", options: ["studio-soft", "studio-hard", "overcast", "none"] },
+      environmentIntensity: { kind: "number", default: 1, min: 0, max: 4, animatable: true },
+      shadows: { kind: "toggle", default: true },
+      /** Ambient occlusion strength, 0..1: soft contact shadows where surfaces meet. */
+      ambientOcclusion: { kind: "number", default: 0.5, min: 0, max: 1, animatable: true },
+      ...transform,
+    },
+  },
+  /** Extruded type from the font's outlines, centred on its origin. */
+  Text3D: {
+    category: "3d",
+    label: "Text 3D",
+    inputs: 0,
+    ports: ["material"],
+    params: {
+      text: { kind: "text", default: "Text", animatable: true },
+      font: { kind: "font", default: "Inter" },
+      weight: { kind: "number", default: 700, min: 100, max: 900 },
+      size: { kind: "number", default: 200, min: 1, animatable: true },
+      tracking: { kind: "number", default: 0, animatable: true },
+      leading: { kind: "number", default: 1.1, min: 0.5, max: 3 },
+      align: { kind: "choice", default: "center", options: ["left", "center", "right"] },
+      /** Extrusion depth in px. */
+      depth: { kind: "number", default: 40, min: 0, animatable: true },
+      /** Rounded edge in px (0 = sharp). */
+      bevel: { kind: "number", default: 2, min: 0, animatable: true },
+      /** Colour when no material is wired in. */
+      fill: { kind: "color", default: "#FFFFFF", animatable: true },
+      ...transform3d,
+    },
+  },
+  /** An extruded rectangle, ellipse or SVG path, centred on its origin. */
+  Shape3D: {
+    category: "3d",
+    label: "Shape 3D",
+    inputs: 0,
+    ports: ["material"],
+    params: {
+      shape: { kind: "choice", default: "rect", options: ["rect", "ellipse", "path"] },
+      size: { kind: "vec2", default: [400, 400], animatable: true },
+      radius: { kind: "number", default: 0, min: 0, animatable: true },
+      path: { kind: "text", default: "" },
+      depth: { kind: "number", default: 40, min: 0, animatable: true },
+      bevel: { kind: "number", default: 2, min: 0, animatable: true },
+      fill: { kind: "color", default: "#FFFFFF", animatable: true },
+      ...transform3d,
+    },
+  },
+  /** Looks from `position` at `target`. Lens in mm on a 36 mm wide film back (AE's default). */
+  Camera: {
+    category: "3d",
+    label: "Camera",
+    inputs: 0,
+    params: {
+      position: { kind: "vec3", default: [0, 0, 2666.67], animatable: true },
+      target: { kind: "vec3", default: [0, 0, 0], animatable: true },
+      lens: { kind: "number", default: 50, min: 5, max: 400, animatable: true },
+      roll: { kind: "number", default: 0, animatable: true },
+    },
+  },
+  Light: {
+    category: "3d",
+    label: "Light",
+    inputs: 0,
+    params: {
+      kind: { kind: "choice", default: "directional", options: ["directional", "point", "spot"] },
+      color: { kind: "color", default: "#FFFFFF", animatable: true },
+      intensity: { kind: "number", default: 2, min: 0, max: 20, animatable: true },
+      position: { kind: "vec3", default: [-900, 1200, 1600], animatable: true },
+      target: { kind: "vec3", default: [0, 0, 0], animatable: true },
+      castShadow: { kind: "toggle", default: true },
+      /** Shadow edge, 0 = hard, 1 = very soft. */
+      softness: { kind: "number", default: 0.5, min: 0, max: 1, animatable: true },
+      /** Spot cone in degrees. */
+      angle: { kind: "number", default: 40, min: 1, max: 89, animatable: true },
+    },
+  },
+  /** A physical material (three.js MeshPhysicalMaterial). Wire it into an object's `material` input. */
+  Material: {
+    category: "material",
+    label: "Material",
+    inputs: 0,
+    params: {
+      kind: { kind: "choice", default: "plastic", options: MATERIAL_KINDS },
+      color: { kind: "color", default: "#FFFFFF", animatable: true },
+      roughness: { kind: "number", default: 0.45, min: 0, max: 1, animatable: true },
+      metalness: { kind: "number", default: 0, min: 0, max: 1, animatable: true },
+      transmission: { kind: "number", default: 0, min: 0, max: 1, animatable: true },
+      ior: { kind: "number", default: 1.5, min: 1, max: 2.333, animatable: true },
+      thickness: { kind: "number", default: 0.5, min: 0, max: 1, animatable: true },
+      clearcoat: { kind: "number", default: 0, min: 0, max: 1, animatable: true },
+      iridescence: { kind: "number", default: 0, min: 0, max: 1, animatable: true },
+      emission: { kind: "number", default: 0, min: 0, max: 4, animatable: true },
+      /** Fine surface noise (bump), 0..1: plaster, paper, matte plastic. */
+      grain: { kind: "number", default: 0, min: 0, max: 1, animatable: true },
+    },
   },
   Split: {
     category: "split",
@@ -156,6 +283,9 @@ export const CATALOG = {
 
 export type NodeType = keyof typeof CATALOG;
 export const isNodeType = (t: string): t is NodeType => Object.prototype.hasOwnProperty.call(CATALOG, t);
+
+/** Named input ports of a node type (besides its main input), e.g. ["material"]. */
+export const portsOf = (type: string): readonly string[] => (isNodeType(type) ? (CATALOG[type] as NodeSpec).ports ?? [] : []);
 
 /** Default params for a fresh node, as parameter stacks without keys. */
 export function defaultParams(type: NodeType): Node["params"] {

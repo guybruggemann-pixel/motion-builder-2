@@ -26,7 +26,7 @@ import { Button, Label, Switch } from "@/design-system/motionbuilder---brandbook
 import { cn } from "@/design-system/motionbuilder---brandbook-c4b4eb/lib/utils";
 import { knownFamilies } from "@/render/fonts";
 import { docStore, shownNetwork, useDocStore, useUi, viewComp } from "@/store";
-import { ChoiceField, ColorField, EaseField, NumberField, TextField, ToggleField, Vec2Field, type Change } from "./controls";
+import { ChoiceField, ColorField, EaseField, NumberField, TextField, ToggleField, Vec2Field, Vec3Field, type Change } from "./controls";
 import {
   addModifier,
   DESIGNER_PARAMS,
@@ -70,6 +70,7 @@ const asNum = (v: Value, d = 0) => (typeof v === "number" ? v : d);
 const fmtValue = (v: Value) =>
   typeof v === "number" ? String(+v.toFixed(2)) : Array.isArray(v) ? v.map((x) => +x.toFixed(2)).join(" · ") : String(v);
 const asVec = (v: Value): [number, number] => (Array.isArray(v) && v.length >= 2 ? [v[0]!, v[1]!] : [0, 0]);
+const asVec3 = (v: Value): [number, number, number] => (Array.isArray(v) && v.length >= 3 ? [v[0]!, v[1]!, (v as number[])[2]!] : [0, 0, 0]);
 const asStr = (v: Value) => (typeof v === "string" ? v : String(v));
 
 /** A grouped section: field background, radius 16, sentence-case heading. */
@@ -109,6 +110,8 @@ function ValueControl({ name, spec, value, label, onChange, brand }: { name: str
       return <NumberField label={label} value={asNum(value)} min={spec.min} max={spec.max} step={STEP[name] ?? 1} unit={UNIT[name]} onChange={onChange} />;
     case "vec2":
       return <Vec2Field label={label} value={asVec(value)} step={STEP[name] ?? 1} unit={UNIT[name]} onChange={onChange} />;
+    case "vec3":
+      return <Vec3Field label={label} value={asVec3(value)} step={STEP[name] ?? 1} unit={UNIT[name]} onChange={onChange} />;
     case "color":
       return <ColorField label={label} value={asStr(value)} brand={brand} onChange={onChange} />;
     case "text":
@@ -255,7 +258,7 @@ function ParamRow({
   const go = (k: { t: number } | undefined) => k && useUi.getState().setFrame(Math.round(k.t * fps));
   const prev = [...keys].reverse().find((k) => k.t < t - tol);
   const next = keys.find((k) => k.t > t + tol);
-  const canModify = animatable && (spec.kind === "number" || spec.kind === "vec2");
+  const canModify = animatable && (spec.kind === "number" || spec.kind === "vec2" || spec.kind === "vec3");
   const mods = p.modifiers ?? [];
 
   return (
@@ -475,7 +478,7 @@ function NodePanel({ doc, net, node }: { doc: SceneDoc; net: Network; node: Node
     return v === undefined ? "–" : `${Array.isArray(v) ? v.map(r2).join(", ") : typeof v === "number" ? r2(v) : String(v)}${unit}`;
   };
   const sc = valueNow(node, "scale", params.find(([n]) => n === "scale")?.[1], t);
-  const scText = Array.isArray(sc) ? (r2(sc[0]!) === r2(sc[1]!) ? `${r2(sc[0]!)}%` : `${r2(sc[0]!)}×${r2(sc[1]!)}%`) : "–";
+  const scText = Array.isArray(sc) ? (sc.every((x) => r2(x) === r2(sc[0]!)) ? `${r2(sc[0]!)}%` : `${sc.map(r2).join("×")}%`) : "–";
   const xfSummary = `${fmt("position")} · ${scText} · ${fmt("rotation", "°")}`;
   const modSummary = modded.length ? modded.map(([n]) => `${(node.params[n]!.modifiers ?? []).map((m) => m.type).join(" + ")} on ${human(n).toLowerCase()}`).join(", ") : "None";
   const inAsset = net.id !== doc.root && !!DESIGNER_PARAMS[node.type];
@@ -538,7 +541,7 @@ function NodePanel({ doc, net, node }: { doc: SceneDoc; net: Network; node: Node
 
       {isLayer && <MotionSection doc={doc} net={net} node={node} span={span} />}
 
-      {isLayer && (hasFill || opacity) && (
+      {(isLayer || spec?.category === "3d") && (hasFill || opacity) && (
         <Section title="Look">
           {hasFill && (
             <div className="flex items-center gap-2.5 rounded-md bg-card px-2.5 py-2">
@@ -574,7 +577,7 @@ function NodePanel({ doc, net, node }: { doc: SceneDoc; net: Network; node: Node
         </Fold>
       )}
 
-      {params.some(([, s]) => s.animatable && (s.kind === "number" || s.kind === "vec2")) && (
+      {params.some(([, s]) => s.animatable && (s.kind === "number" || s.kind === "vec2" || s.kind === "vec3")) && (
         <Fold title="Modifiers" summary={modSummary}>
           {modded.length ? (
             modded.map(([n, s]) => <ParamRow key={n} net={net} node={node} name={n} spec={s} />)

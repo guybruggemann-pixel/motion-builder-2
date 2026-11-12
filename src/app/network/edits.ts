@@ -3,7 +3,7 @@
  * are enforced by `validateDoc`, which rejects the edit as a whole.
  */
 import type { Draft } from "immer";
-import { CATALOG, defaultParams, isNodeType, type Network, type NodeType, type SceneDoc } from "@core/scene";
+import { CATALOG, defaultParams, isNodeType, zoomFor, type Network, type NodeType, type SceneDoc } from "@core/scene";
 
 const netOf = (d: Draft<SceneDoc>, id: string): Draft<Network> => {
   const net = d.networks.find((n) => n.id === id);
@@ -40,9 +40,37 @@ export function addNode(d: Draft<SceneDoc>, netId: string, type: NodeType, at: {
     type,
     name: sameType ? `${label} ${sameType + 1}` : label,
     enabled: true,
-    params: type === "Text" || type === "Shape" ? defaultParams(type) : {},
+    params: type === "Text" || type === "Shape" || type === "Text3D" || type === "Shape3D" || type === "Material" ? defaultParams(type) : {},
     ui: { x: Math.round(at.x), y: Math.round(at.y) },
   } as Draft<SceneDoc>["networks"][number]["nodes"][number];
+  if (type === "Scene3D") {
+    // A new 3D scene opens into a network with a title, its material, a camera and a key light.
+    const comp = d.networks.find((n) => n.id === d.root)?.comp;
+    const [w, h] = [comp?.width ?? 1920, comp?.height ?? 1080];
+    const subId = freeId((x) => d.networks.some((n) => n.id === x), `${id}-3d`);
+    const mk = (nid: string, t: NodeType, name: string, params: Record<string, unknown>, x: number, y: number) =>
+      ({ id: nid, type: t, name, enabled: true, params, ui: { x, y } }) as Draft<SceneDoc>["networks"][number]["nodes"][number];
+    d.networks.push({
+      id: subId,
+      name: node.name,
+      output: "merge",
+      nodes: [
+        mk("title", "Text3D", "Title", { ...defaultParams("Text3D"), text: { value: "Title" } }, 0, 0),
+        mk("material", "Material", "Material", defaultParams("Material"), -260, 0),
+        mk("camera", "Camera", "Camera", { position: { value: [0, 0, Math.round(zoomFor(w, 50) * 100) / 100] } }, 0, 140),
+        mk("key", "Light", "Key light", {}, 0, 280),
+        mk("merge", "Merge", "Merge", {}, 260, 120),
+      ],
+      wires: [
+        { from: { node: "title", port: "out" }, to: { node: "merge", port: "in" } },
+        { from: { node: "material", port: "out" }, to: { node: "title", port: "material" } },
+        { from: { node: "camera", port: "out" }, to: { node: "merge", port: "in" } },
+        { from: { node: "key", port: "out" }, to: { node: "merge", port: "in" } },
+      ],
+    });
+    node.subnet = subId;
+    node.params = { size: { value: [w, h] } };
+  }
   if (type === "Subnet") {
     const subId = freeId((x) => d.networks.some((n) => n.id === x), `${id}-net`);
     d.networks.push({ id: subId, name: node.name, nodes: [{ id: "merge", type: "Merge", name: "Merge", enabled: true, params: {}, ui: { x: 0, y: 0 } }], wires: [], output: "merge" });

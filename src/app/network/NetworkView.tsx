@@ -36,6 +36,8 @@ const CATEGORY: Record<Category, "generator" | "cloner" | "effector" | "field" |
   animate: "effector",
   field: "field",
   utility: "math",
+  "3d": "cloner",
+  material: "field",
 };
 
 type CardData = { node: Node; isOutput: boolean; summary: string };

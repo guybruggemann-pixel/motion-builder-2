@@ -111,6 +111,17 @@ export function NumberField({
   );
 }
 
+export function Vec3Field({ value, onChange, step, unit, label }: { value: [number, number, number]; onChange: Change<[number, number, number]>; step?: number; unit?: string; label: string }) {
+  const set = (i: number) => (v: number, f: boolean) => onChange(value.map((x, j) => (j === i ? v : x)) as [number, number, number], f);
+  return (
+    <div className="grid grid-cols-3 gap-1">
+      <NumberField label={`${label} x`} value={value[0]} step={step} unit={unit} onChange={set(0)} />
+      <NumberField label={`${label} y`} value={value[1]} step={step} unit={unit} onChange={set(1)} />
+      <NumberField label={`${label} z`} value={value[2]} step={step} unit={unit} onChange={set(2)} />
+    </div>
+  );
+}
+
 export function Vec2Field({ value, onChange, step, unit, label, min }: { value: [number, number]; onChange: Change<[number, number]>; step?: number; unit?: string; label: string; min?: number }) {
   return (
     <div className="grid grid-cols-2 gap-1">

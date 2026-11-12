@@ -2,7 +2,7 @@
  * The one gate every doc passes before it is used: from disk, from the AI, from an importer.
  * Structural checks (zod) first, then catalog checks per node.
  */
-import { CATALOG, checkParams, isNodeType, type ParamSpec } from "./catalog";
+import { CATALOG, checkParams, isNodeType, portsOf, type ParamSpec } from "./catalog";
 import { migrate } from "./migrate";
 import { SceneDoc, type Network, type Value } from "./schema";
 
@@ -40,8 +40,8 @@ export function validateDoc(input: unknown): ValidateResult {
     for (const node of net.nodes) {
       const promoted = node.subnet ? promotedSpecs(doc.networks, node.subnet) : {};
       errors.push(...checkParams(node, promoted).map((e) => `${net.id}/${e}`));
-      if (node.type === "Subnet" && !node.subnet) errors.push(`${net.id}/${node.id}: Subnet node needs a subnet network`);
-      if (node.subnet && node.type !== "Subnet") errors.push(`${net.id}/${node.id}: only Subnet nodes can open a network`);
+      if ((node.type === "Subnet" || node.type === "Scene3D") && !node.subnet) errors.push(`${net.id}/${node.id}: ${node.type} node needs a network to open into`);
+      if (node.subnet && node.type !== "Subnet" && node.type !== "Scene3D") errors.push(`${net.id}/${node.id}: only Subnet and Scene3D nodes can open a network`);
       for (const [name, p] of Object.entries(node.params))
         for (const m of p.modifiers ?? []) {
           if (m.type !== "link") continue;
@@ -67,8 +67,28 @@ export function validateDoc(input: unknown): ValidateResult {
     };
     if (net.nodes.some((n) => loops(n.id))) errors.push(`${net.id}: wires form a loop`);
 
+    // Named ports (an object's `material`) take one wire each, from the right kind of node.
     const counts = new Map<string, number>();
-    for (const w of net.wires) counts.set(w.to.node, (counts.get(w.to.node) ?? 0) + 1);
+    const portCounts = new Map<string, number>();
+    for (const w of net.wires) {
+      const to = net.nodes.find((x) => x.id === w.to.node);
+      const ports = to ? portsOf(to.type) : [];
+      if (ports.includes(w.to.port)) {
+        const key = `${w.to.node}.${w.to.port}`;
+        portCounts.set(key, (portCounts.get(key) ?? 0) + 1);
+        const from = net.nodes.find((x) => x.id === w.from.node);
+        if (w.to.port === "material" && from && from.type !== "Material") errors.push(`${net.id}/${w.to.node}: only a Material can feed the material input (got ${from.type})`);
+        continue;
+      }
+      counts.set(w.to.node, (counts.get(w.to.node) ?? 0) + 1);
+    }
+    for (const [key, n] of portCounts) if (n > 1) errors.push(`${net.id}/${key}: ${n} wires, takes 1`);
+    for (const w of net.wires) {
+      const from = net.nodes.find((x) => x.id === w.from.node);
+      const to = net.nodes.find((x) => x.id === w.to.node);
+      if (from?.type === "Material" && to && w.to.port !== "material")
+        errors.push(`${net.id}/${w.from.node}: a Material only wires into a material input`);
+    }
     for (const [id, n] of counts) {
       const node = net.nodes.find((x) => x.id === id);
       if (node && isNodeType(node.type) && n > CATALOG[node.type].inputs)

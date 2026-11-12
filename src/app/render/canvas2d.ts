@@ -4,7 +4,7 @@
  *
  * Phase 2 reuses this for the frame-stepped web render, so keep it free of React and of the viewer.
  */
-import type { Drawable, MeasureText, SceneDoc, ShapeDrawable } from "@core/scene";
+import type { Drawable, MeasureText, Scene3DDrawable, SceneDoc, ShapeDrawable } from "@core/scene";
 import { FrameCache, type Mat } from "@core/scene";
 
 export const fontString = (f: { family: string; weight: number; size: number }) => `${f.weight} ${f.size}px "${f.family}"`;
@@ -122,9 +122,34 @@ export function drawFrame(ctx: Ctx2D, drawables: readonly Drawable[], view: Mat)
         if (img) ctx.drawImage(img, 0, 0);
         break;
       }
+      case "scene3d":
+        draw3D(ctx, d);
+        break;
     }
     ctx.restore();
   }
+}
+
+/**
+ * Draws a 3D scene layer. The three.js pass plugs in here (`setScene3DRenderer`); until it does,
+ * or where it isn't available (tests), the layer shows as a labelled outline.
+ */
+type Scene3DRenderer = (ctx: Ctx2D, d: Scene3DDrawable) => boolean;
+let scene3d: Scene3DRenderer | undefined;
+export const setScene3DRenderer = (r: Scene3DRenderer | undefined) => void (scene3d = r);
+
+function draw3D(ctx: Ctx2D, d: Scene3DDrawable) {
+  if (scene3d?.(ctx, d)) return;
+  const [w, h] = d.size;
+  ctx.save();
+  ctx.strokeStyle = "rgba(127,127,127,0.6)";
+  ctx.setLineDash([12, 8]);
+  ctx.lineWidth = 2;
+  ctx.strokeRect(1, 1, w - 2, h - 2);
+  ctx.fillStyle = "rgba(127,127,127,0.8)";
+  ctx.font = "500 28px Inter, sans-serif";
+  ctx.fillText(`3D scene · ${d.scene.objects.length} objects, ${d.scene.lights.length} lights`, 24, 48);
+  ctx.restore();
 }
 
 /** Sub-frame times for motion blur: spread over the shutter, centred on the frame (AE's default phase). */

@@ -20,6 +20,8 @@ const GROUPS: [Category, string][] = [
   ["layer", "Layers"],
   ["split", "Split"],
   ["animate", "Animate"],
+  ["3d", "3D (inside a 3D scene)"],
+  ["material", "Materials"],
   ["utility", "Utility"],
 ];
 
@@ -45,7 +47,7 @@ export function AddMenu() {
         <Plus /> Add
       </Button>
       {open && (
-        <div role="menu" aria-label="Add a node" className="absolute bottom-9 right-0 z-50 grid w-[420px] grid-cols-2 gap-x-2 rounded-lg bg-card p-2 shadow-float">
+        <div role="menu" aria-label="Add a node" className="absolute bottom-9 right-0 z-50 grid w-[460px] grid-cols-2 gap-x-2 rounded-lg bg-card p-2 shadow-float">
           {GROUPS.map(([cat, label]) => (
             <div key={cat} role="group" aria-label={label} className="py-1">
               <p className="px-2 pb-1 text-[11px] text-muted-foreground">{label}</p>

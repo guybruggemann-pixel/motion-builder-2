@@ -101,6 +101,7 @@ function buildComp(ctx: Ctx, networkId: string, id: string, name: string, durati
   const layers: AeLayer[] = [];
   for (const id of order) {
     const d0 = first.get(id)!;
+    if (d0.kind === "scene3d") continue; // 3D scenes come in as a rendered ProRes pass (roadmap 3D-a, step 4)
     const [f0, f1] = span.get(id)!;
     const t0 = f0 / fps, t1 = f1 / fps;
     const get = (t: number) => at(t).find((x) => x.id === id) ?? at(Math.min(t1, Math.max(t0, t))).find((x) => x.id === id) ?? d0;

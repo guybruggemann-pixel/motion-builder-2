@@ -6,7 +6,7 @@
  */
 import { useState } from "react";
 import { Search } from "lucide-react";
-import { lowerThird, lowerThirdFit, type SceneDoc } from "@core/scene";
+import { lowerThird, lowerThirdFit, title3d, type SceneDoc } from "@core/scene";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/design-system/motionbuilder---brandbook-c4b4eb";
 import { docStore, shownNetwork, useDocStore, useUi } from "@/store";
 import { Sphere } from "@/shell/look";
@@ -79,9 +79,9 @@ function Presets() {
   return (
     <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
       <h3 className="px-1 pb-1 pt-1 text-[13px] font-semibold">
-        Examples <span className="font-normal text-faint">(2)</span>
+        Examples <span className="font-normal text-faint">(3)</span>
       </h3>
-      {([["Lower third", lowerThird], ["Lower third, fits any name", lowerThirdFit]] as [string, SceneDoc][]).map(([label, ex]) => (
+      {([["Lower third", lowerThird], ["Lower third, fits any name", lowerThirdFit], ["3D title", title3d]] as [string, SceneDoc][]).map(([label, ex]) => (
         <button
           key={label}
           type="button"

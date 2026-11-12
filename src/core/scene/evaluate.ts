@@ -16,6 +16,11 @@
  * - Disabled layer nodes draw nothing; disabled Split/Phase/Merge pass their input through.
  * - Parts of layers outside their in/out still count for stagger, so indices stay stable.
  *
+ * - A Scene3D layer evaluates its network (local time, like a Subnet) into a `Scene3D`: objects,
+ *   camera, lights and materials as plain data (see scene3d.ts). It draws as one layer from
+ *   [0, 0] to its `size`. Evaluating a 3D network itself returns that one scene drawable.
+ * - Named input ports (an object's `material`) are not part of the pull: they feed that node only.
+ *
  * Coordinates: a layer's matrix is AE's position · rotation · scale · -anchor. Text runs draw
  * from their baseline start, shapes from their top-left corner at [0, 0].
  */
@@ -25,6 +30,7 @@ import { evaluateParam, type EvalContext } from "./evaluateParam";
 import { applyMat, layerMatrix, mul, rotate, scale, scaleOf, translate, type Mat } from "./matrix";
 import { applyPhase, phaseDelays, phaseProgress, REST, type PartAnim, type PhaseSpec } from "./phase";
 import type { Network, Node, Param, Role, SceneDoc, Value } from "./schema";
+import { objectMatrix, verticalFov, zoomFor, type Camera3D, type Light3D, type Material3D, type Object3D, type Scene3D } from "./scene3d";
 import { approxMeasure, fitStyle, layoutLines, PIVOT_RISE, runsBox, splitRun, type FontSpec, type MeasureText, type Run, type TextStyle } from "./text";
 
 /* ---------- output ---------- */
@@ -97,7 +103,16 @@ export interface SubnetDrawable extends DrawableBase {
   subnet: string;
 }
 
-export type Drawable = TextDrawable | ShapeDrawable | ImageDrawable | SubnetDrawable;
+/** A 3D scene drawn as one layer from [0, 0] to `size` (a renderer draws `scene` with three.js). */
+export interface Scene3DDrawable extends DrawableBase {
+  kind: "scene3d";
+  size: [number, number];
+  /** The network holding the scene's nodes. */
+  subnet: string;
+  scene: Scene3D;
+}
+
+export type Drawable = TextDrawable | ShapeDrawable | ImageDrawable | SubnetDrawable | Scene3DDrawable;
 
 export interface EvaluateOptions {
   /** Text measuring; defaults to `approxMeasure`. The app passes canvas measureText. */
@@ -133,7 +148,8 @@ type Content =
   | { kind: "shape" }
   | { kind: "image" }
   | { kind: "container"; children: Drawable[] }
-  | { kind: "subnet"; subnet: string };
+  | { kind: "subnet"; subnet: string }
+  | { kind: "scene3d"; subnet: string; scene: Scene3D };
 
 interface Part {
   layer: Layer;
@@ -243,7 +259,7 @@ function boundsOfNode(ctx: Ctx, node: Node): [number, number] {
     const [, , w, h] = runsBox(runs, style.font.size);
     return [w, h];
   }
-  if (node.type === "Shape") return vec2(paramValue(ctx, node, "size"), [400, 120]);
+  if (node.type === "Shape" || node.type === "Scene3D") return vec2(paramValue(ctx, node, "size"), node.type === "Shape" ? [400, 120] : [1920, 1080]);
   return [0, 0];
 }
 const boundsOf = boundsOfNode;
@@ -320,8 +336,9 @@ function evalNode(ctx: Ctx, id: string, stack: string[] = []): Part[] {
   const node = ctx.net.nodes.find((n) => n.id === id);
   if (!node) throw new Error(`node ${ctx.net.id}/${id} not found`);
 
+  const ports: readonly string[] = specOf(node)?.ports ?? [];
   const inputs = (): Part[] =>
-    ctx.net.wires.filter((w) => w.to.node === id).flatMap((w) => evalNode(ctx, w.from.node, [...stack, id]));
+    ctx.net.wires.filter((w) => w.to.node === id && !ports.includes(w.to.port)).flatMap((w) => evalNode(ctx, w.from.node, [...stack, id]));
   const isLayer = specOf(node)?.category === "layer";
   let out: Part[];
 
@@ -349,6 +366,18 @@ function evalNode(ctx: Ctx, id: string, stack: string[] = []): Part[] {
         out = [part(layer, ctx.flatten === false ? { kind: "subnet", subnet: node.subnet ?? "" } : { kind: "container", children: layer.visible ? evalSubnet(ctx, node) : [] })];
         break;
       }
+      case "Scene3D": {
+        const layer = makeLayer(ctx, node);
+        out = layer.visible ? [part(layer, { kind: "scene3d", subnet: node.subnet ?? "", scene: evalScene3D(ctx, node) })] : [part(layer, { kind: "shape" })];
+        break;
+      }
+      case "Text3D":
+      case "Shape3D":
+      case "Camera":
+      case "Light":
+      case "Material":
+        out = []; // only meaningful inside a 3D scene (evalScene3D reads them)
+        break;
       case "Split": {
         const by = oneOf(paramValue(ctx, node, "by"), ["characters", "words", "lines"] as const, "words");
         out = reindex(inputs().flatMap((p) => splitPart(ctx, p, by)));
@@ -410,6 +439,166 @@ function evalNetwork(
   return resolveParts(ctx, evalNode(ctx, net.output));
 }
 
+/* ---------- 3D scenes ---------- */
+
+const vec3 = (v: Value, d: [number, number, number] = [0, 0, 0]): [number, number, number] =>
+  Array.isArray(v) && v.length >= 3 ? [v[0]!, v[1]!, (v as number[])[2]!] : d;
+const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
+
+/** The scene's own settings, read off the Scene3D node (in the parent's context). */
+function sceneSettings(ctx: Ctx, node: Node): Omit<Scene3D, "camera" | "lights" | "objects"> {
+  const v = (name: string) => paramValue(ctx, node, name);
+  return {
+    size: vec2(v("size"), [1920, 1080]),
+    environment: oneOf(v("environment"), ["studio-soft", "studio-hard", "overcast", "none"] as const, "studio-soft"),
+    environmentIntensity: Math.max(0, num(v("environmentIntensity"), 1)),
+    shadows: v("shadows") !== false,
+    ambientOcclusion: clamp01(num(v("ambientOcclusion"), 0.5)),
+  };
+}
+
+function evalScene3D(ctx: Ctx, node: Node): Scene3D {
+  const net = ctx.doc.networks.find((n) => n.id === node.subnet);
+  const settings = sceneSettings(ctx, node);
+  if (!net) return { ...settings, camera: defaultCamera(settings.size), lights: [], objects: [] };
+  const span = node.timing ? node.timing.out - node.timing.in : net.comp?.duration ?? ctx.span;
+  const inner: Ctx = {
+    doc: ctx.doc,
+    net,
+    t: ctx.t - (node.timing?.in ?? 0),
+    memo: new Map(),
+    brand: ctx.brand,
+    measure: ctx.measure,
+    span,
+    instance: [...ctx.instance, node.id],
+    overrides: instanceOverrides(ctx, node, net),
+  };
+  return buildScene(inner, settings);
+}
+
+function defaultCamera(size: [number, number]): Camera3D {
+  return { position: [0, 0, zoomFor(size[0], 50)], target: [0, 0, 0], lens: 50, fov: verticalFov(50, size[0], size[1]), roll: 0 };
+}
+
+/** The material wired into a node's `material` port, at the context's time; else a plastic in the node's fill. */
+function materialOf(ctx: Ctx, node: Node): Material3D {
+  const wire = ctx.net.wires.find((w) => w.to.node === node.id && w.to.port === "material");
+  const m = wire && ctx.net.nodes.find((n) => n.id === wire.from.node && n.type === "Material" && n.enabled);
+  if (!m) {
+    return { kind: "plastic", color: str(paramValue(ctx, node, "fill"), "#FFFFFF"), roughness: 0.45, metalness: 0, transmission: 0, ior: 1.5, thickness: 0.5, clearcoat: 0, iridescence: 0, emission: 0, grain: 0 };
+  }
+  const v = (name: string, d: number) => num(paramValue(ctx, m, name), d);
+  return {
+    node: m.id,
+    kind: oneOf(paramValue(ctx, m, "kind"), ["solid", "plastic", "plaster", "glass", "metal", "iridescent", "emissive"] as const, "plastic"),
+    color: str(paramValue(ctx, m, "color"), "#FFFFFF"),
+    roughness: clamp01(v("roughness", 0.45)),
+    metalness: clamp01(v("metalness", 0)),
+    transmission: clamp01(v("transmission", 0)),
+    ior: Math.min(2.333, Math.max(1, v("ior", 1.5))),
+    thickness: clamp01(v("thickness", 0.5)),
+    clearcoat: clamp01(v("clearcoat", 0)),
+    iridescence: clamp01(v("iridescence", 0)),
+    emission: Math.max(0, v("emission", 0)),
+    grain: clamp01(v("grain", 0)),
+  };
+}
+
+/**
+ * Everything in a 3D network at the context's time: objects and lights reached from the output
+ * (main inputs, wire order), the first visible camera. Nodes outside their in/out are left out.
+ */
+function buildScene(ctx: Ctx, settings: Omit<Scene3D, "camera" | "lights" | "objects">): Scene3D {
+  const net = ctx.net;
+  const order: Node[] = [];
+  const seen = new Set<string>();
+  const visit = (id: string) => {
+    if (seen.has(id)) return;
+    seen.add(id);
+    const node = net.nodes.find((n) => n.id === id);
+    if (!node) return;
+    const ports: readonly string[] = specOf(node)?.ports ?? [];
+    for (const w of net.wires) if (w.to.node === id && !ports.includes(w.to.port)) visit(w.from.node);
+    if (node.enabled) order.push(node);
+  };
+  visit(net.output);
+  const visible = (n: Node) => ctx.t >= (n.timing?.in ?? 0) && ctx.t < (n.timing?.out ?? Infinity);
+  const idOf = (n: Node) => [...ctx.instance, n.id].join("/");
+
+  const objects: Object3D[] = [];
+  const lights: Light3D[] = [];
+  let camera: Camera3D | undefined;
+  for (const node of order.filter(visible)) {
+    const v = (name: string) => paramValue(ctx, node, name);
+    if (node.type === "Text3D" || node.type === "Shape3D") {
+      const matrix = objectMatrix(vec3(v("position")), vec3(v("rotation")), vec3(v("scale"), [100, 100, 100]), vec3(v("anchor")));
+      const base = {
+        id: idOf(node),
+        node: node.id,
+        matrix,
+        opacity: clamp01(num(v("opacity"), 100) / 100),
+        depth: Math.max(0, num(v("depth"), 40)),
+        bevel: Math.max(0, num(v("bevel"), 2)),
+        material: materialOf(ctx, node),
+      };
+      if (node.type === "Text3D") {
+        const { runs, style } = textLayout3D(ctx, node);
+        const [x, y, w, h] = runsBox(runs, style.font.size);
+        const ox = style.align === "left" ? x : style.align === "right" ? x + w : x + w / 2;
+        objects.push({ ...base, kind: "text", runs, font: style.font, tracking: style.tracking, origin: [ox, y + h / 2] });
+      } else {
+        objects.push({
+          ...base,
+          kind: "shape",
+          shape: oneOf(v("shape"), ["rect", "ellipse", "path"] as const, "rect"),
+          size: vec2(v("size"), [400, 400]),
+          radius: Math.max(0, num(v("radius"))),
+          path: str(v("path")),
+        });
+      }
+    } else if (node.type === "Light") {
+      lights.push({
+        id: idOf(node),
+        node: node.id,
+        kind: oneOf(v("kind"), ["directional", "point", "spot"] as const, "directional"),
+        color: str(v("color"), "#FFFFFF"),
+        intensity: Math.max(0, num(v("intensity"), 2)),
+        position: vec3(v("position"), [-900, 1200, 1600]),
+        target: vec3(v("target")),
+        castShadow: v("castShadow") !== false,
+        softness: clamp01(num(v("softness"), 0.5)),
+        angle: Math.min(89, Math.max(1, num(v("angle"), 40))),
+      });
+    } else if (node.type === "Camera" && !camera) {
+      const lens = Math.max(5, num(v("lens"), 50));
+      camera = {
+        node: node.id,
+        position: vec3(v("position"), [0, 0, zoomFor(settings.size[0], lens)]),
+        target: vec3(v("target")),
+        lens,
+        fov: verticalFov(lens, settings.size[0], settings.size[1]),
+        roll: num(v("roll")),
+      };
+    }
+  }
+  return { ...settings, camera: camera ?? defaultCamera(settings.size), lights, objects };
+}
+
+/** Text 3D layout: the 2D text layout (no max width), centred per `align` by the caller. */
+function textLayout3D(ctx: Ctx, node: Node): { runs: Run[]; style: TextStyle } {
+  const v = (name: string) => paramValue(ctx, node, name);
+  const text = String(v("text"));
+  const style: TextStyle = {
+    font: { family: str(v("font"), "Inter"), weight: num(v("weight"), 700), size: num(v("size"), 200) },
+    tracking: num(v("tracking")),
+    leading: num(v("leading"), 1.1),
+    align: oneOf(v("align"), ["left", "center", "right"] as const, "center"),
+    maxWidth: 0,
+    overflow: "none",
+  };
+  return { runs: layoutLines(text, style, ctx.measure), style };
+}
+
 /* ---------- parts -> drawables ---------- */
 
 function revealRect(box: [number, number, number, number], r: NonNullable<PartAnim["reveal"]>): [number, number, number, number] {
@@ -441,7 +630,9 @@ function resolvePart(ctx: Ctx, p: Part): Drawable[] {
       ? runsBox(content.runs, content.style.font.size)
       : content.kind === "shape"
         ? [0, 0, ...vec2(v("size"), [400, 120])]
-        : undefined; // images and containers have no known box in core; reveal skips them
+        : content.kind === "scene3d"
+          ? [0, 0, ...content.scene.size]
+          : undefined; // images and containers have no known box in core; reveal skips them
   // A finished reveal clips nothing; dropping it keeps glyphs that overshoot the approximate box intact.
   const revealing = anim.reveal && (anim.reveal.from > 0 || anim.reveal.to < 1);
   const clips: Clip[] = revealing && box ? [{ matrix: L, rect: revealRect(box, anim.reveal!) }] : [];
@@ -497,6 +688,8 @@ function resolvePart(ctx: Ctx, p: Part): Drawable[] {
     }
     case "subnet":
       return [{ ...base, clips: [], kind: "subnet", id: idOf(), matrix: M, subnet: content.subnet }];
+    case "scene3d":
+      return [{ ...base, kind: "scene3d", id: idOf(), matrix: M, size: content.scene.size, subnet: content.subnet, scene: content.scene }];
     case "container": {
       const k = scaleOf(M);
       return content.children.map((d) => ({
@@ -561,8 +754,27 @@ function rootCtx(doc: SceneDoc, networkId: string, t: number, opts: EvaluateOpti
   return ctx;
 }
 
+/** The Scene3D node that opens into this network (the given instance, else the first one in the doc). */
+export function sceneOwner(doc: SceneDoc, networkId: string, instance?: { network: string; node: string }): { network: string; node: Node } | undefined {
+  if (instance) {
+    const node = doc.networks.find((n) => n.id === instance.network)?.nodes.find((n) => n.id === instance.node);
+    return node?.type === "Scene3D" && node.subnet === networkId ? { network: instance.network, node } : undefined;
+  }
+  for (const n of doc.networks) for (const node of n.nodes) if (node.type === "Scene3D" && node.subnet === networkId) return { network: n.id, node };
+  return undefined;
+}
+
 export function evaluateFrame(doc: SceneDoc, networkId: string, t: number, opts: EvaluateOptions = {}): Drawable[] {
   const ctx = rootCtx(doc, networkId, t, opts);
+  const owner = sceneOwner(doc, networkId, opts.instance);
+  if (owner) {
+    // Inside a 3D scene: the whole network is one scene drawable, settings from its Scene3D node.
+    const parent = rootCtx(doc, owner.network, t + (owner.node.timing?.in ?? 0), { ...opts, instance: undefined });
+    const scene = buildScene(ctx, sceneSettings(parent, owner.node));
+    return [
+      { kind: "scene3d", id: `${networkId}#scene`, network: networkId, node: owner.node.id, instance: [], part: 0, parts: 1, matrix: [1, 0, 0, 1, 0, 0], opacity: 1, blur: 0, clips: [], size: scene.size, subnet: networkId, scene },
+    ];
+  }
   return resolveParts(ctx, evalNode(ctx, ctx.net.output));
 }
 

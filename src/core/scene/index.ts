@@ -12,3 +12,5 @@ export * from "./frameCache";
 export * from "./graph";
 export { lowerThird } from "./examples/lowerThird";
 export { lowerThirdFit } from "./examples/lowerThirdFit";
+export * from "./scene3d";
+export { title3d } from "./examples/title3d";

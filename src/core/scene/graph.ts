@@ -1,14 +1,18 @@
 /**
  * Network graph helpers: wiring order, layers and what feeds what. Pure, no evaluation.
  */
-import { CATALOG, isNodeType } from "./catalog";
+import { CATALOG, isNodeType, portsOf } from "./catalog";
 import type { Network, Node } from "./schema";
 
-export const isLayer = (n: Node) => isNodeType(n.type) && CATALOG[n.type].category === "layer";
+/** Nodes with a timeline row: 2D layers, and objects, cameras and lights inside a 3D scene. */
+export const isLayer = (n: Node) => isNodeType(n.type) && (CATALOG[n.type].category === "layer" || CATALOG[n.type].category === "3d");
 
-/** Nodes wired into `id`, in wire order (= paint order for Merge and Group). */
-export const inputsOf = (net: Network, id: string) =>
-  net.wires.filter((w) => w.to.node === id).map((w) => w.from.node);
+/** Nodes wired into `id`'s main input, in wire order (= paint order for Merge and Group). Named ports (material) excluded. */
+export const inputsOf = (net: Network, id: string) => {
+  const node = net.nodes.find((n) => n.id === id);
+  const ports = node ? portsOf(node.type) : [];
+  return net.wires.filter((w) => w.to.node === id && !ports.includes(w.to.port)).map((w) => w.from.node);
+};
 
 /**
  * Layer nodes in paint order (first = bottom), as reached from the output, followed by
