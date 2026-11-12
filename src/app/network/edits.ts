@@ -55,8 +55,9 @@ export function addNode(d: Draft<SceneDoc>, netId: string, type: NodeType, at: {
       name: node.name,
       output: "merge",
       nodes: [
-        mk("title", "Text3D", "Title", { ...defaultParams("Text3D"), text: { value: "Title" } }, 0, 0),
-        mk("material", "Material", "Material", defaultParams("Material"), -260, 0),
+        // turned a little and in a colour, so it reads as 3D on any background
+        mk("title", "Text3D", "Title", { ...defaultParams("Text3D"), text: { value: "Title" }, size: { value: 260 }, depth: { value: 70 }, bevel: { value: 4 }, rotation: { value: [10, -28, 0] } }, 0, 0),
+        mk("material", "Material", "Material", { ...defaultParams("Material"), color: { value: d.brand?.colors[0] ? `brand:${d.brand.colors[0].token}` : "#1F4BFF" }, roughness: { value: 0.35 } }, -260, 0),
         mk("camera", "Camera", "Camera", { position: { value: [0, 0, Math.round(zoomFor(w, 50) * 100) / 100] } }, 0, 140),
         mk("key", "Light", "Key light", {}, 0, 280),
         mk("merge", "Merge", "Merge", {}, 260, 120),
@@ -78,6 +79,31 @@ export function addNode(d: Draft<SceneDoc>, netId: string, type: NodeType, at: {
   }
   net.nodes.push(node);
   return id;
+}
+
+/**
+ * Wire a new layer into what the network draws, on top of everything else: into the output's
+ * Merge, or into a new Merge put in front of a single-input Output. Nothing happens if it's
+ * already wired somewhere.
+ */
+export function wireToOutput(d: Draft<SceneDoc>, netId: string, nodeId: string) {
+  const net = netOf(d, netId);
+  if (net.wires.some((w) => w.from.node === nodeId)) return;
+  const out = net.nodes.find((n) => n.id === net.output);
+  if (!out) return;
+  const wire = (from: string, to: string) => net.wires.push({ from: { node: from, port: "out" }, to: { node: to, port: "in" } });
+  if (out.type !== "Output") return void wire(nodeId, out.id); // a Merge (or Group) output takes many
+  const into = net.wires.find((w) => w.to.node === out.id);
+  const feeder = into && net.nodes.find((n) => n.id === into.from.node);
+  if (!into) return void wire(nodeId, out.id);
+  if (feeder?.type === "Merge") return void wire(nodeId, feeder.id);
+  // Output takes one input: put a Merge in front, with the old input below the new layer
+  const mid = freeId((x) => net.nodes.some((n) => n.id === x), "merge");
+  net.nodes.push({ id: mid, type: "Merge", name: "Merge", enabled: true, params: {}, ui: { x: out.ui.x - 200, y: out.ui.y } } as Draft<SceneDoc>["networks"][number]["nodes"][number]);
+  net.wires = net.wires.filter((w) => w !== into);
+  wire(into.from.node, mid);
+  wire(nodeId, mid);
+  wire(mid, out.id);
 }
 
 /** Wire `from` into `to`. A single-input node swaps its old wire for the new one; duplicates are ignored. */

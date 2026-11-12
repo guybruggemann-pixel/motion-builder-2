@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { evaluateFrame, lowerThird } from "@core/scene";
 import { createDocStore } from "@/store/docStore";
-import { addNode, connect, deleteNodes, disconnect, moveNodes } from "@/network/edits";
+import { addNode, connect, deleteNodes, disconnect, moveNodes, wireToOutput } from "@/network/edits";
+import { approxMeasure } from "@core/scene";
 
 const NET = "lower-third";
 const store = () => createDocStore(lowerThird);
@@ -56,5 +57,44 @@ describe("network edits", () => {
     const s = store();
     s.getState().edit("Move", (d) => moveNodes(d, NET, [{ id: "panel", x: 12.6, y: -3.2 }]));
     expect(net(s).nodes.find((n) => n.id === "panel")!.ui).toEqual({ x: 13, y: -3 });
+  });
+});
+
+describe("new layers show straight away", () => {
+  it("wires a new layer into the output's Merge, on top", () => {
+    const s = store();
+    let id = "";
+    s.getState().edit("Add", (d) => {
+      id = addNode(d, NET, "Shape", { x: 0, y: 0 });
+      wireToOutput(d, NET, id);
+    });
+    expect(wires(s).filter((w) => w.endsWith(">merge")).at(-1)).toBe(`${id}>merge`);
+    const ds = evaluateFrame(s.getState().doc, NET, 1, { measure: approxMeasure });
+    expect(ds.at(-1)!.node).toBe(id);
+  });
+
+  it("puts a Merge in front of a single-input Output, keeping what was there below", () => {
+    const s = store();
+    let id = "";
+    expect(
+      s.getState().edit("Add 3D", (d) => {
+        id = addNode(d, "main", "Scene3D", { x: 0, y: 0 });
+        wireToOutput(d, "main", id);
+      }),
+    ).toBe(true);
+    const main = s.getState().doc.networks[0]!;
+    const w = main.wires.map((x) => `${x.from.node}>${x.to.node}`);
+    expect(w).toEqual(expect.arrayContaining(["lt>merge", `${id}>merge`, "merge>out"]));
+    expect(w.indexOf("lt>merge")).toBeLessThan(w.indexOf(`${id}>merge`)); // the lower third stays below
+    const ds = evaluateFrame(s.getState().doc, "main", 1, { measure: approxMeasure });
+    expect(ds.at(-1)!.kind).toBe("scene3d");
+    expect(ds.some((d) => d.node === "name")).toBe(true);
+  });
+
+  it("leaves an already wired node alone", () => {
+    const s = store();
+    const before = wires(s);
+    s.getState().edit("Rewire", (d) => wireToOutput(d, NET, "panel"));
+    expect(wires(s)).toEqual(before);
   });
 });

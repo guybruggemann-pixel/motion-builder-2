@@ -7,7 +7,7 @@
 import { useState } from "react";
 import { Search } from "lucide-react";
 import { lowerThird, lowerThirdFit, title3d, type SceneDoc } from "@core/scene";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/design-system/motionbuilder---brandbook-c4b4eb";
+import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from "@/design-system/motionbuilder---brandbook-c4b4eb";
 import { docStore, shownNetwork, useDocStore, useUi } from "@/store";
 import { Sphere } from "@/shell/look";
 import { applySolid, SOLID_MIME, takesMaterial } from "./materials";
@@ -74,6 +74,12 @@ function Materials() {
 
 function Presets() {
   const doc = useDocStore((s) => s.doc);
+  const edits = useDocStore((s) => s.past.length);
+  const [asking, setAsking] = useState<string>();
+  const open = (ex: SceneDoc) => {
+    setAsking(undefined);
+    if (docStore.getState().load(ex)) useUi.getState().setPath([], 0);
+  };
   const assets = doc.brand?.assets ?? [];
   const row = "w-full rounded-md px-2.5 py-2 text-left hover:bg-field";
   return (
@@ -82,19 +88,34 @@ function Presets() {
         Examples <span className="font-normal text-faint">(3)</span>
       </h3>
       {([["Lower third", lowerThird], ["Lower third, fits any name", lowerThirdFit], ["3D title", title3d]] as [string, SceneDoc][]).map(([label, ex]) => (
-        <button
-          key={label}
-          type="button"
-          title="Open this example (replaces the current doc and clears undo)"
-          onClick={() => {
-            if (!window.confirm(`Open "${label}"? This replaces the current doc and clears undo.`)) return;
-            if (docStore.getState().load(ex)) useUi.getState().setPath([], 0);
-          }}
-          className={row}
-        >
-          {label}
-          <span className="block text-[11px] text-muted-foreground">Test content · 16:9</span>
-        </button>
+        <div key={label}>
+          <button
+            type="button"
+            title="Open this example (replaces the current doc)"
+            aria-expanded={asking === label}
+            onClick={() => (edits ? setAsking(asking === label ? undefined : label) : open(ex))}
+            className={row}
+          >
+            {label}
+            <span className="block text-[11px] text-muted-foreground">Test content · 16:9</span>
+          </button>
+          {asking === label && (
+            // in-app confirm: the browser's confirm() is blocked in some embedded views
+            <div role="alertdialog" aria-label={`Open ${label}?`} className="mx-1 mb-2 rounded-md bg-field p-2.5 text-xs">
+              <p className="mb-2">
+                Replace the current doc? Your {edits} {edits === 1 ? "edit" : "edits"} can't be undone after.
+              </p>
+              <div className="flex gap-1.5">
+                <Button size="sm" onClick={() => open(ex)}>
+                  Open {label}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setAsking(undefined)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
       ))}
       <h3 className="px-1 pb-1 pt-4 text-[13px] font-semibold">
         Motion assets <span className="font-normal text-faint">({assets.length})</span>
