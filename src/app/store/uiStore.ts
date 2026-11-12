@@ -36,12 +36,35 @@ const store = (key: string, value: string) => {
   }
 };
 
+/** Resizable panes, in CSS px (view state, remembered per browser). */
+export interface Panes {
+  library: number;
+  inspector: number;
+  timeline: number;
+}
+export const PANE_DEFAULTS: Panes = { library: 232, inspector: 296, timeline: 290 };
+export const PANE_LIMITS: Record<keyof Panes, [number, number]> = { library: [160, 480], inspector: [240, 560], timeline: [120, 2000] };
+
+const storedPanes = (): Panes => {
+  try {
+    const p = JSON.parse(stored("mb.panes") ?? "{}") as Partial<Panes>;
+    const out = { ...PANE_DEFAULTS };
+    for (const k of Object.keys(out) as (keyof Panes)[]) if (typeof p[k] === "number" && Number.isFinite(p[k])) out[k] = p[k]!;
+    return out;
+  } catch {
+    return { ...PANE_DEFAULTS };
+  }
+};
+
 export interface UiState {
   theme: Theme;
   /** The Library card next to the viewer (opened from the rail). */
   libraryOpen: boolean;
   /** Preview the comp's alpha on a checkerboard instead of its background colour. */
   transparency: boolean;
+  panes: Panes;
+  /** Resize a pane (clamped to its limits); `save` remembers it in this browser (on release). */
+  setPane(key: keyof Panes, px: number, save?: boolean): void;
   /** Opened subnets below the root comp. Empty = the root comp. */
   path: Crumb[];
   /** Playhead in frames of the shown network (integer). */
@@ -73,6 +96,14 @@ export const useUi = create<UiState>()((set) => ({
   theme: stored("mb.theme") === "dark" ? "dark" : "light",
   libraryOpen: stored("mb.library") !== "closed",
   transparency: false,
+  panes: storedPanes(),
+  setPane: (key, px, save) =>
+    set((s) => {
+      const [lo, hi] = PANE_LIMITS[key];
+      const panes = { ...s.panes, [key]: Math.round(Math.min(hi, Math.max(lo, px))) };
+      if (save) store("mb.panes", JSON.stringify(panes));
+      return { panes };
+    }),
   path: [],
   frame: 0,
   playing: false,

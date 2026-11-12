@@ -82,6 +82,7 @@ function Graph() {
   const doc = useDocStore((s) => s.doc);
   const path = useUi((s) => s.path);
   const selected = useUi((s) => s.selectedNodes);
+  const theme = useUi((s) => s.theme);
   const net = shownNetwork(doc, path);
   const flow = useReactFlow();
   const dragKey = useRef<string | undefined>(undefined);
@@ -169,7 +170,7 @@ function Graph() {
       nodes={nodes}
       edges={edges}
       nodeTypes={nodeTypes}
-      colorMode="dark"
+      colorMode={theme}
       onNodesChange={onNodesChange}
       onEdgesChange={onEdgesChange}
       onConnect={onConnect}

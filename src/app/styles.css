@@ -15,15 +15,15 @@ body,
   box-sizing: border-box;
   padding: 12px;
   gap: 12px;
-  grid-template-columns: 56px 232px minmax(0, 1fr) 296px;
-  grid-template-rows: 48px minmax(0, 1fr) 290px;
+  grid-template-columns: 56px var(--lib-w, 232px) minmax(0, 1fr) var(--insp-w, 296px);
+  grid-template-rows: 48px minmax(120px, 1fr) var(--tl-h, 290px);
   grid-template-areas:
     "top top top top"
     "rail lib view insp"
     "rail tl tl insp";
 }
 .shell[data-library="closed"] {
-  grid-template-columns: 56px minmax(0, 1fr) 296px;
+  grid-template-columns: 56px minmax(0, 1fr) var(--insp-w, 296px);
   grid-template-areas:
     "top top top"
     "rail view insp"
@@ -40,4 +40,14 @@ body,
     grid-template-rows: auto 60vh auto 340px auto auto;
     grid-template-areas: "top" "view" "insp" "tl" "lib" "rail";
   }
+}
+
+/* Network view (xyflow) on the soft tokens, in both themes. */
+.react-flow {
+  --xy-background-color: var(--field);
+  --xy-controls-button-background-color: var(--card);
+  --xy-controls-button-background-color-hover: var(--field);
+  --xy-controls-button-color: var(--ink);
+  --xy-controls-button-border-color: var(--line);
+  --xy-edge-stroke: var(--line2);
 }

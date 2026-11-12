@@ -15,6 +15,8 @@ import { useShortcuts } from "@/useShortcuts";
 import { Viewer } from "@/viewer/Viewer";
 import { Rail } from "@/shell/Rail";
 import { TopBar } from "@/shell/TopBar";
+import { Splitter } from "@/shell/Splitter";
+import { useEffect, useState } from "react";
 
 /** Why the last edit was refused (it failed validateDoc), until the next edit goes through. */
 function EditErrors() {
@@ -61,9 +63,28 @@ const card = "flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl bg-card s
 export function App() {
   useShortcuts();
   const libraryOpen = useUi((s) => s.libraryOpen);
+  const panes = useUi((s) => s.panes);
+  // the timeline may grow until the viewer is 120px tall (top bar 48, padding and gaps 48)
+  const [vh, setVh] = useState(() => window.innerHeight);
+  useEffect(() => {
+    const on = () => setVh(window.innerHeight);
+    window.addEventListener("resize", on);
+    return () => window.removeEventListener("resize", on);
+  }, []);
+  const maxTimeline = Math.max(120, vh - 48 - 48 - 120);
 
   return (
-    <div className="shell bg-canvas text-[13px] text-foreground" data-library={libraryOpen ? "open" : "closed"}>
+    <div
+      className="shell bg-canvas text-[13px] text-foreground"
+      data-library={libraryOpen ? "open" : "closed"}
+      style={
+        {
+          "--lib-w": `${panes.library}px`,
+          "--insp-w": `${panes.inspector}px`,
+          "--tl-h": `${Math.min(panes.timeline, maxTimeline)}px`,
+        } as React.CSSProperties
+      }
+    >
       <TopBar />
       <Rail />
       {libraryOpen && (
@@ -78,6 +99,9 @@ export function App() {
         <Inspector />
         <EditErrors />
       </aside>
+      {libraryOpen && <Splitter pane="library" />}
+      <Splitter pane="inspector" />
+      <Splitter pane="timeline" max={maxTimeline} />
       <section aria-label="Timeline and network" className={`${card} [grid-area:tl]`}>
         <Tabs defaultValue="timeline" className="flex h-full min-h-0 flex-col gap-0">
           <div className="flex items-center gap-2.5 px-3 pb-1.5 pt-2.5">
