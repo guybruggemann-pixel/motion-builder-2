@@ -10,6 +10,18 @@ import { frameCount } from "@/viewer/Transport";
 const typing = (t: EventTarget | null) =>
   t instanceof HTMLElement && (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName) && (t as HTMLInputElement).type !== "range");
 
+/** Move the playhead to the previous (-1) or next (1) key of any layer in the shown network (AE's J/K). */
+export function jumpToKey(dir: -1 | 1) {
+  const ui = useUi.getState();
+  const doc = docStore.getState().doc;
+  const fps = viewComp(doc, ui.path).fps;
+  const frames = [...new Set(shownNetwork(doc, ui.path).nodes.flatMap((n) => Object.values(n.params).flatMap((p) => (p.keys ?? []).map((k) => Math.round(k.t * fps)))))].sort((a, b) => a - b);
+  const f = dir < 0 ? frames.filter((x) => x < ui.frame).at(-1) : frames.find((x) => x > ui.frame);
+  if (f === undefined) return;
+  ui.setPlaying(false);
+  ui.setFrame(Math.min(frameCount(viewComp(doc, ui.path)) - 1, f));
+}
+
 export function useShortcuts() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -37,14 +49,7 @@ export function useShortcuts() {
         go(ui.frame + (e.shiftKey ? 10 : 1));
       } else if (e.key === "Home") go(0);
       else if (e.key === "End") go(last);
-      else if (!mod && (e.key === "j" || e.key === "k")) {
-        // Previous / next key of any layer in the shown network, by frame.
-        const doc = docStore.getState().doc;
-        const fps = viewComp(doc, ui.path).fps;
-        const frames = [...new Set(shownNetwork(doc, ui.path).nodes.flatMap((n) => Object.values(n.params).flatMap((p) => (p.keys ?? []).map((k) => Math.round(k.t * fps)))))].sort((a, b) => a - b);
-        const f = e.key === "j" ? frames.filter((x) => x < ui.frame).at(-1) : frames.find((x) => x > ui.frame);
-        if (f !== undefined) go(f);
-      } else if ((e.key === "Delete" || e.key === "Backspace") && ui.selectedKeys.length) {
+      else if (!mod && (e.key === "j" || e.key === "k")) jumpToKey(e.key === "j" ? -1 : 1); else if ((e.key === "Delete" || e.key === "Backspace") && ui.selectedKeys.length) {
         e.preventDefault();
         const net = shownNetwork(docStore.getState().doc, ui.path).id;
         const keys = ui.selectedKeys;

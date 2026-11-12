@@ -5,21 +5,25 @@ import { Loader2 } from "lucide-react";
 import { cn } from "@/design-system/motionbuilder---brandbook-c4b4eb/lib/utils";
 
 export const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-sm font-sans font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-40 [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full font-sans font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:pointer-events-none disabled:opacity-40 [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        primary: "bg-primary text-primary-foreground hover:bg-primary/85 active:bg-primary/75",
-        secondary: "bg-secondary text-secondary-foreground border border-border hover:bg-accent",
-        outline: "border border-wire bg-transparent text-foreground hover:bg-accent",
-        ghost: "bg-transparent text-muted-foreground hover:bg-accent hover:text-foreground",
+        /* the one main action: black pill (white in dark) */
+        primary: "bg-ink text-ink-foreground font-semibold hover:bg-ink/85 active:bg-ink/75",
+        secondary: "bg-card text-foreground shadow-card hover:bg-field",
+        /* a quiet filled pill, e.g. "+ Layer" */
+        soft: "bg-field text-foreground hover:bg-line2/60",
+        outline: "border border-line2 bg-transparent text-foreground hover:bg-field",
+        ghost: "bg-transparent text-muted-foreground hover:bg-field hover:text-foreground",
         destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/85",
       },
       size: {
-        sm: "h-7 px-2.5 text-xs",
-        md: "h-8 px-3 text-sm",
-        lg: "h-10 px-4 text-sm",
+        sm: "h-7 px-3 text-xs",
+        md: "h-8 px-3.5 text-[13px]",
+        lg: "h-[38px] px-4 text-[13px]",
         icon: "size-8",
+        "icon-lg": "size-10 [&_svg]:size-[18px]",
       },
     },
     defaultVariants: { variant: "primary", size: "md" },

@@ -316,8 +316,8 @@ export function BatchPanel({ onClose }: { onClose: () => void }) {
             )}
             {run.kind === "busy" && (
               <div className="grid gap-1">
-                <div className="h-1 rounded-xs bg-border">
-                  <div className="h-1 rounded-xs bg-primary" style={{ width: `${((run.row - 1 + run.frame / run.frames) / run.rows) * 100}%` }} />
+                <div className="h-2 rounded-full bg-field">
+                  <div className="h-2 rounded-full bg-volt shadow-[inset_0_0_0_1.5px_var(--ink)]" style={{ width: `${((run.row - 1 + run.frame / run.frames) / run.rows) * 100}%` }} />
                 </div>
                 <div className="flex items-center font-mono text-[11px] text-muted-foreground">
                   Row {run.row}/{run.rows} · frame {run.frame}/{run.frames}
@@ -343,7 +343,7 @@ export function BatchPanel({ onClose }: { onClose: () => void }) {
 
 function Shell({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
   return (
-    <div role="dialog" aria-label="Batch" className="absolute right-3 top-11 z-50 max-h-[85vh] w-[420px] overflow-y-auto rounded-md border border-border bg-elevated p-3 shadow-panel">
+    <div role="dialog" aria-label="Batch" className="absolute right-1 top-[52px] z-50 max-h-[85vh] w-[420px] overflow-y-auto rounded-xl bg-card p-4 shadow-float">
       <div className="mb-3 flex items-center">
         <h2 className="font-display text-sm font-semibold">Batch from a sheet</h2>
         <Button variant="ghost" size="icon" className="ml-auto size-6" aria-label="Close" onClick={onClose}>

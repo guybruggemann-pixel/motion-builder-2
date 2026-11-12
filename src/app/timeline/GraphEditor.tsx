@@ -190,14 +190,14 @@ export function GraphEditor() {
               const v = lo + ((hi - lo) * i) / yTicks;
               return (
                 <g key={i}>
-                  <line x1={PAD.l} x2={PAD.l + W} y1={Y(v)} y2={Y(v)} stroke="var(--grid)" />
+                  <line x1={PAD.l} x2={PAD.l + W} y1={Y(v)} y2={Y(v)} stroke="var(--line)" />
                   <text x={PAD.l - 6} y={Y(v) + 3} textAnchor="end" className="fill-muted-foreground font-mono text-[10px]">
                     {+v.toFixed(Math.abs(hi - lo) < 10 ? 2 : 0)}
                   </text>
                 </g>
               );
             })}
-            {a && b && <rect x={X(a.t)} y={PAD.t} width={X(b.t) - X(a.t)} height={H} fill="var(--accent)" opacity={0.35} />}
+            {a && b && <rect x={X(a.t)} y={PAD.t} width={X(b.t) - X(a.t)} height={H} fill="var(--field)" opacity={0.35} />}
             {Array.from({ length: nComp }, (_, c) => (
               <polyline
                 key={c}
@@ -210,20 +210,20 @@ export function GraphEditor() {
             {mode === "value" &&
               keys.map((k, i) =>
                 comps(k.v).map((v, c) => (
-                  <rect key={`${i}-${c}`} x={X(k.t) - 3.5} y={Y(v) - 3.5} width={7} height={7} transform={`rotate(45 ${X(k.t)} ${Y(v)})`} className={cn(i === seg || i === seg + 1 ? "fill-primary" : "fill-foreground")} />
+                  <rect key={`${i}-${c}`} x={X(k.t) - 3.5} y={Y(v) - 3.5} width={7} height={7} transform={`rotate(45 ${X(k.t)} ${Y(v)})`} className={cn(i === seg || i === seg + 1 ? "fill-ink" : "fill-muted-foreground")} />
                 )),
               )}
             {handles && (
               <g>
-                <line x1={handles.A.x} y1={handles.A.y} x2={handles.h1.x} y2={handles.h1.y} stroke="var(--primary)" />
-                <line x1={handles.B.x} y1={handles.B.y} x2={handles.h2.x} y2={handles.h2.y} stroke="var(--primary)" />
+                <line x1={handles.A.x} y1={handles.A.y} x2={handles.h1.x} y2={handles.h1.y} stroke="var(--ink)" />
+                <line x1={handles.B.x} y1={handles.B.y} x2={handles.h2.x} y2={handles.h2.y} stroke="var(--ink)" />
                 {([1, 2] as const).map((w) => {
                   const p = w === 1 ? handles.h1 : handles.h2;
-                  return <circle key={w} cx={p.x} cy={p.y} r={5} className="cursor-grab fill-background stroke-primary" strokeWidth={1.5} onPointerDown={dragHandle(w)} aria-label={`Bezier handle ${w}`} />;
+                  return <circle key={w} cx={p.x} cy={p.y} r={5} className="cursor-grab fill-card stroke-ink" strokeWidth={1.5} onPointerDown={dragHandle(w)} aria-label={`Bezier handle ${w}`} />;
                 })}
               </g>
             )}
-            <line x1={X(frame / fps)} x2={X(frame / fps)} y1={PAD.t} y2={PAD.t + H} stroke="var(--primary)" />
+            <line x1={X(frame / fps)} x2={X(frame / fps)} y1={PAD.t} y2={PAD.t + H} stroke="var(--ink)" />
           </svg>
         )}
       </div>

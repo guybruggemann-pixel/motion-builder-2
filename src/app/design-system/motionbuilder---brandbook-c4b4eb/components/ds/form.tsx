@@ -3,16 +3,16 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/design-system/motionbuilder---brandbook-c4b4eb/lib/utils";
 
 export const inputVariants = cva(
-  "flex w-full rounded-sm border bg-muted text-foreground placeholder:text-muted-foreground transition-colors focus-visible:outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40 aria-[invalid=true]:border-destructive aria-[invalid=true]:ring-destructive",
+  "flex w-full rounded-sm border border-transparent bg-field text-foreground placeholder:text-muted-foreground transition-colors focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-ink disabled:cursor-not-allowed disabled:opacity-40 aria-[invalid=true]:border-destructive",
   {
     variants: {
       variant: {
-        default: "border-border font-sans",
-        mono: "border-border font-mono tabular-nums",
+        default: "font-sans",
+        mono: "font-mono tabular-nums",
       },
       size: {
         sm: "h-7 px-2 text-xs",
-        md: "h-8 px-2.5 text-sm",
+        md: "h-[34px] px-2.5 text-[13px]",
       },
     },
     defaultVariants: { variant: "default", size: "md" },
@@ -33,11 +33,11 @@ Input.displayName = "Input";
 
 export interface LabelProps extends React.LabelHTMLAttributes<HTMLLabelElement> {}
 
-/** Uppercase utility label, wired to its control with `htmlFor`. */
+/** Field label in sentence case, wired to its control with `htmlFor`. */
 export const Label = React.forwardRef<HTMLLabelElement, LabelProps>(({ className, ...props }, ref) => (
   <label
     ref={ref}
-    className={cn("font-mono text-[11px] uppercase tracking-wider text-muted-foreground", className)}
+    className={cn("text-xs text-muted-foreground", className)}
     {...props}
   />
 ));
@@ -67,7 +67,7 @@ export const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
           onCheckedChange?.(!on);
         }}
         className={cn(
-          "relative inline-flex h-4 w-7 shrink-0 items-center rounded-sm border border-wire bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-40 data-[state=on]:border-primary data-[state=on]:bg-primary",
+          "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full bg-line2 transition-colors disabled:opacity-40 data-[state=on]:bg-ink",
           className,
         )}
         {...props}
@@ -75,8 +75,8 @@ export const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
         <span
           aria-hidden
           className={cn(
-            "block size-2.5 rounded-xs bg-muted-foreground transition-transform",
-            on ? "translate-x-3.5 bg-primary-foreground" : "translate-x-0.5",
+            "block size-4 rounded-full bg-card shadow-card transition-transform",
+            on ? "translate-x-[18px]" : "translate-x-0.5",
           )}
         />
       </button>
@@ -121,7 +121,7 @@ export const ParamSlider = React.forwardRef<HTMLInputElement, ParamSliderProps>(
           value={value}
           onChange={(e) => onValueChange(Number(e.target.value))}
           style={{ ["--pct" as string]: `${pct}%` }}
-          className="h-1 w-full cursor-pointer appearance-none rounded-sm bg-[linear-gradient(to_right,var(--primary)_var(--pct),var(--border)_var(--pct))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-40 [&::-moz-range-thumb]:size-3 [&::-moz-range-thumb]:rounded-xs [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-foreground [&::-webkit-slider-thumb]:size-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-xs [&::-webkit-slider-thumb]:bg-foreground"
+          className="h-1 w-full cursor-pointer appearance-none rounded-sm rounded-full bg-[linear-gradient(to_right,var(--ink)_var(--pct),var(--line2)_var(--pct))] disabled:opacity-40 [&::-moz-range-thumb]:size-3.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-foreground [&::-webkit-slider-thumb]:size-3.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-ink"
           {...props}
         />
       </div>

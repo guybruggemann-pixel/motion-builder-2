@@ -67,7 +67,7 @@ function CardNode({ data, selected }: NodeProps<FlowNode<CardData>>) {
       icon={node.subnet ? <Layers /> : undefined}
       category={CATEGORY[spec?.category ?? "utility"]}
       state={!node.enabled ? "bypassed" : selected ? "selected" : "idle"}
-      className={cn("w-48", isOutput && "ring-1 ring-primary/40")}
+      className={cn("w-48", isOutput && "ring-2 ring-ink/25")}
     >
       {(spec?.inputs ?? 0) > 0 && <Handle type="target" position={Position.Left} className="!size-2.5 !rotate-45 !rounded-none !border !border-wire !bg-background" />}
       <div className="px-2.5 font-mono text-[11px] text-muted-foreground">{data.summary || (isOutput ? "network output" : " ")}</div>
@@ -111,7 +111,7 @@ function Graph() {
         source: w.from.node,
         target: w.to.node,
         type: "default",
-        className: "[&_path]:!stroke-wire [&.selected_path]:!stroke-primary",
+        className: "[&_path]:!stroke-wire [&.selected_path]:!stroke-ink",
       })),
     [net],
   );
@@ -185,7 +185,7 @@ function Graph() {
       className="bg-background"
       onInit={() => flow.fitView({ padding: 0.25 })}
     >
-      <Background variant={BackgroundVariant.Lines} gap={24} color="var(--grid)" />
+      <Background variant={BackgroundVariant.Dots} gap={20} size={1.2} color="var(--line2)" />
       <Controls showInteractive={false} className="[&_button]:!border-border [&_button]:!bg-surface [&_button]:!fill-foreground" />
     </ReactFlow>
   );

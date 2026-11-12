@@ -23,6 +23,12 @@ Full, current plan with diagrams: https://claude.ai/artifact/DnRUjhGEjxW51N8FoYF
   - [~] AE export (built, not yet run in real AE): `.jsx` from the Render panel; one comp per comp, one precomp per Subnet instance, one layer per drawable (per character / word when split), every channel baked by v1's baker into AE bezier keys within tolerance, reveals as keyed masks, no expressions. Tested against a mock AE object model. Open: a run in After Effects, blur calibration (canvas blur vs AE Blurriness), animated colours and text content, non-uniform scale keys (linear for now)
   - [ ] Frame-diff tests: preview vs render vs AE on reference scenes
 - [x] 2b Data-driven batch (first version): Batch panel reads a Google Sheet shared by link (polled every 30 s while open), maps columns to the asset's controls (auto-matched, Dutch and English), file name template, row preview, QC (empty cells, duplicate names, outside action safe), renders ProRes/MP4 into a chosen folder with a manifest so re-runs only render changed rows. Settings live in the doc (v3, `batches`). Open: render in workers off the page, 1000-row gate run, glyph coverage check.
+- [ ] UI redesign (soft direction, `docs/ui-handover.md`, approved 2026-11-12). Gate: the acceptance checklist in the handover.
+  - [x] A. Tokens and shell: light/dark tokens (light default, theme remembered per browser), restyled primitives, grid with rail, collapsible library, viewer card with view pills and floating transport, inspector and timeline cards, top bar with flow stepper
+  - [ ] B. One layer list in the timeline, selection-driven UI (contextual toolbar, inspector ordered Motion / Look / Transform / Modifiers)
+  - [ ] C. Graph tab presets and motion preview from the core eases
+  - [ ] D. Materials (open decisions first)
+  - [ ] E. Other screens: Import, Draft, Edit mode, Deliver, Materials editor
 - [ ] 3 Exact import — Figma plugin, SVG/PDF, font check, roles, Techonomy brand kit. Gate: Figma frame imports 1:1 with editable text.
 - [ ] 4 AI first draft — role tagging, three options, prompt steering. Gate: usable options for 8 of 10 test designs.
 - [ ] 5 Assets + subtitles — motion asset library and designer controls; subtitles from .srt (batch from sheets moved to 2b). Gate: a designer ships 20 lower thirds solo.

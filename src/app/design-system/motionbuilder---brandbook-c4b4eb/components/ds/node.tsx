@@ -3,7 +3,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/design-system/motionbuilder---brandbook-c4b4eb/lib/utils";
 
 export const nodeCardVariants = cva(
-  "relative w-56 rounded-sm border bg-surface text-foreground shadow-panel transition-shadow focus-within:shadow-glow",
+  "relative w-56 rounded-md border bg-card text-foreground shadow-card transition-shadow focus-within:shadow-float",
   {
     variants: {
       category: {
@@ -14,8 +14,8 @@ export const nodeCardVariants = cva(
         math: "[--node:var(--color-node-math)]",
       },
       state: {
-        idle: "border-border",
-        selected: "border-[var(--node)]",
+        idle: "border-transparent",
+        selected: "border-ink",
         error: "border-destructive",
         bypassed: "border-dashed border-wire opacity-50",
       },
@@ -36,8 +36,8 @@ export interface NodeCardProps extends React.HTMLAttributes<HTMLDivElement>, Var
 export const NodeCard = React.forwardRef<HTMLDivElement, NodeCardProps>(
   ({ title, nodeId, icon, category, state, className, children, ...props }, ref) => (
     <div ref={ref} className={cn(nodeCardVariants({ category, state }), className)} {...props}>
-      <div className="flex h-8 items-center gap-2 border-b border-border px-2.5">
-        <span aria-hidden className="h-3 w-1 bg-[var(--node)]" />
+      <div className="flex h-9 items-center gap-2 px-3">
+        <span aria-hidden className="size-2 rounded-full bg-[var(--node)]" />
         {icon && <span className="text-[var(--node)] [&_svg]:size-3.5">{icon}</span>}
         <span className="font-display text-xs font-semibold tracking-tight">{title}</span>
         {nodeId && <span className="ml-auto font-mono text-[10px] text-muted-foreground">{nodeId}</span>}
@@ -62,7 +62,7 @@ export const NodePort = React.forwardRef<HTMLDivElement, NodePortProps>(
     <div
       ref={ref}
       className={cn(
-        "relative flex items-center gap-2 px-2.5 text-xs",
+        "relative flex items-center gap-2 px-3 text-xs",
         direction === "out" && "flex-row-reverse text-right",
         className,
       )}
@@ -71,9 +71,9 @@ export const NodePort = React.forwardRef<HTMLDivElement, NodePortProps>(
       <span
         aria-hidden
         className={cn(
-          "absolute top-1/2 size-2 -translate-y-1/2 rotate-45 border border-[var(--node,var(--color-wire))]",
-          direction === "in" ? "-left-1" : "-right-1",
-          connected ? "bg-[var(--node,var(--color-wire))]" : "bg-background",
+          "absolute top-1/2 size-3.5 -translate-y-1/2 rounded-full border-2 border-ink",
+          direction === "in" ? "-left-[7px]" : "-right-[7px]",
+          connected ? "bg-ink" : "bg-card",
         )}
       />
       <span className="text-muted-foreground">{label}</span>
@@ -102,7 +102,7 @@ export const Wire = React.forwardRef<SVGSVGElement, WireProps>(
           strokeWidth={1.5}
           className={cn(
             variant === "idle" && "stroke-wire",
-            variant === "active" && "stroke-primary [stroke-dasharray:6_4] animate-[wire-flow_0.6s_linear_infinite]",
+            variant === "active" && "stroke-ink [stroke-dasharray:6_4] animate-[wire-flow_0.6s_linear_infinite]",
             variant === "invalid" && "stroke-destructive [stroke-dasharray:2_3]",
           )}
         />

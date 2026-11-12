@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Materials · library and editor</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Inter+Tight:wght@600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b0c0f;--surface:#121417;--elevated:#1a1c20;--muted:#15171a;--accent:#202327;--fg:#edeef0;--mfg:#8e929a;--border:#282b30;--wire:#44484e;--grid:#181b1e;--volt:#c3fc2f;--ok:#35f3b5;--warn:#ffb330}
+body{margin:0;background:#0b0c0f}
+a{color:#edeef0;text-decoration:none}a:hover{color:#ffffff}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #c3fc2f;outline-offset:1px}
+@media (max-width:900px){
+.mt-body{grid-template-columns:1fr !important}
+.mt-app{height:auto !important}
+.mt-head{flex-wrap:wrap;height:auto !important;padding:8px 16px !important}
+}
+</style>
+</helmet>
+<div class="mt-app" style="width: 100%; height: 900px; display: grid; grid-template-rows: 48px minmax(0, 1fr); background: var(--bg); color: var(--fg); font-family: Inter, system-ui, sans-serif; font-size: 13px; overflow: hidden">
+
+<header class="mt-head" style="display: flex; align-items: center; gap: 16px; padding: 0 12px; border-bottom: 1px solid var(--border); background: var(--surface)">
+<div style="display: flex; align-items: center; gap: 10px">
+<div aria-hidden="true" style="width: 22px; height: 22px; border-radius: 4px; border: 1.5px solid var(--fg); display: grid; place-items: center"><div style="width: 8px; height: 8px; background: var(--fg); transform: rotate(45deg)"></div></div>
+<span style="font-family: 'Inter Tight', Inter, sans-serif; font-weight: 700; letter-spacing: -0.01em">Motion Builder</span>
+<span aria-hidden="true" style="color: var(--wire)">/</span>
+<a href="Main.dc.html" style="color: var(--mfg)">Main v02</a>
+<span aria-hidden="true" style="color: var(--wire)">/</span>
+<span style="font-weight: 600">Materials</span>
+</div>
+<nav aria-label="Workflow" style="display: flex; align-items: center; gap: 2px; margin: 0 auto; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 3px">
+<a href="Start.dc.html" style="display: flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 4px; color: var(--mfg)"><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px">1</span>Import</a>
+<a href="Drafts.dc.html" style="display: flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 4px; color: var(--mfg)"><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px">2</span>Draft</a>
+<a href="Main.dc.html" aria-current="page" style="display: flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 4px; background: var(--accent); font-weight: 600"><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--mfg)">3</span>Refine</a>
+<a href="Deliver.dc.html" style="display: flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 4px; color: var(--mfg)"><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px">4</span>Deliver</a>
+</nav>
+<a href="Main.dc.html" style="height: 32px; display: flex; align-items: center; gap: 6px; padding: 0 12px; border: 1px solid var(--border); border-radius: 4px">Back to comp</a>
+</header>
+
+<div class="mt-body" style="display: grid; grid-template-columns: 300px minmax(0, 1fr) 340px; min-height: 0">
+
+<!-- LIBRARY -->
+<aside aria-label="Material library" style="display: flex; flex-direction: column; min-height: 0; background: var(--surface); border-right: 1px solid var(--border)">
+<div style="padding: 14px 14px 10px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid var(--border)">
+<div style="display: flex; align-items: center">
+<h2 style="margin: 0; font-family: 'Inter Tight', Inter, sans-serif; font-size: 15px; font-weight: 700">Materials</h2>
+<button type="button" style="margin-left: auto; height: 28px; padding: 0 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--elevated); font-size: 12px">+ New</button>
+</div>
+<label style="display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 8px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--mfg)">
+<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+<span style="position: absolute; width: 1px; height: 1px; overflow: hidden">Search materials</span>
+<input type="text" placeholder="Search materials" style="flex: 1; min-width: 0; background: transparent; border: 0; outline: none; font-size: 12px">
+</label>
+<div role="group" aria-label="Filter" style="display: flex; flex-wrap: wrap; gap: 4px">
+<button type="button" aria-pressed="true" style="padding: 3px 9px; border: 0; border-radius: 999px; background: var(--accent); font-size: 12px; font-weight: 600">All</button>
+<button type="button" aria-pressed="false" style="padding: 3px 9px; border: 1px solid var(--border); border-radius: 999px; background: transparent; font-size: 12px; color: var(--mfg)">Brand</button>
+<button type="button" aria-pressed="false" style="padding: 3px 9px; border: 1px solid var(--border); border-radius: 999px; background: transparent; font-size: 12px; color: var(--mfg)">Glass</button>
+<button type="button" aria-pressed="false" style="padding: 3px 9px; border: 1px solid var(--border); border-radius: 999px; background: transparent; font-size: 12px; color: var(--mfg)">Metal</button>
+<button type="button" aria-pressed="false" style="padding: 3px 9px; border: 1px solid var(--border); border-radius: 999px; background: transparent; font-size: 12px; color: var(--mfg)">Light</button>
+</div>
+</div>
+<div role="listbox" aria-label="Materials" style="flex: 1; min-height: 0; overflow: auto; padding: 10px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; align-content: start">
+<sc-for list="{{mats}}" as="m" hint-placeholder-count="8">
+<div role="option" aria-selected="{{m.selected}}" tabindex="0" draggable="true" onClick="{{m.pick}}" style="{{m.cardStyle}}">
+<div aria-hidden="true" style="height: 72px; display: grid; place-items: center; border-radius: 4px; background: #24272c"><div style="{{m.sphere}}"></div></div>
+<div style="display: flex; flex-direction: column; gap: 2px; padding: 0 2px">
+<span style="font-size: 12px; font-weight: 600">{{m.name}}</span>
+<span style="font-size: 11px; color: var(--mfg)">{{m.kind}}</span>
+</div>
+</div>
+</sc-for>
+</div>
+<p style="margin: 0; padding: 10px 14px; border-top: 1px solid var(--border); font-size: 12px; line-height: 1.5; color: var(--mfg)">Drag a material onto a layer in the viewer, the layer list or the Material slot in the inspector.</p>
+</aside>
+
+<!-- PREVIEW -->
+<main aria-label="Material preview" style="display: flex; flex-direction: column; min-width: 0; min-height: 0">
+<div style="display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border-bottom: 1px solid var(--border); flex-wrap: wrap">
+<div role="group" aria-label="Preview on" style="display: flex; border: 1px solid var(--border); border-radius: 6px; padding: 2px">
+<button type="button" aria-pressed="true" style="height: 26px; padding: 0 10px; border: 0; border-radius: 4px; background: var(--accent); font-size: 12px; font-weight: 600">On Panel</button>
+<button type="button" aria-pressed="false" style="height: 26px; padding: 0 10px; border: 0; border-radius: 4px; background: transparent; font-size: 12px; color: var(--mfg)">Sphere</button>
+<button type="button" aria-pressed="false" style="height: 26px; padding: 0 10px; border: 0; border-radius: 4px; background: transparent; font-size: 12px; color: var(--mfg)">Flat swatch</button>
+</div>
+<span style="font-size: 12px; color: var(--mfg); margin-left: 8px">Frame 2:12 · lit by Studio soft</span>
+<span style="margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--mfg)"><span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 50%; background: var(--ok)"></span>WebGL preview</span>
+</div>
+<div style="flex: 1; min-height: 0; display: grid; place-items: center; padding: 28px; background-color: var(--bg); background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px); background-size: 24px 24px">
+<div role="img" aria-label="{{previewLabel}}" style="position: relative; width: min(100%, 760px); aspect-ratio: 16 / 9; background: #1b1e24; overflow: hidden; border: 1px solid var(--border)">
+<div aria-hidden="true" style="position: absolute; left: 18%; top: 34%; width: 30%; aspect-ratio: 1; border-radius: 50%; background: #1f4bff"></div>
+<div aria-hidden="true" style="position: absolute; left: 44%; top: 56%; width: 22%; height: 10%; background: #ff39d1; transform: rotate(-8deg)"></div>
+<div aria-hidden="true" style="position: absolute; left: 6%; top: 70%; width: 14%; height: 24%; background: #fdc436"></div>
+<div style="{{panelStyle}}">
+<div style="{{nameStyle}}">Name Surname</div>
+<div style="{{titleStyle}}">Job title, Company</div>
+</div>
+<div aria-hidden="true" style="position: absolute; left: 10%; bottom: 12%; width: 54%; height: 30%; outline: 1.5px dashed var(--volt); outline-offset: 6px"></div>
+<span style="position: absolute; left: 10%; top: 50%; transform: translateY(-14px); font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--volt); color: #0b0c0f">Panel · {{selName}}</span>
+</div>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-top: 1px solid var(--border); background: var(--surface); flex-wrap: wrap">
+<span style="font-size: 11px; font-weight: 600; color: var(--mfg); text-transform: uppercase; letter-spacing: 0.06em">Used by</span>
+<span style="display: flex; align-items: center; gap: 6px; padding: 3px 9px; border: 1px solid var(--border); border-radius: 999px; font-size: 12px"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 2px; background: #27e7f9"></span>Panel · Lower third</span>
+<button type="button" style="padding: 3px 9px; border: 1px dashed var(--wire); border-radius: 999px; background: transparent; font-size: 12px; color: var(--mfg)">+ Apply to layer</button>
+<span style="margin-left: auto; font-size: 12px; color: var(--mfg)">Edits update every layer that uses it</span>
+</div>
+</main>
+
+<!-- PROPERTIES -->
+<aside aria-label="Material properties" style="display: flex; flex-direction: column; min-height: 0; background: var(--surface); border-left: 1px solid var(--border); overflow: auto">
+<div style="padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px">
+<div aria-hidden="true" style="{{selSphere}}"></div>
+<div style="display: flex; flex-direction: column; gap: 3px; min-width: 0">
+<h2 style="margin: 0; font-family: 'Inter Tight', Inter, sans-serif; font-size: 15px; font-weight: 700">{{selName}}</h2>
+<span style="font-size: 12px; color: var(--mfg)">{{selKind}} · Physical material</span>
+</div>
+<button type="button" style="margin-left: auto; height: 28px; padding: 0 10px; border: 1px solid var(--border); border-radius: 4px; background: transparent; font-size: 12px">Duplicate</button>
+</div>
+
+<section aria-labelledby="p-base" style="padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px">
+<h3 id="p-base" style="margin: 0; font-size: 11px; font-weight: 600; color: var(--mfg); text-transform: uppercase; letter-spacing: 0.06em">Colour</h3>
+<div style="display: flex; align-items: center; gap: 8px">
+<span aria-hidden="true" style="{{baseChip}}"></span>
+<select aria-label="Base colour" style="flex: 1; height: 30px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 0 6px; font-size: 12px"><option>{{baseLabel}}</option><option>brand: primary</option><option>brand: ink</option><option>brand: paper</option></select>
+</div>
+<span style="font-size: 12px; color: var(--mfg)">Linked to the brand kit: change the kit, every material follows.</span>
+</section>
+
+<section aria-labelledby="p-surf" style="padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; align-items: center; margin-bottom: 4px">
+<h3 id="p-surf" style="margin: 0; font-size: 11px; font-weight: 600; color: var(--mfg); text-transform: uppercase; letter-spacing: 0.06em">Surface</h3>
+<span style="margin-left: auto; font-size: 11px; color: var(--mfg)">every value can be keyed</span>
+</div>
+<sc-for list="{{props}}" as="p" hint-placeholder-count="8">
+<div style="display: grid; grid-template-columns: 22px 92px minmax(0, 1fr) 44px; align-items: center; gap: 8px; height: 30px">
+<button type="button" aria-label="{{p.keyLabel}}" style="width: 22px; height: 22px; display: grid; place-items: center; background: transparent; border: 0"><span aria-hidden="true" style="{{p.diamond}}"></span></button>
+<span style="{{p.labelStyle}}">{{p.label}}</span>
+<span aria-hidden="true" style="height: 4px; border-radius: 2px; background: var(--accent); position: relative; display: block"><span style="{{p.bar}}"></span></span>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; text-align: right; color: var(--fg)">{{p.value}}</span>
+</div>
+</sc-for>
+</section>
+
+<section aria-labelledby="p-light" style="padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px">
+<h3 id="p-light" style="margin: 0; font-size: 11px; font-weight: 600; color: var(--mfg); text-transform: uppercase; letter-spacing: 0.06em">Lighting</h3>
+<label style="display: flex; align-items: center; gap: 8px"><span style="width: 92px; font-size: 12px">Environment</span><select style="flex: 1; height: 30px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 0 6px; font-size: 12px"><option>Studio soft</option><option>Studio hard</option><option>Overcast</option><option>Custom HDRI…</option></select></label>
+<label style="display: flex; align-items: center; gap: 8px"><span style="width: 92px; font-size: 12px">Refracts</span><select style="flex: 1; height: 30px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 0 6px; font-size: 12px"><option>Layers below in the comp</option><option>Environment only</option></select></label>
+</section>
+
+<div style="margin: 16px; padding: 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--muted); display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 12px; font-weight: 600">{{aeTitle}}</span>
+<span style="font-size: 12px; line-height: 1.5; color: var(--mfg)">{{aeText}}</span>
+</div>
+</aside>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { sel: 1 };
+  }
+  renderVals() {
+    var self = this;
+    var sp = function (bg) { return 'width:52px;height:52px;border-radius:50%;background:' + bg; };
+    var base = 'position:absolute;left:10%;bottom:12%;width:54%;height:30%;box-sizing:border-box;padding:3.4% 4%;display:flex;flex-direction:column;justify-content:center;gap:6px;';
+    var M = [
+      { name: 'Primary', kind: 'Solid', solid: true, color: '#1f4bff', baseLabel: 'brand: primary',
+        sphere: 'radial-gradient(circle at 35% 30%, #6f8cff 0%, #1f4bff 45%, #0d248a 100%)',
+        panel: 'background:#1f4bff;', ink: '#ffffff', sub: 'rgba(255,255,255,0.75)',
+        v: [0.5, 0, 0, 1.5, 0, 0, 0, 0] },
+      { name: 'Glass', kind: 'Glass', color: '#ffffff', baseLabel: 'white',
+        sphere: 'radial-gradient(circle at 32% 28%, rgba(255,255,255,0.95) 0 8%, rgba(255,255,255,0.18) 22%, rgba(120,160,255,0.12) 60%, rgba(255,255,255,0.55) 96%)',
+        panel: 'background:rgba(255,255,255,0.08);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);border:1px solid rgba(255,255,255,0.5);box-shadow:inset 0 1px 0 rgba(255,255,255,0.7), inset 0 -1px 0 rgba(255,255,255,0.15);border-radius:10px;', ink: '#ffffff', sub: 'rgba(255,255,255,0.8)',
+        v: [0.05, 0, 1, 1.5, 0.4, 1, 0, 0] },
+      { name: 'Frosted glass', kind: 'Glass', color: '#ffffff', baseLabel: 'white',
+        sphere: 'radial-gradient(circle at 35% 30%, rgba(255,255,255,0.85) 0%, rgba(220,228,240,0.55) 45%, rgba(160,170,190,0.5) 100%)',
+        panel: 'background:rgba(255,255,255,0.14);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,0.3);border-radius:10px;', ink: '#ffffff', sub: 'rgba(255,255,255,0.8)',
+        v: [0.45, 0, 0.9, 1.5, 0.6, 0.3, 0, 0] },
+      { name: 'Chrome', kind: 'Metal', color: '#e6e8eb', baseLabel: 'silver',
+        sphere: 'radial-gradient(circle at 35% 28%, #ffffff 0 10%, #c9cdd3 30%, #3a3e44 62%, #d6d9de 90%)',
+        panel: 'background:linear-gradient(180deg,#f5f6f8 0%,#aeb3ba 46%,#3a3e44 50%,#c9cdd3 100%);', ink: '#0b0b0f', sub: 'rgba(11,11,15,0.7)',
+        v: [0.05, 1, 0, 1.5, 0, 1, 0, 0] },
+      { name: 'Brushed alu', kind: 'Metal', color: '#b9bec5', baseLabel: 'aluminium',
+        sphere: 'radial-gradient(circle at 35% 30%, #e9ebee 0%, #a7adb5 50%, #5b6068 100%)',
+        panel: 'background:repeating-linear-gradient(90deg,#c3c8cf 0 2px,#b4b9c0 2px 3px,#bec3ca 3px 5px);', ink: '#0b0b0f', sub: 'rgba(11,11,15,0.7)',
+        v: [0.35, 1, 0, 1.5, 0, 0, 0, 0] },
+      { name: 'Gloss plastic', kind: 'Brand', color: '#1f4bff', baseLabel: 'brand: primary',
+        sphere: 'radial-gradient(circle at 33% 27%, #ffffff 0 7%, #4d70ff 18%, #1f4bff 55%, #0d248a 100%)',
+        panel: 'background:#1f4bff;box-shadow:inset 0 2px 0 rgba(255,255,255,0.55), inset 0 -10px 18px rgba(0,0,40,0.35);border-radius:6px;', ink: '#ffffff', sub: 'rgba(255,255,255,0.8)',
+        v: [0.15, 0, 0, 1.5, 0, 1, 0, 0] },
+      { name: 'Foil', kind: 'Iridescent', color: '#d8dce2', baseLabel: 'silver',
+        sphere: 'radial-gradient(circle at 35% 30%, #ffffff 0 8%, #27e7f9 28%, #8b5cff 55%, #ff39d1 80%, #fdc436 100%)',
+        panel: 'background:linear-gradient(110deg,#9ef3fb 0%,#b9a3ff 35%,#ffa3e8 65%,#ffe08a 100%);', ink: '#0b0b0f', sub: 'rgba(11,11,15,0.7)',
+        v: [0.2, 0.8, 0, 1.5, 0, 0.5, 1, 0] },
+      { name: 'Neon edge', kind: 'Light', color: '#27e7f9', baseLabel: 'cyan',
+        sphere: 'radial-gradient(circle at 50% 50%, #e9feff 0 18%, #27e7f9 45%, rgba(39,231,249,0.15) 100%)',
+        panel: 'background:rgba(39,231,249,0.06);border:2px solid #27e7f9;box-shadow:0 0 24px rgba(39,231,249,0.7), inset 0 0 18px rgba(39,231,249,0.35);border-radius:6px;', ink: '#ffffff', sub: 'rgba(233,254,255,0.8)',
+        v: [0.5, 0, 0, 1.5, 0, 0, 0, 2.4] }
+    ];
+    var labels = ['Roughness', 'Metalness', 'Transmission', 'IOR', 'Thickness', 'Clearcoat', 'Iridescence', 'Emission'];
+    var maxes = [1, 1, 1, 2.33, 1, 1, 1, 4];
+    var sel = this.state.sel;
+    var s = M[sel];
+    var mats = M.map(function (m, i) {
+      var on = i === sel;
+      return {
+        name: m.name, kind: m.kind, selected: on,
+        sphere: sp(m.sphere),
+        cardStyle: 'display:flex;flex-direction:column;gap:8px;padding:6px;border-radius:6px;cursor:grab;background:#0b0c0f;border:1.5px solid ' + (on ? '#edeef0' : '#282b30'),
+        pick: function () { self.setState({ sel: i }); }
+      };
+    });
+    var props = labels.map(function (l, i) {
+      var val = s.v[i];
+      var active = i === 3 ? s.v[2] > 0 : val > 0;
+      var keyed = sel === 1 && i === 2;
+      return {
+        label: l,
+        value: i === 3 ? val.toFixed(2) : (i === 7 ? val.toFixed(1) : val.toFixed(2)),
+        labelStyle: 'font-size:12px;color:' + (active ? '#edeef0' : '#8e929a'),
+        bar: 'position:absolute;left:0;top:0;bottom:0;border-radius:2px;background:' + (active ? '#edeef0' : '#44484e') + ';width:' + Math.round(Math.min(1, val / maxes[i]) * 100) + '%',
+        diamond: keyed ? 'width:9px;height:9px;background:#c3fc2f;transform:rotate(45deg)' : 'width:8px;height:8px;border:1.5px solid #44484e;transform:rotate(45deg)',
+        keyLabel: keyed ? l + ' has a key at the playhead' : 'Add key to ' + l
+      };
+    });
+    var glassy = s.v[2] > 0 || s.v[7] > 0 || s.v[6] > 0;
+    return {
+      mats: mats,
+      props: props,
+      selName: s.name,
+      selKind: s.kind,
+      selSphere: 'flex:none;width:40px;height:40px;border-radius:50%;background:' + s.sphere,
+      baseChip: 'width:22px;height:22px;border-radius:4px;border:1px solid rgba(237,238,240,0.25);background:' + s.color,
+      baseLabel: s.baseLabel,
+      panelStyle: base + s.panel,
+      nameStyle: 'font-weight:700;font-size:clamp(14px,2.4vw,26px);letter-spacing:-0.01em;color:' + s.ink,
+      titleStyle: 'font-size:clamp(10px,1.2vw,14px);color:' + s.sub,
+      previewLabel: 'Lower third with the ' + s.name + ' material on the Panel layer, over the background plate',
+      aeTitle: glassy ? 'After Effects: rendered pass' : 'After Effects: native',
+      aeText: glassy ? 'AE has no physical glass or light. This layer exports as a ProRes 4444 pass with alpha, placed in its own precomp. The rest of the comp stays native.' : 'Exports as a native fill with its keys. No rendered pass needed.'
+    };
+  }
+}
+</script>
+</body>
+</html>

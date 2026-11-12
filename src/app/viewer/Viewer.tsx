@@ -1,9 +1,13 @@
 /**
- * Canvas viewer: fits the comp into the panel, draws the current frame (with preview motion
+ * Canvas viewer: fits the comp onto the stage, draws the current frame (with preview motion
  * blur), a checkerboard where the comp is transparent, and broadcast safe areas on top.
+ * View pills (zoom, format, safe areas, blur, transparency) and the transport float over it.
  * All pixels come from `evaluateFrame` via the frame cache; the viewer adds no scene state.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Grid2x2, ScanLine, Wind } from "lucide-react";
+import { cn } from "@/design-system/motionbuilder---brandbook-c4b4eb/lib/utils";
+import { Transport } from "./Transport";
 import { FrameCache, type Mat } from "@core/scene";
 import { canvasMeasure, drawCompFrame, setImageListener } from "@/render/canvas2d";
 import { loadFonts } from "@/render/fonts";
@@ -11,23 +15,25 @@ import { shownNetwork, useDocStore, useUi, viewComp } from "@/store";
 
 /** SMPTE ST 2046-1: action safe 93 %, title safe 90 %. */
 const SAFE = { action: 0.93, title: 0.9 };
-const PAD = 24; // CSS px around the comp
+/** CSS px around the comp: room for the pills on top and the transport below. */
+const PAD = { x: 24, top: 56, bottom: 70 };
+const CORNER = 10;
 
 function cssVar(name: string) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
 function drawChecker(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, cell: number) {
-  ctx.fillStyle = cssVar("--surface");
+  ctx.fillStyle = cssVar("--card");
   ctx.fillRect(x, y, w, h);
-  ctx.fillStyle = cssVar("--accent");
+  ctx.fillStyle = cssVar("--line2");
   for (let j = 0; j * cell < h; j++)
     for (let i = (j % 2); i * cell < w; i += 2) ctx.fillRect(x + i * cell, y + j * cell, Math.min(cell, w - i * cell), Math.min(cell, h - j * cell));
 }
 
 function drawSafeAreas(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, dpr: number) {
   ctx.save();
-  ctx.strokeStyle = cssVar("--muted-foreground") || "#999";
+  ctx.strokeStyle = cssVar("--muted") || "#999";
   ctx.globalAlpha = 0.55;
   ctx.lineWidth = dpr;
   for (const f of [SAFE.action, SAFE.title]) {
@@ -46,7 +52,7 @@ function drawSafeAreas(ctx: CanvasRenderingContext2D, x: number, y: number, w: n
 
 export function Viewer() {
   const doc = useDocStore((s) => s.doc);
-  const { path, frame, safeAreas, motionBlur } = useUi();
+  const { path, frame, safeAreas, motionBlur, transparency, theme, toggle } = useUi();
   const net = shownNetwork(doc, path);
   const comp = viewComp(doc, path);
 
@@ -98,14 +104,29 @@ export function Viewer() {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, W, H);
 
-    const pad = PAD * size.dpr;
-    const k = Math.min((W - 2 * pad) / comp.width, (H - 2 * pad) / comp.height);
+    const d = size.dpr;
+    const k = Math.min((W - 2 * PAD.x * d) / comp.width, (H - (PAD.top + PAD.bottom) * d) / comp.height);
     if (k <= 0) return;
     const cw = comp.width * k, ch = comp.height * k;
-    const ox = Math.round((W - cw) / 2), oy = Math.round((H - ch) / 2);
+    const ox = Math.round((W - cw) / 2), oy = Math.round(PAD.top * d + (H - (PAD.top + PAD.bottom) * d - ch) / 2);
     const view: Mat = [k, 0, 0, k, ox, oy];
 
-    if (comp.background) {
+    // the comp frame sits on the stage with a soft shadow and rounded corners (view only)
+    ctx.save();
+    ctx.shadowColor = theme === "dark" ? "rgba(0,0,0,0.5)" : "rgba(16,17,20,0.18)";
+    ctx.shadowBlur = 40 * d;
+    ctx.shadowOffsetY = 12 * d;
+    ctx.fillStyle = cssVar("--card");
+    ctx.beginPath();
+    ctx.roundRect(ox, oy, cw, ch, CORNER * d);
+    ctx.fill();
+    ctx.restore();
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(ox, oy, cw, ch, CORNER * d);
+    ctx.clip();
+
+    if (comp.background && !transparency) {
       const bg = comp.background.startsWith("brand:")
         ? doc.brand?.colors.find((c) => c.token === comp.background!.slice(6))?.value ?? "#000000"
         : comp.background;
@@ -113,28 +134,39 @@ export function Viewer() {
       ctx.fillRect(ox, oy, cw, ch);
     } else drawChecker(ctx, ox, oy, cw, ch, 12 * size.dpr);
 
-    if (cache) {
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(ox, oy, cw, ch);
-      ctx.clip();
-      drawCompFrame(ctx, scratch, cache, doc, net.id, frame, view, motionBlur ? comp.motionBlur : undefined);
-      ctx.restore();
-    }
+    if (cache) drawCompFrame(ctx, scratch, cache, doc, net.id, frame, view, motionBlur ? comp.motionBlur : undefined);
+    ctx.restore();
     if (safeAreas) drawSafeAreas(ctx, ox, oy, cw, ch, size.dpr);
-  }, [doc, net.id, comp, frame, size, cache, safeAreas, motionBlur, scratch, imageTick]);
+  }, [doc, net.id, comp, frame, size, cache, safeAreas, motionBlur, transparency, theme, scratch, imageTick]);
 
+  const pill = "flex h-[30px] items-center rounded-full bg-card px-3 text-xs shadow-card";
+  const opt = (on: boolean) =>
+    cn("grid h-[26px] w-[30px] place-items-center rounded-full transition-colors [&_svg]:size-[15px]", on ? "bg-field text-foreground" : "text-muted-foreground hover:text-foreground");
   return (
-    <div ref={wrap} className="relative min-h-0 flex-1 bg-grid">
-      <canvas
-        ref={canvas}
-        className="absolute inset-0 size-full"
-        role="img"
-        aria-label={`${net.name}, frame ${frame}`}
-      />
-      {!cache && (
-        <p className="absolute inset-0 grid place-items-center font-mono text-xs text-muted-foreground">Loading fonts</p>
-      )}
+    <div ref={wrap} className="relative min-h-0 flex-1">
+      <canvas ref={canvas} className="absolute inset-0 size-full" role="img" aria-label={`${net.name}, frame ${frame}`} />
+      {!cache && <p className="absolute inset-0 grid place-items-center text-xs text-muted-foreground">Loading fonts</p>}
+
+      <div className="absolute left-3 top-3 flex gap-1.5">
+        <span className={cn(pill, "font-medium")} title="Zoom: the comp fits the viewer">
+          Fit
+        </span>
+        <span className={cn(pill, "text-muted-foreground")}>
+          {comp.width}×{comp.height} · {comp.fps} fps
+        </span>
+      </div>
+      <div role="group" aria-label="View options" className="absolute right-3 top-3 flex gap-0.5 rounded-full bg-card p-[3px] shadow-card">
+        <button type="button" aria-label="Safe areas" title="Safe areas" aria-pressed={safeAreas} onClick={() => toggle("safeAreas")} className={opt(safeAreas)}>
+          <ScanLine />
+        </button>
+        <button type="button" aria-label="Preview motion blur" title="Preview motion blur" aria-pressed={motionBlur} onClick={() => toggle("motionBlur")} className={opt(motionBlur)}>
+          <Wind />
+        </button>
+        <button type="button" aria-label="Transparency grid" title="Show transparency (hides the comp background)" aria-pressed={transparency} onClick={() => toggle("transparency")} className={opt(transparency)}>
+          <Grid2x2 />
+        </button>
+      </div>
+      <Transport />
     </div>
   );
 }

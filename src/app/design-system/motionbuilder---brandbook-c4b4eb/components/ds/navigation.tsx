@@ -39,7 +39,7 @@ export const TabsList = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HT
     <div
       ref={ref}
       role="tablist"
-      className={cn("inline-flex h-8 items-center gap-0.5 rounded-sm border border-border bg-muted p-0.5", className)}
+      className={cn("inline-flex h-[34px] items-center gap-0.5 rounded-md bg-field p-[3px]", className)}
       {...props}
     />
   ),
@@ -65,7 +65,7 @@ export const TabsTrigger = React.forwardRef<HTMLButtonElement, TabsTriggerProps>
         data-state={active ? "active" : "inactive"}
         onClick={() => ctx.setValue(value)}
         className={cn(
-          "h-full rounded-xs px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40 data-[state=active]:bg-elevated data-[state=active]:text-foreground",
+          "h-full rounded-seg px-3 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40 data-[state=active]:bg-raised data-[state=active]:font-semibold data-[state=active]:text-foreground data-[state=active]:shadow-card",
           className,
         )}
         {...props}
@@ -100,33 +100,43 @@ export interface PhaseStepperProps extends React.HTMLAttributes<HTMLElement> {
   phases: string[];
   /** Index of the current phase. */
   current: number;
+  /** Which steps can be opened (default: all, when onPhaseSelect is set). */
+  enabled?: boolean[];
   onPhaseSelect?: (index: number) => void;
 }
 
-/** The workspace's phase navigation. Completed phases show a check; the current one is highlighted. */
+/** The flow stepper (Import, Draft, Refine, Deliver). Done steps get a check; the current one is the black pill. */
 export const PhaseStepper = React.forwardRef<HTMLElement, PhaseStepperProps>(
-  ({ phases, current, onPhaseSelect, className, ...props }, ref) => (
-    <nav ref={ref} aria-label="Workflow phases" className={cn("flex items-stretch", className)} {...props}>
-      <ol className="flex w-full items-stretch border border-border">
+  ({ phases, current, onPhaseSelect, enabled, className, ...props }, ref) => (
+    <nav ref={ref} aria-label="Workflow" className={cn("flex", className)} {...props}>
+      <ol className="flex gap-0.5 rounded-full bg-card p-1 shadow-card">
         {phases.map((phase, i) => {
           const state = i < current ? "done" : i === current ? "current" : "todo";
           return (
-            <li key={phase} className="flex-1 border-r border-border last:border-r-0">
+            <li key={phase}>
               <button
                 type="button"
                 aria-current={state === "current" ? "step" : undefined}
+                disabled={!onPhaseSelect || (enabled && !enabled[i])}
                 onClick={() => onPhaseSelect?.(i)}
                 className={cn(
-                  "flex h-10 w-full items-center gap-2 px-3 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
-                  state === "current" && "bg-primary text-primary-foreground",
-                  state === "done" && "text-foreground hover:bg-accent",
-                  state === "todo" && "text-muted-foreground hover:bg-accent hover:text-foreground",
+                  "flex h-8 items-center gap-2 rounded-full px-3.5 text-[13px] transition-colors disabled:cursor-default",
+                  state === "current" ? "bg-ink font-semibold text-ink-foreground" : "text-muted-foreground enabled:hover:bg-field enabled:hover:text-foreground",
                 )}
               >
-                <span className="font-mono text-[10px] tabular-nums opacity-70">
-                  {state === "done" ? <Check className="size-3" aria-label="done" /> : String(i).padStart(2, "0")}
+                <span
+                  aria-hidden
+                  className={cn(
+                    "grid size-[18px] place-items-center rounded-full text-[10px]",
+                    state === "done" && "bg-field",
+                    state === "current" && "bg-[rgba(127,127,127,0.3)]",
+                    state === "todo" && "border border-line2",
+                  )}
+                >
+                  {state === "done" ? <Check className="size-2.5" strokeWidth={3} /> : i + 1}
                 </span>
-                <span className="font-medium">{phase}</span>
+                {phase}
+                {state === "done" && <span className="sr-only">(done)</span>}
               </button>
             </li>
           );

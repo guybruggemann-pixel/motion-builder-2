@@ -7,3 +7,37 @@ body,
   height: 100%;
   overflow: hidden;
 }
+
+/* Refine screen grid (docs/ui-handover.md §2): rail | library | viewer | inspector, timeline below. */
+.shell {
+  display: grid;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 12px;
+  gap: 12px;
+  grid-template-columns: 56px 232px minmax(0, 1fr) 296px;
+  grid-template-rows: 48px minmax(0, 1fr) 290px;
+  grid-template-areas:
+    "top top top top"
+    "rail lib view insp"
+    "rail tl tl insp";
+}
+.shell[data-library="closed"] {
+  grid-template-columns: 56px minmax(0, 1fr) 296px;
+  grid-template-areas:
+    "top top top"
+    "rail view insp"
+    "rail tl insp";
+}
+@media (max-width: 900px) {
+  #root {
+    overflow: auto;
+  }
+  .shell,
+  .shell[data-library="closed"] {
+    height: auto;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto 60vh auto 340px auto auto;
+    grid-template-areas: "top" "view" "insp" "tl" "lib" "rail";
+  }
+}

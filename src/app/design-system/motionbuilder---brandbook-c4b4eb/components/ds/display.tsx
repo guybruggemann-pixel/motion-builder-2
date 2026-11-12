@@ -3,17 +3,22 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/design-system/motionbuilder---brandbook-c4b4eb/lib/utils";
 
 export const badgeVariants = cva(
-  "inline-flex items-center gap-1 rounded-xs border px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider",
+  "inline-flex items-center gap-1 rounded-xs px-1.5 py-0.5 text-[11px] font-semibold",
   {
     variants: {
       variant: {
-        default: "border-border bg-muted text-muted-foreground",
-        primary: "border-primary bg-primary text-primary-foreground",
-        outline: "border-wire text-foreground",
-        success: "border-success/40 text-success",
-        warning: "border-warning/40 text-warning",
-        destructive: "border-destructive/40 text-destructive",
-        iridescent: "border-transparent bg-iridescent text-primary-foreground",
+        default: "bg-field text-muted-foreground",
+        /* live state only */
+        primary: "bg-volt text-volt-ink",
+        outline: "border border-line2 text-foreground",
+        ok: "bg-ok-bg text-ok-ink",
+        warn: "bg-warn-bg text-warn-ink",
+        success: "bg-ok-bg text-ok-ink",
+        warning: "bg-warn-bg text-warn-ink",
+        destructive: "border border-destructive/40 text-destructive",
+        /* a chip: rounded pill */
+        chip: "rounded-full bg-field px-2.5 text-foreground font-medium",
+        iridescent: "bg-iridescent text-volt-ink",
       },
     },
     defaultVariants: { variant: "default" },
@@ -35,7 +40,7 @@ export const Kbd = React.forwardRef<HTMLElement, KbdProps>(({ className, ...prop
   <kbd
     ref={ref}
     className={cn(
-      "inline-flex h-5 min-w-5 items-center justify-center rounded-xs border border-border bg-muted px-1 font-mono text-[10px] text-muted-foreground",
+      "inline-flex h-5 min-w-5 items-center justify-center rounded-xs bg-field px-1 font-mono text-[10px] text-muted-foreground",
       className,
     )}
     {...props}
@@ -60,12 +65,15 @@ export const Separator = React.forwardRef<HTMLDivElement, SeparatorProps>(
 );
 Separator.displayName = "Separator";
 
-export const cardVariants = cva("rounded-md border text-card-foreground", {
+export const cardVariants = cva("text-card-foreground", {
   variants: {
     variant: {
-      default: "border-border bg-card shadow-panel",
-      wireframe: "border-dashed border-wire bg-transparent",
-      glass: "glass shadow-panel",
+      /* a floating card on the canvas */
+      default: "rounded-xl bg-card shadow-card",
+      /* a grouped section inside a card */
+      section: "rounded-lg bg-field",
+      wireframe: "rounded-xl border border-dashed border-line2 bg-transparent",
+      glass: "glass rounded-xl shadow-card",
     },
   },
   defaultVariants: { variant: "default" },
@@ -103,7 +111,7 @@ CardContent.displayName = "CardContent";
 
 export const CardFooter = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn("flex items-center gap-2 border-t border-border p-3", className)} {...props} />
+    <div ref={ref} className={cn("flex items-center gap-2 p-3", className)} {...props} />
   ),
 );
 CardFooter.displayName = "CardFooter";

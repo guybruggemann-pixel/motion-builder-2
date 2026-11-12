@@ -1,12 +1,9 @@
 /**
- * Workspace layout: viewer on top, library left, inspector right, timeline/network full width below.
+ * Refine screen (docs/ui-handover.md §2): floating cards on a soft canvas. Top bar, icon rail,
+ * Library (collapsible), viewer with floating transport, inspector, and the timeline card with
+ * Timeline / Graph / Network tabs below.
  */
-import { Clapperboard, Redo2, Rows3, Undo2 } from "lucide-react";
-import { useState } from "react";
-import { RenderPanel } from "@/render/RenderPanel";
-import { BatchPanel } from "@/batch/BatchPanel";
-import { useShallow } from "zustand/react/shallow";
-import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from "@/design-system/motionbuilder---brandbook-c4b4eb";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/design-system/motionbuilder---brandbook-c4b4eb";
 import { Library } from "@/panels/Library";
 import { fullPath, useDocStore, useUi } from "@/store";
 import { openDepth } from "@/store/navigation";
@@ -15,108 +12,81 @@ import { Inspector } from "@/inspector/Inspector";
 import { NetworkView } from "@/network/NetworkView";
 import { GraphEditor } from "@/timeline/GraphEditor";
 import { useShortcuts } from "@/useShortcuts";
-import { Transport } from "@/viewer/Transport";
 import { Viewer } from "@/viewer/Viewer";
-
-function Placeholder({ children }: { children: React.ReactNode }) {
-  return <p className="grid h-full place-items-center font-mono text-xs text-muted-foreground">{children}</p>;
-}
+import { Rail } from "@/shell/Rail";
+import { TopBar } from "@/shell/TopBar";
 
 /** Why the last edit was refused (it failed validateDoc), until the next edit goes through. */
 function EditErrors() {
   const errors = useDocStore((s) => s.errors);
   if (!errors.length) return null;
   return (
-    <div role="alert" className="mt-auto border-t border-destructive/50 bg-destructive/10 px-3 py-2 font-mono text-[11px] text-destructive">
+    <div role="alert" className="mx-3 mb-3 mt-auto rounded-md bg-warn-bg px-3 py-2 text-xs text-warn-ink">
       Edit refused: {errors[0]}
       {errors.length > 1 && ` (+${errors.length - 1} more)`}
     </div>
   );
 }
 
-function Header() {
-  const { doc, canUndo, canRedo, undo, redo, undoLabel, redoLabel } = useDocStore(
-    useShallow((s) => ({
-    doc: s.doc,
-    canUndo: s.past.length > 0,
-    canRedo: s.future.length > 0,
-    undo: s.undo,
-    redo: s.redo,
-    undoLabel: s.past[s.past.length - 1]?.label,
-      redoLabel: s.future[0]?.label,
-    })),
-  );
+/** Where you are inside subnets: Main › Lower third. Earlier crumbs jump back up. */
+function Breadcrumb() {
+  const doc = useDocStore((s) => s.doc);
   const path = useUi((s) => s.path);
-  const [panel, setPanel] = useState<"render" | "batch">();
   return (
-    <header className="relative col-span-3 flex items-center gap-3 border-b border-border bg-surface px-3">
-      <span className="font-display text-sm font-bold tracking-tight">Motion Builder</span>
-      <span className="text-muted-foreground" aria-hidden>
-        /
-      </span>
-      <span className="text-sm">{doc.name}</span>
-      <nav aria-label="Open networks" className="flex items-center gap-1 font-mono text-xs">
-        {fullPath(doc, path).map((c, i, all) => {
-          const name = doc.networks.find((n) => n.id === c.network)?.name ?? c.network;
-          const last = i === all.length - 1;
-          return (
-            <span key={i} className="flex items-center gap-1">
-              {i > 0 && <span className="text-muted-foreground" aria-hidden>›</span>}
-              {last ? (
-                <span aria-current="page" className="text-foreground">{name}</span>
-              ) : (
-                <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => openDepth(i)}>
-                  {name}
-                </button>
-              )}
-            </span>
-          );
-        })}
-      </nav>
-      <div className="ml-auto flex items-center gap-1">
-        <Button variant="secondary" size="sm" aria-expanded={panel === "batch"} onClick={() => setPanel((p) => (p === "batch" ? undefined : "batch"))}>
-          <Rows3 /> Batch
-        </Button>
-        <Button variant="secondary" size="sm" aria-expanded={panel === "render"} onClick={() => setPanel((p) => (p === "render" ? undefined : "render"))}>
-          <Clapperboard /> Render
-        </Button>
-        {panel === "render" && <RenderPanel onClose={() => setPanel(undefined)} />}
-        {panel === "batch" && <BatchPanel onClose={() => setPanel(undefined)} />}
-        <Button variant="ghost" size="icon" aria-label={canUndo ? `Undo ${undoLabel}` : "Undo"} title="Undo (⌘Z)" disabled={!canUndo} onClick={undo}>
-          <Undo2 />
-        </Button>
-        <Button variant="ghost" size="icon" aria-label={canRedo ? `Redo ${redoLabel}` : "Redo"} title="Redo (⇧⌘Z)" disabled={!canRedo} onClick={redo}>
-          <Redo2 />
-        </Button>
-      </div>
-    </header>
+    <nav aria-label="Open networks" className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+      {fullPath(doc, path).map((c, i, all) => {
+        const name = doc.networks.find((n) => n.id === c.network)?.name ?? c.network;
+        const last = i === all.length - 1;
+        return (
+          <span key={i} className="flex items-center gap-1.5 whitespace-nowrap">
+            {i > 0 && <span aria-hidden>›</span>}
+            {last ? (
+              <span aria-current="page" className="font-medium text-foreground">
+                {name}
+              </span>
+            ) : (
+              <button type="button" className="rounded-xs hover:text-foreground" onClick={() => openDepth(i)}>
+                {name}
+              </button>
+            )}
+          </span>
+        );
+      })}
+    </nav>
   );
 }
 
+const card = "flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl bg-card shadow-card";
+
 export function App() {
   useShortcuts();
+  const libraryOpen = useUi((s) => s.libraryOpen);
+
   return (
-    <div className="grid h-full grid-cols-[220px_minmax(0,1fr)_340px] grid-rows-[40px_minmax(0,1fr)_minmax(200px,32vh)] bg-background text-foreground">
-      <Header />
-      <aside aria-label="Library" className="flex min-h-0 flex-col border-r border-border bg-surface">
-        <Library />
-      </aside>
-      <main className="flex min-h-0 min-w-0 flex-col">
+    <div className="shell bg-canvas text-[13px] text-foreground" data-library={libraryOpen ? "open" : "closed"}>
+      <TopBar />
+      <Rail />
+      {libraryOpen && (
+        <aside aria-label="Library" className={`${card} [grid-area:lib]`}>
+          <Library />
+        </aside>
+      )}
+      <main aria-label="Viewer" className="relative flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl bg-stage bg-dots [grid-area:view]">
         <Viewer />
-        <Transport />
       </main>
-      <aside aria-label="Inspector" className="flex min-h-0 flex-col border-l border-border bg-surface">
+      <aside aria-label="Inspector" className={`${card} [grid-area:insp]`}>
         <Inspector />
         <EditErrors />
       </aside>
-      <section aria-label="Timeline and network" className="col-span-3 min-h-0 border-t border-border bg-surface">
-        <Tabs defaultValue="timeline" className="flex h-full flex-col gap-0">
-          <div className="flex h-10 items-center border-b border-border px-2">
-            <TabsList>
+      <section aria-label="Timeline and network" className={`${card} [grid-area:tl]`}>
+        <Tabs defaultValue="timeline" className="flex h-full min-h-0 flex-col gap-0">
+          <div className="flex items-center gap-2.5 px-3 pb-1.5 pt-2.5">
+            <TabsList aria-label="Bottom panel">
               <TabsTrigger value="timeline">Timeline</TabsTrigger>
               <TabsTrigger value="graph">Graph</TabsTrigger>
               <TabsTrigger value="network">Network</TabsTrigger>
             </TabsList>
+            <Breadcrumb />
           </div>
           <TabsContent value="timeline" className="min-h-0 flex-1">
             <Timeline />

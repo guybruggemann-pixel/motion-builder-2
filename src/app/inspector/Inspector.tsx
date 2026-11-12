@@ -254,8 +254,8 @@ function ParamRow({
           >
             <span
               className={cn(
-                "size-[9px] rotate-45 border",
-                keyHere ? "border-primary bg-primary" : keys.length ? "border-primary bg-transparent" : "border-wire bg-transparent hover:border-foreground",
+                "size-[10px] rotate-45 rounded-[2px] border-[1.5px]",
+                keyHere ? "border-ink bg-volt" : keys.length ? "border-ink bg-transparent" : "border-line2 bg-transparent hover:border-ink",
               )}
             />
           </button>

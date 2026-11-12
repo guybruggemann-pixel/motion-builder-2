@@ -21,14 +21,14 @@ const GROUPS: [Category, string][] = [
 ];
 
 function Heading({ children }: { children: React.ReactNode }) {
-  return <h2 className="px-3 pb-1.5 pt-4 font-mono text-[11px] uppercase tracking-wider text-muted-foreground">{children}</h2>;
+  return <h2 className="px-3 pb-1.5 pt-4 text-[13px] font-semibold">{children}</h2>;
 }
 
 export function Library() {
   const doc = useDocStore((s) => s.doc);
   const assets = doc.brand?.assets ?? [];
   return (
-    <div className="min-h-0 overflow-y-auto pb-4 text-sm">
+    <div className="min-h-0 overflow-y-auto px-1.5 pb-4 text-[13px]">
       {GROUPS.map(([cat, label]) => (
         <section key={cat} aria-label={label}>
           <Heading>{label}</Heading>
@@ -42,7 +42,7 @@ export function Library() {
                     disabled={type === "Output"}
                     title={type === "Output" ? "Every network has one output" : `Add ${s.label} to the open network`}
                     onClick={() => add(type as NodeType)}
-                    className="w-full px-3 py-1 text-left text-foreground hover:bg-accent focus-visible:bg-accent focus-visible:outline-none disabled:text-muted-foreground disabled:hover:bg-transparent"
+                    className="w-full rounded-md px-3 py-1.5 text-left text-foreground hover:bg-field focus-visible:bg-field disabled:text-muted-foreground disabled:hover:bg-transparent"
                   >
                     {s.label}
                   </button>

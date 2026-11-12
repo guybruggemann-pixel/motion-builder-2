@@ -3,45 +3,69 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Theme entry for the system. Dark is the default (:root); `.light` opts a
- * subtree into the light theme. Every value below is a token — components
- * never use raw colors.
+ * Theme entry for the system: the soft direction (docs/ui-handover.md §1). Light is the default
+ * (:root); `.dark` on <html> flips it. Every value below is a token — components never use raw
+ * colors. The older names (surface, elevated, muted, accent, border, wire) map onto the new
+ * tokens so existing components keep working.
  */
 @theme inline {
   --font-display: "Inter Tight", "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 
-  --radius-xs: calc(var(--radius) - 1px);
-  --radius-sm: var(--radius);
-  --radius-md: calc(var(--radius) + 2px);
-  --radius-lg: calc(var(--radius) + 4px);
+  /* pills 999, segmented items 9, fields 10, rows/nodes 12, groups 16, cards 20 */
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-seg: 9px;
 
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-surface: var(--surface);
-  --color-elevated: var(--elevated);
-  --color-card: var(--surface);
-  --color-card-foreground: var(--foreground);
-  --color-popover: var(--elevated);
-  --color-popover-foreground: var(--foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--elevated);
-  --color-secondary-foreground: var(--foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--foreground);
+  /* soft tokens */
+  --color-canvas: var(--canvas);
+  --color-field: var(--field);
+  --color-raised: var(--raised);
+  --color-stage: var(--stage);
+  --color-bar: var(--bar);
+  --color-ink: var(--ink);
+  --color-ink-foreground: var(--ink-foreground);
+  --color-faint: var(--faint);
+  --color-line: var(--line);
+  --color-line2: var(--line2);
+  --color-volt: var(--volt);
+  --color-volt-ink: var(--volt-ink);
+  --color-warn-bg: var(--warn-bg);
+  --color-warn-ink: var(--warn-ink);
+  --color-ok-bg: var(--ok-bg);
+  --color-ok-ink: var(--ok-ink);
+  --color-ok-dot: var(--ok-dot);
+
+  /* older names, mapped */
+  --color-background: var(--canvas);
+  --color-foreground: var(--ink);
+  --color-surface: var(--card);
+  --color-elevated: var(--raised);
+  --color-card: var(--card);
+  --color-card-foreground: var(--ink);
+  --color-popover: var(--card);
+  --color-popover-foreground: var(--ink);
+  --color-primary: var(--volt);
+  --color-primary-foreground: var(--volt-ink);
+  --color-secondary: var(--card);
+  --color-secondary-foreground: var(--ink);
+  --color-muted: var(--field);
+  --color-muted-foreground: var(--muted);
+  --color-accent: var(--field);
+  --color-accent-foreground: var(--ink);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-success: var(--success);
   --color-warning: var(--warning);
-  --color-border: var(--border);
-  --color-wire: var(--wire);
-  --color-grid: var(--grid);
-  --color-input: var(--border);
-  --color-ring: var(--ring);
+  --color-border: var(--line);
+  --color-wire: var(--line2);
+  --color-grid: var(--line);
+  --color-input: var(--line);
+  --color-ring: var(--ink);
 
   --color-iris-cyan: var(--iris-cyan);
   --color-iris-violet: var(--iris-violet);
@@ -50,70 +74,82 @@
 
   --color-node-generator: var(--iris-cyan);
   --color-node-cloner: var(--iris-violet);
-  --color-node-effector: var(--primary);
+  --color-node-effector: var(--ink);
   --color-node-field: var(--iris-magenta);
   --color-node-math: var(--iris-amber);
 
-  --shadow-panel: var(--shadow-panel);
+  --shadow-panel: var(--shadow);
+  --shadow-card: var(--shadow);
+  --shadow-float: var(--float);
   --shadow-glow: var(--shadow-glow);
 }
 
 :root {
-  --radius: 0.125rem;
+  color-scheme: light;
+  --canvas: #e7e8ec;
+  --card: #ffffff;
+  --field: #f1f2f4;
+  --raised: #ffffff;
+  --stage: #eef0f3;
+  --bar: #e9ebef;
+  --ink: #16171a;
+  --ink-foreground: #ffffff;
+  --muted: #686c75;
+  --faint: #8b8f97;
+  --line: #ebecef;
+  --line2: #d5d7dc;
 
-  --background: oklch(0.155 0.006 260);
-  --surface: oklch(0.19 0.007 260);
-  --elevated: oklch(0.225 0.008 260);
-  --muted: oklch(0.205 0.007 260);
-  --accent: oklch(0.255 0.009 260);
-  --foreground: oklch(0.95 0.003 260);
-  --muted-foreground: oklch(0.66 0.012 260);
-  --border: oklch(0.29 0.01 260);
-  --wire: oklch(0.4 0.012 260);
-  --grid: oklch(0.22 0.008 260);
+  /* live only, always with ink on top or an ink outline */
+  --volt: #c3fc2f;
+  --volt-ink: #16171a;
+  --warn-bg: #ffd9c2;
+  --warn-ink: #8a3b0f;
+  --ok-bg: #c9f0dc;
+  --ok-ink: #0f5c37;
+  --ok-dot: #1fbf7a;
 
-  --primary: oklch(0.92 0.22 125);
-  --primary-foreground: oklch(0.155 0.006 260);
-  --destructive: oklch(0.66 0.22 25);
-  --destructive-foreground: oklch(0.98 0 0);
-  --success: oklch(0.86 0.17 165);
-  --warning: oklch(0.82 0.16 75);
-  --ring: oklch(0.92 0.22 125);
-
-  --iris-cyan: oklch(0.85 0.14 205);
-  --iris-violet: oklch(0.62 0.24 290);
-  --iris-magenta: oklch(0.7 0.27 340);
-  --iris-amber: oklch(0.85 0.16 85);
-
-  --shadow-panel: 0 1px 0 0 oklch(1 0 0 / 4%) inset, 0 12px 32px -12px oklch(0 0 0 / 60%);
-  --shadow-glow: 0 0 0 1px var(--primary), 0 0 24px -4px var(--primary);
-}
-
-.light {
-  --background: oklch(0.975 0.002 260);
-  --surface: oklch(1 0 0);
-  --elevated: oklch(0.955 0.003 260);
-  --muted: oklch(0.955 0.003 260);
-  --accent: oklch(0.93 0.004 260);
-  --foreground: oklch(0.18 0.007 260);
-  --muted-foreground: oklch(0.48 0.012 260);
-  --border: oklch(0.88 0.005 260);
-  --wire: oklch(0.7 0.01 260);
-  --grid: oklch(0.93 0.004 260);
-
-  --primary: oklch(0.92 0.22 125);
-  --primary-foreground: oklch(0.155 0.006 260);
-  --destructive: oklch(0.56 0.22 25);
-  --success: oklch(0.58 0.14 165);
-  --warning: oklch(0.65 0.15 70);
-  --ring: oklch(0.155 0.006 260);
+  --destructive: #c4321f;
+  --destructive-foreground: #ffffff;
+  --success: #0f5c37;
+  --warning: #8a3b0f;
 
   --iris-cyan: oklch(0.62 0.13 215);
   --iris-violet: oklch(0.52 0.24 290);
   --iris-magenta: oklch(0.58 0.25 340);
   --iris-amber: oklch(0.7 0.16 75);
 
-  --shadow-panel: 0 1px 2px oklch(0 0 0 / 6%), 0 12px 32px -16px oklch(0 0 0 / 18%);
+  --shadow: 0 1px 2px rgba(16, 17, 20, 0.05), 0 6px 18px rgba(16, 17, 20, 0.06);
+  --float: 0 2px 4px rgba(16, 17, 20, 0.06), 0 12px 32px rgba(16, 17, 20, 0.14);
+  --shadow-glow: 0 0 0 1.5px var(--ink), 0 0 0 4px var(--volt);
+}
+
+.dark {
+  color-scheme: dark;
+  --canvas: #0b0c0f;
+  --card: #15171b;
+  --field: #1e2126;
+  --raised: #2a2d33;
+  --stage: #0f1114;
+  --bar: #24272d;
+  --ink: #edeef0;
+  --ink-foreground: #0b0c0f;
+  --muted: #9a9ea6;
+  --faint: #7c8088;
+  --line: #22252a;
+  --line2: #34373d;
+
+  --destructive: #ff7a66;
+  --destructive-foreground: #0b0c0f;
+  --success: #6fe0a8;
+  --warning: #ffb48a;
+
+  --iris-cyan: oklch(0.85 0.14 205);
+  --iris-violet: oklch(0.62 0.24 290);
+  --iris-magenta: oklch(0.7 0.27 340);
+  --iris-amber: oklch(0.85 0.16 85);
+
+  --shadow: 0 0 0 1px rgba(255, 255, 255, 0.04);
+  --float: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 12px 32px rgba(0, 0, 0, 0.5);
 }
 
 /* Iridescent MoGraph surface — the "Look" mode signature. */
@@ -130,7 +166,7 @@
 
 /* Glass panel for overlays on the canvas. */
 @utility glass {
-  background-color: color-mix(in oklab, var(--surface) 55%, transparent);
+  background-color: color-mix(in oklab, var(--card) 55%, transparent);
   backdrop-filter: blur(16px) saturate(140%);
   border: 1px solid color-mix(in oklab, var(--foreground) 12%, transparent);
 }
@@ -138,14 +174,25 @@
 /* Swiss grid backdrop used by the "Build" wireframe canvas. */
 @utility bg-grid {
   background-image:
-    linear-gradient(var(--grid) 1px, transparent 1px),
-    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px);
   background-size: 24px 24px;
+}
+
+/* The viewer stage and network canvas: 1px dots in line2. */
+@utility bg-dots {
+  background-image: radial-gradient(var(--line2) 1px, transparent 1px);
+  background-size: 22px 22px;
 }
 
 @layer base {
   * {
     border-color: var(--color-border);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
   }
 
   body {

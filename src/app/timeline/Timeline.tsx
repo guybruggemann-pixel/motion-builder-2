@@ -148,9 +148,9 @@ function Diamond({ k, selected, onPointerDown, hold }: { k: KeyRef; selected: bo
     >
       <span
         className={cn(
-          "size-[9px] border",
+          "size-[9px] rounded-[2px] border-[1.5px]",
           hold ? "rounded-none" : "rotate-45",
-          selected ? "border-primary bg-primary" : "border-foreground/70 bg-elevated group-hover:bg-foreground",
+          selected ? "border-ink bg-ink" : "border-ink/70 bg-card group-hover:bg-ink",
         )}
       />
     </button>
@@ -226,8 +226,8 @@ function LayerBar({ net, node, scale }: { net: Network; node: Node; scale: Scale
   return (
     <div
       className={cn(
-        "absolute inset-y-1 cursor-grab border bg-elevated active:cursor-grabbing",
-        selected ? "border-primary" : "border-wire",
+        "absolute inset-y-1 cursor-grab rounded-full border-[1.5px] bg-bar active:cursor-grabbing",
+        selected ? "border-ink" : "border-transparent",
         !node.enabled && "opacity-40",
       )}
       style={{ left, width: Math.max(2, right - left) }}
@@ -397,11 +397,11 @@ export function Timeline() {
     </div>
       {width > 0 && (
         <div
-          className="pointer-events-none absolute inset-y-0 z-30 w-px bg-primary"
+          className="pointer-events-none absolute inset-y-0 z-30 w-[1.5px] bg-ink"
           style={{ left: NAME_W + scale.x(frame / comp.fps) }}
           aria-hidden
         >
-          <div className="absolute -left-[5px] top-0 size-[11px] bg-primary [clip-path:polygon(0_0,100%_0,50%_100%)]" />
+          <div className="absolute -left-[5px] top-0 h-[9px] w-[11px] rounded-b-full border-[1.5px] border-t-0 border-ink bg-volt" />
         </div>
       )}
     </div>

@@ -46,7 +46,7 @@ export function RenderPanel({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div role="dialog" aria-label="Render" className="absolute right-3 top-11 z-50 w-80 rounded-md border border-border bg-elevated p-3 shadow-panel">
+    <div role="dialog" aria-label="Render" className="absolute right-1 top-[52px] z-50 w-80 rounded-xl bg-card p-4 shadow-float">
       <div className="mb-3 flex items-center">
         <h2 className="font-display text-sm font-semibold">Render {net.name}</h2>
         <Button variant="ghost" size="icon" className="ml-auto size-6" aria-label="Close" onClick={onClose}>
@@ -84,8 +84,8 @@ export function RenderPanel({ onClose }: { onClose: () => void }) {
       <div className="mt-3">
         {state.kind === "busy" ? (
           <div className="grid gap-2">
-            <div className="h-1 rounded-xs bg-border">
-              <div className="h-1 rounded-xs bg-primary" style={{ width: `${(state.done / state.total) * 100}%` }} />
+            <div className="h-2 rounded-full bg-field">
+              <div className="h-2 rounded-full bg-volt shadow-[inset_0_0_0_1.5px_var(--ink)]" style={{ width: `${(state.done / state.total) * 100}%` }} />
             </div>
             <div className="flex items-center font-mono text-[11px] text-muted-foreground">
               Frame {state.done} / {state.total}

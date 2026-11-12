@@ -5,7 +5,8 @@
 - `store/uiStore.ts` is view state (playhead, open subnet path, toggles). Nothing in it may change what gets rendered or exported.
 - Pixels come from `evaluateFrame` through a `FrameCache`. Render code (`render/`) maps drawables to canvas calls and holds no scene logic; it must stay free of React because the phase 2 web render reuses it.
 - Measure text with `canvasMeasure()` only after `loadFonts()` resolves; a cache built on fallback metrics lays text out wrong.
-- Styling: brandbook tokens and components from `design-system/` (see its `system.md` rules in the Nodal reference): tokens only, no raw colours in UI, Volt (`primary`) only for live/active state.
+- Styling: tokens and components from `design-system/` (soft direction, `docs/ui-handover.md` §1): tokens only, no raw colours in UI. `ink` (black pill) = where you are or the main action, `raised` + shadow = selected, `volt` only for live state and always with ink on it or around it. Old names (`primary`, `muted`, `border`…) still map onto the new tokens; prefer the new ones (`card`, `field`, `ink`, `line`, `line2`, `volt`). Canvas code reads tokens with `getComputedStyle`, so `setTheme` flips the `.dark` class before the store notifies.
+- Layout: `.shell` grid in `styles.css` (rail, library, viewer, inspector, timeline; stacks under 900px). Cards are `rounded-xl bg-card shadow-card`.
 - Ease names in the UI come from `MENU_EASES` (Motion Builder v1 vocabulary).
 - Timeline edits live in `timeline/edits.ts` as plain immer recipes (tested in `test/timelineEdits.test.ts`); components only translate pointer gestures into them. Times are snapped to whole frames before they reach a recipe.
 - Moving a layer bar shifts its own keys (AE), Subnets included (instance keys are in parent time); trimming doesn't. Subnet contents run on local time, so they follow on their own.

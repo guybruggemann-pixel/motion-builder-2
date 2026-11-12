@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Deliver · render, After Effects, batch</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Inter+Tight:wght@600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b0c0f;--surface:#121417;--elevated:#1a1c20;--muted:#15171a;--accent:#202327;--fg:#edeef0;--mfg:#8e929a;--border:#282b30;--wire:#44484e;--grid:#181b1e;--volt:#c3fc2f;--ok:#35f3b5;--warn:#ffb330;--danger:#fc4447}
+body{margin:0;background:#0b0c0f}
+a{color:#edeef0;text-decoration:none}a:hover{color:#ffffff}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #c3fc2f;outline-offset:1px}
+@media (max-width:900px){
+.dl-body{grid-template-columns:1fr !important}
+.dl-app{height:auto !important}
+.dl-head{flex-wrap:wrap;height:auto !important;padding:8px 16px !important}
+.dl-foot{flex-wrap:wrap;height:auto !important;padding:12px 16px !important}
+}
+</style>
+</helmet>
+<div class="dl-app" style="width: 100%; height: 900px; display: grid; grid-template-rows: 48px minmax(0, 1fr) 64px; background: var(--bg); color: var(--fg); font-family: Inter, system-ui, sans-serif; font-size: 13px; overflow: hidden">
+
+<header class="dl-head" style="display: flex; align-items: center; gap: 16px; padding: 0 12px; border-bottom: 1px solid var(--border); background: var(--surface)">
+<div style="display: flex; align-items: center; gap: 10px">
+<div aria-hidden="true" style="width: 22px; height: 22px; border-radius: 4px; border: 1.5px solid var(--fg); display: grid; place-items: center"><div style="width: 8px; height: 8px; background: var(--fg); transform: rotate(45deg)"></div></div>
+<span style="font-family: 'Inter Tight', Inter, sans-serif; font-weight: 700; letter-spacing: -0.01em">Motion Builder</span>
+<span aria-hidden="true" style="color: var(--wire)">/</span>
+<span style="color: var(--mfg)">Test project</span>
+<span aria-hidden="true" style="color: var(--wire)">/</span>
+<span style="font-weight: 600">Main</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--border); color: var(--mfg)">v02</span>
+</div>
+<nav aria-label="Workflow" style="display: flex; align-items: center; gap: 2px; margin: 0 auto; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 3px">
+<a href="Start.dc.html" style="display: flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 4px; color: var(--mfg)"><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px">1</span>Import</a>
+<a href="Drafts.dc.html" style="display: flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 4px; color: var(--mfg)"><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px">2</span>Draft</a>
+<a href="Main.dc.html" style="display: flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 4px; color: var(--mfg)"><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px">3</span>Refine</a>
+<a href="Deliver.dc.html" aria-current="page" style="display: flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 4px; background: var(--accent); font-weight: 600"><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--mfg)">4</span>Deliver</a>
+</nav>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--mfg)">⌘K Commands</span>
+</header>
+
+<div class="dl-body" style="display: grid; grid-template-columns: 340px minmax(0, 1fr) 360px; min-height: 0">
+
+<!-- 1. FORMATS -->
+<section aria-labelledby="f-h" style="display: flex; flex-direction: column; gap: 12px; padding: 24px 20px; border-right: 1px solid var(--border); overflow: auto">
+<div style="display: flex; align-items: baseline; gap: 8px"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--mfg)">1</span><h2 id="f-h" style="margin: 0; font-family: 'Inter Tight', Inter, sans-serif; font-size: 17px; font-weight: 700">Formats</h2></div>
+
+<label style="display: flex; gap: 12px; padding: 14px; border: 1.5px solid var(--fg); border-radius: 6px; background: var(--surface); cursor: pointer">
+<input type="checkbox" checked style="accent-color: #edeef0; margin-top: 2px">
+<div style="display: flex; flex-direction: column; gap: 4px; flex: 1"><span style="font-weight: 600">ProRes 4444 + alpha</span><span style="font-size: 12px; line-height: 1.5; color: var(--mfg)">.mov · for edit and broadcast</span></div>
+</label>
+<label style="display: flex; gap: 12px; padding: 14px; border: 1.5px solid var(--fg); border-radius: 6px; background: var(--surface); cursor: pointer">
+<input type="checkbox" checked style="accent-color: #edeef0; margin-top: 2px">
+<div style="display: flex; flex-direction: column; gap: 4px; flex: 1"><span style="font-weight: 600">MP4 · H.264</span><span style="font-size: 12px; line-height: 1.5; color: var(--mfg)">for social and web, over the comp background</span></div>
+</label>
+<label style="display: flex; gap: 12px; padding: 14px; border: 1px solid var(--border); border-radius: 6px; cursor: pointer">
+<input type="checkbox" style="accent-color: #edeef0; margin-top: 2px">
+<div style="display: flex; flex-direction: column; gap: 4px; flex: 1"><span style="font-weight: 600">After Effects</span><span style="font-size: 12px; line-height: 1.5; color: var(--mfg)">.jsx · native layers and keys, no expressions. Best for hero comps.</span></div>
+</label>
+
+<div style="display: flex; flex-direction: column; gap: 10px; padding-top: 8px">
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+<label style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: var(--mfg)">Size</span><select style="height: 32px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 0 6px; font-size: 12px"><option>Comp · 1920×1080</option><option>1080×1920</option><option>1080×1080</option></select></label>
+<label style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: var(--mfg)">Frame rate</span><select style="height: 32px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 0 6px; font-size: 12px"><option>Comp · 25</option><option>50</option><option>29.97</option></select></label>
+</div>
+<label style="display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 32px"><span style="font-size: 13px">Motion blur</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--mfg)">180° · 8 samples</span></label>
+</div>
+</section>
+
+<!-- 2. WHAT TO RENDER -->
+<section aria-labelledby="w-h" style="display: flex; flex-direction: column; gap: 16px; padding: 24px; min-width: 0; overflow: auto">
+<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--mfg)">2</span><h2 id="w-h" style="margin: 0; font-family: 'Inter Tight', Inter, sans-serif; font-size: 17px; font-weight: 700">Content</h2>
+<div role="radiogroup" aria-label="Content source" style="margin-left: auto; display: flex; border: 1px solid var(--border); border-radius: 6px; padding: 2px">
+<button type="button" role="radio" aria-checked="{{isSingle}}" onClick="{{toSingle}}" style="{{singleStyle}}">This comp</button>
+<button type="button" role="radio" aria-checked="{{isBatch}}" onClick="{{toBatch}}" style="{{batchStyle}}">Batch from sheet</button>
+</div>
+</div>
+
+<sc-if value="{{isSingle}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface)">
+<div style="display: flex; align-items: center; gap: 12px">
+<div aria-hidden="true" style="width: 120px; aspect-ratio: 16 / 9; border-radius: 3px; background: #2a2d33; position: relative"><div style="position: absolute; left: 10%; bottom: 16%; width: 46%; height: 22%; background: #1f4bff"></div></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><span style="font-weight: 600">Main_v02</span><span style="font-size: 12px; color: var(--mfg)">6.00 s · 150 frames · current controls</span></div>
+</div>
+<p style="margin: 0; font-size: 12px; line-height: 1.5; color: var(--mfg)">Renders exactly what the viewer shows, frame by frame.</p>
+</div>
+</sc-if>
+
+<sc-if value="{{isBatch}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 16px">
+<label style="display: flex; flex-direction: column; gap: 6px">
+<span style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--mfg)">Google Sheet<span style="margin-left: auto; display: flex; align-items: center; gap: 6px"><span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 50%; background: var(--volt)"></span>Live · checks every 30 s</span></span>
+<input type="url" value="docs.google.com/spreadsheets/d/…/edit" style="height: 36px; padding: 0 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 12px">
+</label>
+
+<div style="border: 1px solid var(--border); border-radius: 6px; overflow: hidden">
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 28px minmax(0, 1fr) 90px; align-items: center; gap: 8px; padding: 8px 12px; background: var(--surface); border-bottom: 1px solid var(--border); font-size: 11px; color: var(--mfg); text-transform: uppercase; letter-spacing: 0.06em"><span>Sheet column</span><span></span><span>Control</span><span></span></div>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 28px minmax(0, 1fr) 90px; align-items: center; gap: 8px; padding: 6px 12px; border-bottom: 1px solid var(--grid)"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px">Naam</span><span aria-hidden="true" style="color: var(--mfg)">→</span><select aria-label="Control for Naam" style="height: 28px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 0 6px; font-size: 12px"><option>Name</option></select><span style="font-size: 11px; color: var(--mfg)">auto-matched</span></div>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 28px minmax(0, 1fr) 90px; align-items: center; gap: 8px; padding: 6px 12px; border-bottom: 1px solid var(--grid)"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px">Functie</span><span aria-hidden="true" style="color: var(--mfg)">→</span><select aria-label="Control for Functie" style="height: 28px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 0 6px; font-size: 12px"><option>Title</option></select><span style="font-size: 11px; color: var(--mfg)">auto-matched</span></div>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 28px minmax(0, 1fr) 90px; align-items: center; gap: 8px; padding: 6px 12px"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px">Opmerking</span><span aria-hidden="true" style="color: var(--mfg)">→</span><select aria-label="Control for Opmerking" style="height: 28px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 0 6px; font-size: 12px; color: var(--mfg)"><option>Not used</option></select><span></span></div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<h3 style="margin: 0; font-size: 11px; font-weight: 600; color: var(--mfg); text-transform: uppercase; letter-spacing: 0.06em">Check before render</h3>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<span style="display: flex; align-items: center; gap: 6px; padding: 5px 10px; border: 1px solid var(--border); border-radius: 999px; font-size: 12px"><span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 50%; background: var(--ok)"></span>24 rows</span>
+<span style="display: flex; align-items: center; gap: 6px; padding: 5px 10px; border: 1px solid var(--border); border-radius: 999px; font-size: 12px"><span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 50%; background: var(--ok)"></span>No duplicate names</span>
+<button type="button" style="display: flex; align-items: center; gap: 6px; padding: 5px 10px; border: 1px solid rgba(255, 179, 48, 0.45); border-radius: 999px; background: rgba(255, 179, 48, 0.06); font-size: 12px"><span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 50%; background: var(--warn)"></span>2 empty cells · rows 7, 19</button>
+<button type="button" style="display: flex; align-items: center; gap: 6px; padding: 5px 10px; border: 1px solid rgba(255, 179, 48, 0.45); border-radius: 999px; background: rgba(255, 179, 48, 0.06); font-size: 12px"><span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 50%; background: var(--warn)"></span>1 outside action safe · row 12</button>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; align-items: baseline"><h3 style="margin: 0; font-size: 11px; font-weight: 600; color: var(--mfg); text-transform: uppercase; letter-spacing: 0.06em">Row 12</h3><span style="margin-left: auto; font-size: 12px; color: var(--mfg)">‹ 12 / 24 ›</span></div>
+<div role="img" aria-label="Row 12 preview: the name is too long and runs past the action safe area" style="position: relative; aspect-ratio: 16 / 5; border-radius: 3px; background: #2a2d33; overflow: hidden">
+<div aria-hidden="true" style="position: absolute; left: 5%; right: 5%; top: 8%; bottom: 8%; border: 1px dashed rgba(255, 179, 48, 0.6)"></div>
+<div style="position: absolute; left: 10%; bottom: 20%; width: 92%; height: 44%; background: #1f4bff; display: flex; align-items: center; padding: 0 3%; font-weight: 700; font-size: 18px; color: #ffffff; white-space: nowrap">Long first name with a double surname</div>
+</div>
+<p style="margin: 0; font-size: 12px; line-height: 1.5; color: var(--mfg)">Fix in the sheet, or turn on Shrink to fit for the Name control. The check runs again on the next poll.</p>
+</div>
+</div>
+</sc-if>
+
+<label style="display: flex; flex-direction: column; gap: 6px; padding-top: 4px">
+<span style="font-size: 12px; color: var(--mfg)">File names</span>
+<input type="text" value="{Naam}_{comp}_{version}" style="height: 36px; padding: 0 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 12px">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--mfg)">→ name-surname_main_v02.mov</span>
+</label>
+<label style="display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 12px; color: var(--mfg)">Folder</span>
+<span style="display: flex; gap: 8px"><input type="text" value="Renders / Lower thirds" readonly style="flex: 1; min-width: 0; height: 36px; padding: 0 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; font-size: 13px"><button type="button" style="height: 36px; padding: 0 12px; border: 1px solid var(--border); border-radius: 4px; background: var(--elevated)">Choose</button></span>
+</label>
+</section>
+
+<!-- 3. QUEUE -->
+<aside aria-labelledby="q-h" style="display: flex; flex-direction: column; gap: 12px; padding: 24px 20px; border-left: 1px solid var(--border); background: var(--surface); overflow: auto">
+<div style="display: flex; align-items: baseline; gap: 8px"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--mfg)">3</span><h2 id="q-h" style="margin: 0; font-family: 'Inter Tight', Inter, sans-serif; font-size: 17px; font-weight: 700">Queue</h2><span style="margin-left: auto; font-size: 12px; color: var(--mfg)">renders in the background</span></div>
+
+<div style="display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg)">
+<div style="display: flex; align-items: center; gap: 8px"><span style="font-weight: 600">ProRes · row 5 of 24</span><span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--volt)">62%</span></div>
+<div role="progressbar" aria-valuenow="62" aria-valuemin="0" aria-valuemax="100" aria-label="ProRes render progress" style="height: 4px; border-radius: 2px; background: var(--accent)"><div style="width: 62%; height: 100%; border-radius: 2px; background: var(--volt)"></div></div>
+<div style="display: flex; font-size: 12px; color: var(--mfg)"><span>4 workers</span><span style="margin-left: auto">about 1 min left</span></div>
+</div>
+
+<ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column">
+<li style="display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border)"><span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 50%; background: var(--ok)"></span><span style="flex: 1">Rows 1 to 4 · ProRes</span><span style="font-size: 12px; color: var(--mfg)">done</span></li>
+<li style="display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border)"><span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 50%; border: 1px solid var(--wire)"></span><span style="flex: 1">Rows 6 to 24 · ProRes</span><span style="font-size: 12px; color: var(--mfg)">waiting</span></li>
+<li style="display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border)"><span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 50%; border: 1px solid var(--wire)"></span><span style="flex: 1">Rows 1 to 24 · MP4</span><span style="font-size: 12px; color: var(--mfg)">waiting</span></li>
+</ul>
+
+<div style="padding: 12px; border-radius: 6px; background: var(--muted); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 4px">
+<span style="font-weight: 600; font-size: 12px">18 files skipped</span>
+<span style="font-size: 12px; line-height: 1.5; color: var(--mfg)">Unchanged since the last render. Only edited rows render again.</span>
+</div>
+
+<div style="margin-top: auto; display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--mfg)">
+<span>Output folder · Renders / Lower thirds</span>
+<button type="button" style="align-self: flex-start; padding: 0; border: 0; background: transparent; font-size: 12px; font-weight: 600; color: var(--fg)">Open folder</button>
+</div>
+</aside>
+</div>
+
+<footer class="dl-foot" style="display: flex; align-items: center; gap: 16px; padding: 0 20px; border-top: 1px solid var(--border); background: var(--surface)">
+<a href="Main.dc.html" style="display: flex; align-items: center; gap: 6px; color: var(--mfg)"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"></path><path d="m11 18-6-6 6-6"></path></svg>Back to Refine</a>
+<span style="margin-left: auto; font-size: 13px; color: var(--mfg)">{{summary}}</span>
+<button type="button" style="height: 40px; padding: 0 20px; border: 0; border-radius: 4px; background: var(--fg); color: var(--bg); font-weight: 600">{{cta}}</button>
+</footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { mode: 'batch' };
+  }
+  renderVals() {
+    var self = this;
+    var batch = this.state.mode === 'batch';
+    var on = 'height:30px;padding:0 12px;border:0;border-radius:4px;background:#202327;color:#edeef0;font-weight:600;font-size:12px';
+    var off = 'height:30px;padding:0 12px;border:0;border-radius:4px;background:transparent;color:#8e929a;font-size:12px';
+    return {
+      isBatch: batch,
+      isSingle: !batch,
+      batchStyle: batch ? on : off,
+      singleStyle: batch ? off : on,
+      toBatch: function () { self.setState({ mode: 'batch' }); },
+      toSingle: function () { self.setState({ mode: 'single' }); },
+      summary: batch ? '2 formats × 24 rows · 18 unchanged, skipped · 2 warnings' : '2 formats · 1 comp',
+      cta: batch ? 'Render 30 files' : 'Render 2 files'
+    };
+  }
+}
+</script>
+</body>
+</html>

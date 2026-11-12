@@ -18,7 +18,30 @@ export interface KeyRef {
   t: number;
 }
 
+export type Theme = "light" | "dark";
+
+/** Theme and library panel are per-user conveniences, remembered in this browser (never in the doc). */
+const stored = (key: string): string | null => {
+  try {
+    return globalThis.localStorage?.getItem(key) ?? null;
+  } catch {
+    return null;
+  }
+};
+const store = (key: string, value: string) => {
+  try {
+    globalThis.localStorage?.setItem(key, value);
+  } catch {
+    /* private mode: just don't remember */
+  }
+};
+
 export interface UiState {
+  theme: Theme;
+  /** The Library card next to the viewer (opened from the rail). */
+  libraryOpen: boolean;
+  /** Preview the comp's alpha on a checkerboard instead of its background colour. */
+  transparency: boolean;
   /** Opened subnets below the root comp. Empty = the root comp. */
   path: Crumb[];
   /** Playhead in frames of the shown network (integer). */
@@ -36,7 +59,9 @@ export interface UiState {
   setPath(path: Crumb[], frame?: number): void;
   setFrame(frame: number): void;
   setPlaying(playing: boolean): void;
-  toggle(key: "loop" | "safeAreas" | "motionBlur"): void;
+  toggle(key: "loop" | "safeAreas" | "motionBlur" | "transparency"): void;
+  setTheme(theme: Theme): void;
+  setLibraryOpen(open: boolean): void;
   selectNodes(ids: string[]): void;
   selectKeys(keys: KeyRef[]): void;
   setExpanded(nodeId: string, open: boolean): void;
@@ -45,6 +70,9 @@ export interface UiState {
 export const sameKey = (a: KeyRef, b: KeyRef) => a.node === b.node && a.param === b.param && Math.abs(a.t - b.t) < 1e-6;
 
 export const useUi = create<UiState>()((set) => ({
+  theme: stored("mb.theme") === "dark" ? "dark" : "light",
+  libraryOpen: stored("mb.library") !== "closed",
+  transparency: false,
   path: [],
   frame: 0,
   playing: false,
@@ -59,6 +87,16 @@ export const useUi = create<UiState>()((set) => ({
   setFrame: (frame) => set({ frame: Math.max(0, Math.round(frame)) }),
   setPlaying: (playing) => set({ playing }),
   toggle: (key) => set((s) => ({ [key]: !s[key] })),
+  setTheme: (theme) => {
+    store("mb.theme", theme);
+    // flip the class before subscribers redraw, so canvas code reading CSS tokens gets the new ones
+    globalThis.document?.documentElement.classList.toggle("dark", theme === "dark");
+    set({ theme });
+  },
+  setLibraryOpen: (libraryOpen) => {
+    store("mb.library", libraryOpen ? "open" : "closed");
+    set({ libraryOpen });
+  },
   selectNodes: (selectedNodes) => set({ selectedNodes, selectedKeys: [] }),
   selectKeys: (selectedKeys) => set({ selectedKeys }),
   setExpanded: (id, open) => set((s) => ({ expanded: { ...s.expanded, [id]: open } })),

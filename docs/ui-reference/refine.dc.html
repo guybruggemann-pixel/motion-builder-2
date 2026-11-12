@@ -1,0 +1,629 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Refine · soft direction v02</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Inter+Tight:wght@500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#e7e8ec}
+.t-light{--canvas:#e7e8ec;--card:#ffffff;--field:#f1f2f4;--ink:#16171a;--muted:#686c75;--faint:#8b8f97;--line:#ebecef;--line2:#d5d7dc;--active:#16171a;--active-ink:#ffffff;--raised:#ffffff;--stage:#eef0f3;--bar:#e9ebef;--shadow:0 1px 2px rgba(16,17,20,0.05),0 6px 18px rgba(16,17,20,0.06);--float:0 2px 4px rgba(16,17,20,0.06),0 12px 32px rgba(16,17,20,0.14)}
+.t-dark{--canvas:#0b0c0f;--card:#15171b;--field:#1e2126;--ink:#edeef0;--muted:#9a9ea6;--faint:#7c8088;--line:#22252a;--line2:#34373d;--active:#edeef0;--active-ink:#0b0c0f;--raised:#2a2d33;--stage:#0f1114;--bar:#24272d;--shadow:0 0 0 1px rgba(255,255,255,0.04);--float:0 0 0 1px rgba(255,255,255,0.08),0 12px 32px rgba(0,0,0,0.5)}
+.v2{display:grid;grid-template-columns:56px 232px minmax(0,1fr) 296px;grid-template-rows:48px minmax(0,1fr) 290px;grid-template-areas:"top top top top" "rail lib view insp" "rail tl tl insp";gap:12px;padding:12px;height:900px;box-sizing:border-box;background:var(--canvas);color:var(--ink);font-family:Inter,system-ui,sans-serif;font-size:13px;overflow:hidden}
+.v2.no-lib{grid-template-columns:56px 0 minmax(0,1fr) 296px}
+.v2.no-lib .lib{display:none}
+.v2 a{color:var(--ink);text-decoration:none}
+.v2 button,.v2 input{font:inherit;color:inherit}
+.v2 button{cursor:pointer}
+.v2 :focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.tipwrap{position:relative}
+.tipwrap .tip{display:none;position:absolute;left:50px;top:50%;transform:translateY(-50%);white-space:nowrap;padding:6px 10px;border-radius:8px;background:var(--active);color:var(--active-ink);font-size:12px;font-weight:500;z-index:5;pointer-events:none}
+.tipwrap:hover .tip,.tipwrap:focus-visible .tip{display:block}
+.hov:hover{background:var(--field)}
+@keyframes mbmove{0%{left:0%}62%{left:100%}100%{left:100%}}
+@media (prefers-reduced-motion:reduce){.mb-dot{animation:none !important;left:100% !important}}
+@media (max-width:900px){
+.v2,.v2.no-lib{grid-template-columns:1fr;grid-template-rows:auto;grid-template-areas:"top" "view" "insp" "tl" "lib" "rail";height:auto;overflow:visible}
+.v2-top{flex-wrap:wrap;height:auto !important}
+.v2-rail{flex-direction:row !important}
+}
+</style>
+</helmet>
+<div class="{{appClass}}">
+
+<!-- TOP BAR -->
+<header class="v2-top" style="grid-area: top; display: flex; align-items: center; gap: 12px; height: 48px; padding: 0 4px">
+<div style="display: flex; align-items: center; gap: 10px; min-width: 0">
+<svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1.5c.6 5.6 4.9 9.9 10.5 10.5-5.6.6-9.9 4.9-10.5 10.5C11.4 16.9 7.1 12.6 1.5 12 7.1 11.4 11.4 7.1 12 1.5z"></path></svg>
+<span style="color: var(--muted)">Test project</span>
+<span aria-hidden="true" style="color: var(--line2)">/</span>
+<button type="button" aria-label="Switch comp" style="display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 8px; border: 0; border-radius: 10px; background: transparent; font-weight: 600">Main<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 500; padding: 2px 7px; border-radius: 999px; background: var(--card); color: var(--muted)">v02</span><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"></path></svg></button>
+<span role="status" style="display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 999px; background: var(--card); font-size: 12px; color: var(--muted)"><span aria-hidden="true" style="width: 7px; height: 7px; border-radius: 50%; background: #1fbf7a"></span>Saved · 1 note</span>
+</div>
+
+<nav aria-label="Workflow" style="margin: 0 auto; display: flex; gap: 2px; padding: 4px; border-radius: 999px; background: var(--card); box-shadow: var(--shadow)">
+<a href="Start.dc.html" style="height: 32px; display: flex; align-items: center; gap: 8px; padding: 0 14px; border-radius: 999px; color: var(--muted)"><span aria-hidden="true" style="width: 18px; height: 18px; display: grid; place-items: center; border-radius: 50%; background: var(--field); font-size: 10px"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"></path></svg></span>Import</a>
+<a href="Drafts.dc.html" style="height: 32px; display: flex; align-items: center; gap: 8px; padding: 0 14px; border-radius: 999px; color: var(--muted)"><span aria-hidden="true" style="width: 18px; height: 18px; display: grid; place-items: center; border-radius: 50%; background: var(--field)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"></path></svg></span>Draft</a>
+<a href="Soft_v02.dc.html" aria-current="step" style="height: 32px; display: flex; align-items: center; gap: 8px; padding: 0 14px; border-radius: 999px; background: var(--active); color: var(--active-ink); font-weight: 600"><span aria-hidden="true" style="width: 18px; height: 18px; display: grid; place-items: center; border-radius: 50%; background: rgba(127, 127, 127, 0.3); font-size: 10px">3</span>Refine</a>
+<a href="Deliver.dc.html" style="height: 32px; display: flex; align-items: center; gap: 8px; padding: 0 14px; border-radius: 999px; color: var(--muted)"><span aria-hidden="true" style="width: 18px; height: 18px; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--line2); font-size: 10px">4</span>Deliver</a>
+</nav>
+
+<div style="display: flex; align-items: center; gap: 8px">
+<div role="group" aria-label="Mode" style="display: flex; gap: 2px; padding: 4px; border-radius: 999px; background: var(--card); box-shadow: var(--shadow)">
+<a href="Soft_v02.dc.html" aria-current="page" style="height: 30px; display: flex; align-items: center; padding: 0 12px; border-radius: 999px; background: var(--field); font-weight: 600">Animate</a>
+<a href="Designer.dc.html" style="height: 30px; display: flex; align-items: center; padding: 0 12px; border-radius: 999px; color: var(--muted)">Edit</a>
+</div>
+<a href="Deliver.dc.html" style="height: 38px; display: flex; align-items: center; gap: 8px; padding: 0 16px; border-radius: 999px; background: var(--active); color: var(--active-ink); font-weight: 600">Deliver<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m13 6 6 6-6 6"></path></svg></a>
+</div>
+</header>
+
+<!-- RAIL -->
+<nav class="v2-rail" aria-label="Panels" style="grid-area: rail; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 0; border-radius: 20px; background: var(--card); box-shadow: var(--shadow)">
+<button type="button" class="tipwrap" aria-label="Library" aria-pressed="{{libOpen}}" onClick="{{toggleLib}}" style="{{libBtn}}"><svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="7" height="7" rx="2"></rect><circle cx="16.5" cy="7.5" r="3.5"></circle><rect x="4" y="13" width="7" height="7" rx="2"></rect><path d="M16.5 13.5v6"></path><path d="M13.5 16.5h6"></path></svg><span class="tip">Library · materials and presets</span></button>
+<button type="button" class="tipwrap" aria-label="Comps" style="width: 40px; height: 40px; display: grid; place-items: center; border: 0; border-radius: 50%; background: transparent; color: var(--muted)"><svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M12 3.5 20 8l-8 4.5L4 8z"></path><path d="m4 12 8 4.5 8-4.5"></path><path d="m4 16 8 4.5 8-4.5"></path></svg><span class="tip">Comps and versions</span></button>
+<button type="button" class="tipwrap" aria-label="Search and commands" style="width: 40px; height: 40px; display: grid; place-items: center; border: 0; border-radius: 50%; background: transparent; color: var(--muted)"><svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"></circle><path d="m20 20-4-4"></path></svg><span class="tip">Search and commands · ⌘K</span></button>
+<div style="margin-top: auto; display: flex; flex-direction: column; align-items: center; gap: 8px">
+<button type="button" class="tipwrap" aria-label="{{themeLabel}}" onClick="{{toggleTheme}}" style="width: 40px; height: 40px; display: grid; place-items: center; border: 0; border-radius: 50%; background: transparent; color: var(--muted)"><svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"></path></svg><span class="tip">{{themeLabel}}</span></button>
+<span aria-label="Guy" style="width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--field); font-size: 11px; font-weight: 600">GB</span>
+</div>
+</nav>
+
+<!-- LIBRARY -->
+<aside class="lib" aria-label="Library" style="grid-area: lib; display: flex; flex-direction: column; min-height: 0; border-radius: 20px; background: var(--card); box-shadow: var(--shadow); overflow: hidden">
+<div style="padding: 12px 12px 8px; display: flex; flex-direction: column; gap: 10px">
+<div role="tablist" aria-label="Library" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; padding: 3px; border-radius: 12px; background: var(--field)">
+<button type="button" role="tab" aria-selected="true" style="height: 28px; border: 0; border-radius: 9px; background: var(--raised); box-shadow: var(--shadow); font-size: 12px; font-weight: 600">Materials</button>
+<button type="button" role="tab" aria-selected="false" style="height: 28px; border: 0; border-radius: 9px; background: transparent; font-size: 12px; color: var(--muted)">Presets</button>
+<button type="button" role="tab" aria-selected="false" style="height: 28px; border: 0; border-radius: 9px; background: transparent; font-size: 12px; color: var(--muted)">Brand</button>
+</div>
+<label style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px; border-radius: 10px; background: var(--field); color: var(--muted)">
+<svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"></circle><path d="m20 20-4-4"></path></svg>
+<span style="position: absolute; width: 1px; height: 1px; overflow: hidden">Search materials</span>
+<input type="text" placeholder="Search materials" style="flex: 1; min-width: 0; border: 0; outline: none; background: transparent; font-size: 12px">
+</label>
+</div>
+<div style="flex: 1; min-height: 0; overflow: auto; padding: 0 12px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; align-content: start">
+<sc-for list="{{lib}}" as="m" hint-placeholder-count="8">
+<button type="button" draggable="true" aria-label="{{m.label}}" onClick="{{m.apply}}" style="display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px 6px 10px; border: 0; border-radius: 14px; background: var(--field); cursor: grab">
+<span aria-hidden="true" style="{{m.sphere}}"></span>
+<span style="font-size: 12px; font-weight: 500">{{m.name}}</span>
+</button>
+</sc-for>
+</div>
+<p style="margin: 0; padding: 10px 14px 12px; font-size: 12px; line-height: 1.45; color: var(--muted)">Drag onto a layer, or click to apply to <strong style="color: var(--ink); font-weight: 600">{{sel.name}}</strong>.</p>
+</aside>
+
+<!-- VIEWER -->
+<main aria-label="Viewer" style="grid-area: view; position: relative; min-width: 0; min-height: 0; border-radius: 20px; background: var(--stage); background-image: radial-gradient(var(--line2) 1px, transparent 1px); background-size: 22px 22px; overflow: hidden; display: grid; place-items: center; padding: 56px 24px 70px">
+<div style="position: absolute; left: 12px; top: 12px; display: flex; gap: 6px">
+<button type="button" style="height: 30px; display: flex; align-items: center; gap: 6px; padding: 0 12px; border: 0; border-radius: 999px; background: var(--card); box-shadow: var(--shadow); font-size: 12px; font-weight: 500">Fit<svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"></path></svg></button>
+<span style="height: 30px; display: flex; align-items: center; padding: 0 12px; border-radius: 999px; background: var(--card); box-shadow: var(--shadow); font-size: 12px; color: var(--muted)">16:9 · 25 fps</span>
+</div>
+<div role="group" aria-label="View options" style="position: absolute; right: 12px; top: 12px; display: flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--card); box-shadow: var(--shadow)">
+<button type="button" aria-pressed="true" title="Safe areas" aria-label="Safe areas" style="width: 30px; height: 26px; display: grid; place-items: center; border: 0; border-radius: 999px; background: var(--field)"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="5" width="18" height="14" rx="2"></rect><rect x="6.5" y="8" width="11" height="8" rx="1" stroke-dasharray="2 2"></rect></svg></button>
+<button type="button" aria-pressed="false" title="Motion blur" aria-label="Motion blur" style="width: 30px; height: 26px; display: grid; place-items: center; border: 0; border-radius: 999px; background: transparent; color: var(--muted)"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="15" cy="12" r="4"></circle><path d="M3 9h6"></path><path d="M2 12h7"></path><path d="M3 15h6"></path></svg></button>
+<button type="button" aria-pressed="false" title="Transparency" aria-label="Transparency grid" style="width: 30px; height: 26px; display: grid; place-items: center; border: 0; border-radius: 999px; background: transparent; color: var(--muted)"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="currentColor" opacity="0.8"><rect x="4" y="4" width="4" height="4"></rect><rect x="12" y="4" width="4" height="4"></rect><rect x="8" y="8" width="4" height="4"></rect><rect x="16" y="8" width="4" height="4"></rect><rect x="4" y="12" width="4" height="4"></rect><rect x="12" y="12" width="4" height="4"></rect><rect x="8" y="16" width="4" height="4"></rect><rect x="16" y="16" width="4" height="4"></rect></svg></button>
+</div>
+
+<div style="position: relative; width: min(100%, 740px); aspect-ratio: 16 / 9">
+<div role="img" aria-label="Frame 2:12: panel with name and title over the background plate" style="position: absolute; inset: 0; border-radius: 10px; background: #1b1e24; overflow: hidden; box-shadow: 0 12px 40px rgba(16, 17, 20, 0.18)">
+<div aria-hidden="true" style="position: absolute; left: 18%; top: 30%; width: 30%; aspect-ratio: 1; border-radius: 50%; background: #1f4bff"></div>
+<div aria-hidden="true" style="position: absolute; left: 44%; top: 58%; width: 22%; height: 10%; background: #ff39d1; transform: rotate(-8deg)"></div>
+<div aria-hidden="true" style="position: absolute; inset: 10%; border: 1px dashed rgba(237, 238, 240, 0.2)"></div>
+<div style="{{panelLook}}"></div>
+<div style="{{nameLook}}">Name <span style="opacity: 0.55">Surname</span></div>
+<div style="{{titleLook}}">Job title, Company</div>
+</div>
+<!-- selection + contextual toolbar -->
+<div aria-hidden="true" style="{{selBox}}"></div>
+<div role="toolbar" aria-label="{{toolbarLabel}}" style="{{toolbarPos}}">
+<span style="padding: 0 6px 0 10px; font-size: 12px; font-weight: 600">{{sel.name}}</span>
+<span aria-hidden="true" style="width: 1px; height: 18px; background: var(--line)"></span>
+<button type="button" aria-label="Material: {{sel.mat}}" style="display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 8px; border: 0; border-radius: 999px; background: transparent; font-size: 12px"><span aria-hidden="true" style="{{sel.dot}}"></span>{{sel.mat}}</button>
+<button type="button" aria-label="Animation in: {{sel.ease}}. Open in graph" onClick="{{showGraph}}" style="display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 8px; border: 0; border-radius: 999px; background: transparent; font-size: 12px"><svg aria-hidden="true" width="22" height="14" viewBox="0 -6 40 34" preserveAspectRatio="none"><path d="{{sel.curve}}" fill="none" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke"></path></svg><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px">{{sel.ease}}</span></button>
+<button type="button" aria-label="Add key at playhead (K)" style="width: 30px; height: 30px; display: grid; place-items: center; border: 0; border-radius: 50%; background: transparent"><span aria-hidden="true" style="width: 9px; height: 9px; border: 1.5px solid currentColor; border-radius: 2px; transform: rotate(45deg)"></span></button>
+</div>
+</div>
+
+<!-- transport -->
+<div style="position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); display: flex; align-items: center; gap: 2px; padding: 5px; border-radius: 999px; background: var(--card); box-shadow: var(--float)">
+<button type="button" aria-label="Previous key (J)" style="width: 34px; height: 34px; display: grid; place-items: center; border: 0; border-radius: 50%; background: transparent; color: var(--muted)"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 5v14"></path><path d="m18 6-8 6 8 6z"></path></svg></button>
+<button type="button" aria-label="Play (Space)" style="width: 40px; height: 40px; display: grid; place-items: center; border: 0; border-radius: 50%; background: var(--active); color: var(--active-ink)"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l10.5-6.5z"></path></svg></button>
+<button type="button" aria-label="Next key (K)" style="width: 34px; height: 34px; display: grid; place-items: center; border: 0; border-radius: 50%; background: transparent; color: var(--muted)"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M18 5v14"></path><path d="m6 6 8 6-8 6z"></path></svg></button>
+<span style="padding: 0 12px 0 6px; font-family: 'JetBrains Mono', monospace; font-size: 13px">0:02.12 <span style="color: var(--faint)">/ 6:00</span></span>
+</div>
+</main>
+
+<!-- TIMELINE (layers live here) -->
+<section aria-label="Timeline" style="grid-area: tl; display: flex; flex-direction: column; min-height: 0; border-radius: 20px; background: var(--card); box-shadow: var(--shadow); overflow: hidden">
+<div style="display: flex; align-items: center; gap: 10px; padding: 10px 12px 6px">
+<div role="tablist" aria-label="Bottom panel" style="display: flex; gap: 2px; padding: 3px; border-radius: 12px; background: var(--field)">
+<button type="button" role="tab" aria-selected="{{isTimeline}}" onClick="{{showTimeline}}" style="{{tabTimeline}}">Timeline</button>
+<button type="button" role="tab" aria-selected="{{isGraph}}" onClick="{{showGraph}}" style="{{tabGraph}}">Graph</button>
+<button type="button" role="tab" aria-selected="{{isNetwork}}" onClick="{{showNetwork}}" style="{{tabNetwork}}">Network</button>
+</div>
+<span style="font-size: 12px; color: var(--muted)">Main <span aria-hidden="true">›</span> <span style="color: var(--ink); font-weight: 500">Lower third (test)</span></span>
+<button type="button" style="margin-left: auto; height: 28px; display: flex; align-items: center; gap: 6px; padding: 0 10px; border: 0; border-radius: 999px; background: var(--field); font-size: 12px"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>Layer</button>
+</div>
+<sc-if value="{{isTimeline}}" hint-placeholder-val="{{ true }}">
+<div style="flex: 1; min-height: 0; overflow: auto; display: grid; grid-template-columns: 236px minmax(0, 1fr); padding: 0 12px 10px">
+<!-- tree -->
+<div role="tree" aria-label="Layers" style="display: flex; flex-direction: column; padding-right: 10px">
+<div style="height: 22px"></div>
+<div role="treeitem" aria-expanded="true" style="height: 30px; display: flex; align-items: center; gap: 8px; padding: 0 8px; font-weight: 600"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m6 9 6 6 6-6"></path></svg>Lower third (test)</div>
+<button type="button" role="treeitem" aria-selected="{{r.panel.on}}" onClick="{{r.panel.pick}}" style="{{r.panel.style}}"><span aria-hidden="true" style="position: absolute; left: 14px; top: -4px; height: 19px; width: 10px; border-left: 1.5px solid var(--line2); border-bottom: 1.5px solid var(--line2); border-bottom-left-radius: 7px"></span><span aria-hidden="true" style="position: absolute; left: 14px; top: 14px; bottom: -4px; border-left: 1.5px solid var(--line2)"></span><span style="flex: 1; text-align: left">Panel</span><span aria-hidden="true" style="{{r.panel.dot}}"></span><span style="font-size: 11px; color: var(--muted)">shape</span></button>
+<button type="button" role="treeitem" aria-selected="{{r.name.on}}" onClick="{{r.name.pick}}" style="{{r.name.style}}"><span aria-hidden="true" style="position: absolute; left: 14px; top: -4px; height: 19px; width: 10px; border-left: 1.5px solid var(--line2); border-bottom: 1.5px solid var(--line2); border-bottom-left-radius: 7px"></span><span aria-hidden="true" style="position: absolute; left: 14px; top: 14px; bottom: -4px; border-left: 1.5px solid var(--line2)"></span><span style="flex: 1; text-align: left">Name</span><span aria-hidden="true" style="{{r.name.dot}}"></span><span style="font-size: 11px; color: var(--muted)">headline</span></button>
+<div style="height: 26px; display: flex; align-items: center; padding-left: 52px; font-size: 12px; color: var(--muted); position: relative"><span aria-hidden="true" style="position: absolute; left: 22px; top: 0; bottom: 0; border-left: 1.5px solid var(--line2)"></span>Position</div>
+<button type="button" role="treeitem" aria-selected="{{r.title.on}}" onClick="{{r.title.pick}}" style="{{r.title.style}}"><span aria-hidden="true" style="position: absolute; left: 14px; top: -4px; height: 19px; width: 10px; border-left: 1.5px solid var(--line2); border-bottom: 1.5px solid var(--line2); border-bottom-left-radius: 7px"></span><span aria-hidden="true" style="position: absolute; left: 14px; top: 14px; bottom: -4px; border-left: 1.5px solid var(--line2)"></span><span style="flex: 1; text-align: left">Title</span><span aria-hidden="true" style="{{r.title.dot}}"></span><span style="font-size: 11px; color: var(--muted)">subline</span></button>
+<div role="treeitem" style="position: relative; height: 30px; display: flex; align-items: center; gap: 8px; padding: 0 8px 0 34px; color: var(--muted)"><span aria-hidden="true" style="position: absolute; left: 14px; top: -4px; height: 19px; width: 10px; border-left: 1.5px solid var(--line2); border-bottom: 1.5px solid var(--line2); border-bottom-left-radius: 7px"></span><span style="flex: 1">Logo</span><span title="Font missing: Orbitron Black" style="font-size: 11px; font-weight: 600; min-width: 18px; height: 18px; display: grid; place-items: center; border-radius: 6px; background: #ffd9c2; color: #8a3b0f">1</span></div>
+<div role="treeitem" style="height: 30px; display: flex; align-items: center; gap: 8px; padding: 0 8px 0 28px; color: var(--muted)">Background plate</div>
+</div>
+<!-- tracks -->
+<div style="position: relative; min-width: 420px; border-left: 1px solid var(--line)">
+<div aria-hidden="true" style="height: 22px; position: relative; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--faint)"><span style="position: absolute; left: 6px; top: 4px">0s</span><span style="position: absolute; left: 16.66%; top: 4px">1s</span><span style="position: absolute; left: 33.33%; top: 4px">2s</span><span style="position: absolute; left: 50%; top: 4px">3s</span><span style="position: absolute; left: 66.66%; top: 4px">4s</span><span style="position: absolute; left: 83.33%; top: 4px">5s</span></div>
+<div style="height: 30px; position: relative"><div style="position: absolute; left: 1%; width: 90.6%; top: 7px; bottom: 7px; border-radius: 999px; background: var(--bar)"></div></div>
+<div style="height: 30px; position: relative"><div style="{{r.panel.bar}}"></div><span aria-hidden="true" style="position: absolute; left: 1.4%; top: 11px; width: 8px; height: 8px; border-radius: 2px; background: var(--ink); transform: rotate(45deg)"></span><span aria-hidden="true" style="position: absolute; left: 8.3%; top: 11px; width: 8px; height: 8px; border-radius: 2px; background: var(--ink); transform: rotate(45deg)"></span></div>
+<div style="height: 30px; position: relative"><div style="{{r.name.bar}}"></div><div style="position: absolute; left: 3.3%; width: 11.7%; top: 7px; bottom: 7px; border-radius: 999px; background: var(--bar)"></div><span style="position: absolute; left: 16%; top: 8px; font-size: 11px; color: var(--muted)">in</span><div style="position: absolute; left: 80%; width: 11.6%; top: 7px; bottom: 7px; border-radius: 999px; background: var(--bar)"></div></div>
+<div style="height: 26px; position: relative"><span aria-hidden="true" style="position: absolute; left: 3.3%; top: 9px; width: 8px; height: 8px; border-radius: 2px; background: var(--ink); transform: rotate(45deg)"></span><span aria-hidden="true" style="position: absolute; left: 41.3%; top: 7px; width: 11px; height: 11px; margin-left: -5px; border-radius: 2px; background: #c3fc2f; border: 1.5px solid #16171a; box-sizing: border-box; transform: rotate(45deg)"></span><span aria-hidden="true" style="position: absolute; left: 66.6%; top: 9px; width: 8px; height: 8px; border-radius: 2px; background: var(--ink); transform: rotate(45deg)"></span></div>
+<div style="height: 30px; position: relative"><div style="{{r.title.bar}}"></div></div>
+<div style="height: 30px; position: relative"><div style="position: absolute; left: 10%; width: 81.6%; top: 7px; bottom: 7px; border-radius: 999px; background: var(--bar)"></div></div>
+<div style="height: 30px; position: relative"><div style="position: absolute; left: 0; width: 100%; top: 7px; bottom: 7px; border-radius: 999px; background: var(--bar); opacity: 0.6"></div></div>
+<div aria-hidden="true" style="position: absolute; left: 41.3%; top: 0; bottom: 0; width: 1.5px; background: var(--ink)"><span style="position: absolute; top: 2px; left: 50%; transform: translateX(-50%); padding: 1px 7px; border-radius: 999px; background: #c3fc2f; color: #16171a; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 500; white-space: nowrap">2:12</span></div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{isGraph}}" hint-placeholder-val="{{ false }}">
+<div style="flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 12px; padding: 0 12px 12px">
+<div style="position: relative; min-height: 0; border-radius: 14px; background: var(--field); background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size: 48px 32px; overflow: hidden">
+<svg role="img" aria-label="{{curveLabel}}" viewBox="0 -30 600 240" preserveAspectRatio="none" style="position: absolute; inset: 28px 16px 24px; width: calc(100% - 32px); height: calc(100% - 52px)">
+<line x1="20" y1="170" x2="580" y2="170" stroke-width="1" stroke-dasharray="4 4" vector-effect="non-scaling-stroke" style="stroke: var(--line2)"></line>
+<line x1="20" y1="30" x2="580" y2="30" stroke-width="1" stroke-dasharray="4 4" vector-effect="non-scaling-stroke" style="stroke: var(--line2)"></line>
+<path d="{{curveD}}" fill="none" stroke-width="2.25" stroke-linecap="round" vector-effect="non-scaling-stroke" style="stroke: var(--ink)"></path>
+</svg>
+<span style="position: absolute; left: 12px; top: 8px; font-size: 12px; font-weight: 600">{{sel.name}} <span style="font-weight: 400; color: var(--muted)">· animate in · value</span></span>
+<span style="position: absolute; right: 12px; top: 8px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted)">{{easeString}}</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px; min-height: 0">
+<div aria-hidden="true" style="position: relative; flex: none; height: 34px; border-radius: 12px; background: var(--field)">
+<div style="position: absolute; left: 16px; right: 16px; top: 0; bottom: 0">
+<span style="position: absolute; left: 0; top: 9px; bottom: 9px; width: 1.5px; background: var(--line2)"></span>
+<span style="position: absolute; left: 100%; top: 9px; bottom: 9px; width: 1.5px; background: var(--line2)"></span>
+<div class="mb-dot" style="{{dotStyle}}"></div>
+</div>
+</div>
+<sc-if value="{{hasAmount}}" hint-placeholder-val="{{ true }}">
+<label style="display: flex; align-items: center; gap: 10px; flex: none">
+<span style="font-size: 12px; color: var(--muted); white-space: nowrap">Overshoot</span>
+<input type="range" min="0" max="100" step="1" value="{{amount}}" onChange="{{setAmount}}" style="flex: 1; accent-color: #16171a">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; width: 24px; text-align: right">{{amount}}</span>
+</label>
+</sc-if>
+<div role="radiogroup" aria-label="Ease presets" style="flex: 1; min-height: 0; overflow: auto; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; align-content: start">
+<sc-for list="{{presets}}" as="e" hint-placeholder-count="18">
+<button type="button" role="radio" aria-checked="{{e.selected}}" onClick="{{e.pick}}" style="{{e.style}}">
+<svg aria-hidden="true" viewBox="0 -6 40 34" width="100%" height="20" preserveAspectRatio="none"><path d="{{e.mini}}" fill="none" stroke-width="1.75" vector-effect="non-scaling-stroke" style="{{e.stroke}}"></path></svg>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 10px">{{e.name}}</span>
+</button>
+</sc-for>
+</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{isNetwork}}" hint-placeholder-val="{{ false }}">
+<div onPointerMove="{{netMove}}" onPointerUp="{{netUp}}" onPointerLeave="{{netCancel}}" style="flex: 1; min-height: 0; display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 10px; padding: 0 12px 12px; user-select: none; -webkit-user-select: none">
+<div role="group" aria-label="Materials. Drag onto the network" style="display: flex; flex-direction: column; gap: 2px; padding: 8px; border-radius: 14px; background: var(--field); overflow: auto">
+<sc-for list="{{shelf}}" as="m" hint-placeholder-count="8">
+<button type="button" onPointerDown="{{m.grab}}" style="{{m.style}}"><span aria-hidden="true" style="{{m.sphere}}"></span>{{m.name}}</button>
+</sc-for>
+</div>
+<div style="position: relative; min-height: 0; overflow: hidden; border-radius: 14px; background-color: var(--field); background-image: radial-gradient(var(--line2) 1px, transparent 1px); background-size: 20px 20px">
+<div role="status" style="{{hintStyle}}">{{netHint}}</div>
+<svg aria-hidden="true" width="100%" height="100%" style="position: absolute; inset: 0; pointer-events: none">
+<path d="M390 54 C 560 54, 600 124, 710 124" fill="none" stroke-width="1.5" style="stroke: var(--line2)"></path>
+<path d="M390 124 C 405 124, 405 124, 420 124" fill="none" stroke-width="1.5" style="stroke: var(--ink)"></path>
+<path d="M530 124 C 545 124, 545 124, 560 124" fill="none" stroke-width="1.5" style="stroke: var(--line2)"></path>
+<path d="M680 124 C 695 124, 695 124, 710 124" fill="none" stroke-width="1.5" style="stroke: var(--line2)"></path>
+<path d="M390 194 C 560 194, 600 124, 710 124" fill="none" stroke-width="1.5" style="stroke: var(--line2)"></path>
+<path d="{{linkD}}" fill="none" stroke-width="1.75" style="stroke: var(--muted)"></path>
+<path d="{{liveD}}" fill="none" stroke="#9ad81f" stroke-width="2" stroke-dasharray="5 4"></path>
+</svg>
+<sc-for list="{{layerNodes}}" as="l" hint-placeholder-count="3">
+<div style="{{l.style}}">
+<button type="button" aria-label="{{l.portLabel}}" onClick="{{l.unlink}}" style="{{l.portStyle}}"></button>
+<span style="font-size: 12px; font-weight: 600">{{l.label}}</span>
+<span style="font-size: 11px; color: var(--muted)">{{l.sub}}</span>
+</div>
+</sc-for>
+<sc-for list="{{matNodes}}" as="n" hint-placeholder-count="2">
+<div role="group" aria-label="{{n.mat}} material node, {{n.feeds}}" onPointerDown="{{n.grab}}" style="{{n.style}}">
+<span aria-hidden="true" style="{{n.sphere}}"></span>
+<span style="display: flex; flex-direction: column; gap: 1px; min-width: 0"><span style="font-size: 12px; font-weight: 600">{{n.mat}}</span><span style="font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{n.feeds}}</span></span>
+<button type="button" aria-label="Remove {{n.mat}} node" onPointerDown="{{n.stop}}" onClick="{{n.remove}}" style="position: absolute; top: 4px; right: 8px; width: 18px; height: 18px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 13px; line-height: 18px">×</button>
+<button type="button" aria-label="Output of {{n.mat}}. Drag to a layer to connect" onPointerDown="{{n.wire}}" style="{{n.portStyle}}"></button>
+</div>
+</sc-for>
+<sc-if value="{{showGhost}}" hint-placeholder-val="{{ false }}">
+<div aria-hidden="true" style="{{ghostStyle}}"><span style="{{ghostSphere}}"></span>{{ghostName}}</div>
+</sc-if>
+<div style="position: absolute; left: 420px; top: 98px; width: 110px; height: 52px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; gap: 1px; padding: 0 12px; border-radius: 12px; background: var(--card); box-shadow: var(--shadow)"><span style="font-size: 12px; font-weight: 600">Split</span><span style="font-size: 11px; color: var(--muted)">by words</span></div>
+<div style="position: absolute; left: 560px; top: 98px; width: 120px; height: 52px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; gap: 1px; padding: 0 12px; border-radius: 12px; background: var(--card); box-shadow: var(--shadow)"><span style="font-size: 12px; font-weight: 600">Animate in</span><span style="font-size: 11px; color: var(--muted)">{{nameEase}}</span></div>
+<div style="position: absolute; left: 710px; top: 98px; width: 96px; height: 52px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; gap: 1px; padding: 0 12px; border-radius: 12px; background: var(--active); color: var(--active-ink)"><span style="font-size: 12px; font-weight: 600">Output</span><span style="font-size: 11px; opacity: 0.7">to comp</span></div>
+</div>
+</div>
+</sc-if>
+</section>
+
+<!-- INSPECTOR -->
+<aside aria-label="Inspector" style="grid-area: insp; display: flex; flex-direction: column; gap: 10px; min-height: 0; padding: 16px 14px; border-radius: 20px; background: var(--card); box-shadow: var(--shadow); overflow: auto">
+<div style="display: flex; align-items: center; gap: 10px; padding: 0 2px">
+<div style="display: flex; flex-direction: column; gap: 3px; min-width: 0">
+<h2 style="margin: 0; font-family: 'Inter Tight', Inter, sans-serif; font-size: 22px; font-weight: 600; letter-spacing: -0.02em">{{sel.name}}</h2>
+<span style="font-size: 12px; color: var(--muted)">{{sel.type}} · {{sel.role}}</span>
+</div>
+<button type="button" aria-label="More actions" style="margin-left: auto; width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: 50%; background: var(--field)"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6"></circle><circle cx="12" cy="12" r="1.6"></circle><circle cx="19" cy="12" r="1.6"></circle></svg></button>
+</div>
+
+<!-- Motion -->
+<section aria-labelledby="i-motion" style="padding: 14px; border-radius: 16px; background: var(--field); display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: center"><h3 id="i-motion" style="margin: 0; font-size: 13px; font-weight: 600">Motion</h3><span style="margin-left: auto; font-size: 12px; color: var(--muted)">{{sel.span}}</span></div>
+<div aria-hidden="true" style="display: grid; grid-template-columns: 2fr 6fr 1.4fr; gap: 3px; height: 8px">
+<span style="border-radius: 999px 2px 2px 999px; background: var(--ink)"></span><span style="border-radius: 2px; background: var(--line2)"></span><span style="border-radius: 2px 999px 999px 2px; background: var(--muted)"></span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px">
+<button type="button" aria-label="Animate in: {{sel.ease}}. Open in graph" onClick="{{showGraph}}" style="display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 10px; border: 0; border-radius: 12px; background: var(--card); text-align: left">
+<span style="font-size: 11px; color: var(--muted)">In</span>
+<svg aria-hidden="true" width="100%" height="26" viewBox="0 -6 40 34" preserveAspectRatio="none"><path d="{{sel.curve}}" fill="none" stroke="currentColor" stroke-width="1.75" vector-effect="non-scaling-stroke"></path></svg>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 500">{{sel.ease}}</span>
+</button>
+<a href="Main.dc.html" style="display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 12px; background: var(--card)">
+<span style="font-size: 11px; color: var(--muted)">Out</span>
+<svg aria-hidden="true" width="100%" height="26" viewBox="0 -6 40 34" preserveAspectRatio="none"><path d="M2 6 C 18 6, 26 8, 38 22" fill="none" stroke="currentColor" stroke-width="1.75" vector-effect="non-scaling-stroke"></path></svg>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 500">inCubic</span>
+</a>
+</div>
+<span style="font-size: 12px; color: var(--muted)">{{sel.detail}}</span>
+</section>
+
+<!-- Look -->
+<section aria-labelledby="i-look" style="padding: 14px; border-radius: 16px; background: var(--field); display: flex; flex-direction: column; gap: 10px">
+<h3 id="i-look" style="margin: 0; font-size: 13px; font-weight: 600">Look</h3>
+<a href="Materials.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; background: var(--card)">
+<span aria-hidden="true" style="{{sel.bigDot}}"></span>
+<span style="display: flex; flex-direction: column; gap: 1px"><span style="font-size: 13px; font-weight: 600">{{sel.mat}}</span><span style="font-size: 11px; color: var(--muted)">{{sel.matKind}}</span></span>
+<span style="margin-left: auto; font-size: 12px; color: var(--muted)">Edit</span>
+</a>
+<div style="display: flex; align-items: center; gap: 10px">
+<span style="font-size: 12px; width: 56px">Opacity</span>
+<div aria-hidden="true" style="flex: 1; height: 6px; border-radius: 999px; background: var(--card); position: relative"><div style="position: absolute; left: 0; top: 0; bottom: 0; width: 86%; border-radius: 999px; background: var(--ink)"></div></div>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px">86%</span>
+</div>
+</section>
+
+<!-- Transform (collapsed) -->
+<button type="button" aria-expanded="false" style="display: flex; align-items: center; gap: 10px; padding: 14px; border: 0; border-radius: 16px; background: var(--field); text-align: left">
+<span style="display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0"><span style="font-size: 13px; font-weight: 600">Transform</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted)">0, −8.4 · 100% · 0°</span></span>
+<span aria-hidden="true" style="width: 10px; height: 10px; border-radius: 2px; background: #c3fc2f; border: 1.5px solid #16171a; box-sizing: border-box; transform: rotate(45deg)"></span>
+<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color: var(--muted)"><path d="m6 9 6 6 6-6"></path></svg>
+</button>
+
+<!-- Modifiers (collapsed) -->
+<button type="button" aria-expanded="false" style="display: flex; align-items: center; gap: 10px; padding: 14px; border: 0; border-radius: 16px; background: var(--field); text-align: left">
+<span style="display: flex; flex-direction: column; gap: 3px; flex: 1"><span style="font-size: 13px; font-weight: 600">Modifiers</span><span style="font-size: 11px; color: var(--muted)">Wave on Position Y</span></span>
+<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color: var(--muted)"><path d="m6 9 6 6 6-6"></path></svg>
+</button>
+
+<label style="margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 16px; border: 1px dashed var(--line2)">
+<span style="display: flex; flex-direction: column; gap: 2px; flex: 1"><span style="font-size: 13px; font-weight: 600">Designers can edit</span><span style="font-size: 11px; color: var(--muted)">Shows {{sel.name}} in Edit mode</span></span>
+<input type="checkbox" checked="{{sel.promoted}}" style="accent-color: #16171a; width: 16px; height: 16px">
+</label>
+</aside>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      theme: 'light', lib: true, sel: 'name', tab: 'timeline',
+      ease: { panel: 'outExpo', name: 'outBack', title: 'outCubic' },
+      amount: { panel: 40, name: 40, title: 40 },
+      nodes: [{ id: 'm1', mat: 'Glass', x: 20, y: 28 }, { id: 'm2', mat: 'Paper', x: 20, y: 132 }],
+      links: { panel: 'm1', name: 'm2', title: 'm2' },
+      drag: null, seq: 3
+    };
+  }
+  renderVals() {
+    var self = this, st = this.state;
+
+    /* ---- materials: the network is the source of truth ---- */
+    function findNode(id) { for (var i = 0; i < st.nodes.length; i++) if (st.nodes[i].id === id) return st.nodes[i]; return null; }
+    var mats = {};
+    ['panel', 'name', 'title'].forEach(function (k) { var n = findNode(st.links[k]); mats[k] = n ? n.mat : 'Paper'; });
+    var ROW_TOP = { panel: 28, name: 98, title: 168 };
+    function applyMat(m) {
+      var s = self.state, k = s.sel, id = s.links[k];
+      var users = Object.keys(s.links).filter(function (x) { return s.links[x] === id; });
+      if (id && users.length === 1) {
+        self.setState({ nodes: s.nodes.map(function (n) { return n.id === id ? Object.assign({}, n, { mat: m }) : n; }) });
+      } else {
+        var nid = 'm' + s.seq;
+        var links = Object.assign({}, s.links); links[k] = nid;
+        self.setState({ nodes: s.nodes.concat([{ id: nid, mat: m, x: 110, y: ROW_TOP[k] }]), links: links, seq: s.seq + 1 });
+      }
+    }
+
+    /* ---- eases (Motion Builder v1 menu names) ---- */
+    var P = Math.pow;
+    function bounce(t) { var n = 7.5625, d = 2.75; if (t < 1 / d) return n * t * t; if (t < 2 / d) { t -= 1.5 / d; return n * t * t + 0.75; } if (t < 2.5 / d) { t -= 2.25 / d; return n * t * t + 0.9375; } t -= 2.625 / d; return n * t * t + 0.984375; }
+    var F = {
+      outQuad: function (t) { return 1 - P(1 - t, 2); },
+      outCubic: function (t) { return 1 - P(1 - t, 3); },
+      outQuart: function (t) { return 1 - P(1 - t, 4); },
+      outExpo: function (t) { return t >= 1 ? 1 : 1 - P(2, -10 * t); },
+      outCirc: function (t) { return Math.sqrt(1 - P(t - 1, 2)); },
+      outSine: function (t) { return Math.sin(t * Math.PI / 2); },
+      outBack: function (t, a) { var s = a / 25; return 1 + (s + 1) * P(t - 1, 3) + s * P(t - 1, 2); },
+      outElastic: function (t, a) { var p = 0.6 - 0.45 * a / 100; if (t <= 0) return 0; if (t >= 1) return 1; return P(2, -10 * t) * Math.sin((t - p / 4) * 2 * Math.PI / p) + 1; },
+      spring: function (t, a) { var k = (1 - a / 100) * 10 + 4; return 1 - Math.exp(-k * t) * Math.cos(14 * t); },
+      outBounce: bounce,
+      inOutCubic: function (t) { return t < 0.5 ? 4 * t * t * t : 1 - P(-2 * t + 2, 3) / 2; },
+      inOutExpo: function (t) { if (t <= 0) return 0; if (t >= 1) return 1; return t < 0.5 ? P(2, 20 * t - 10) / 2 : (2 - P(2, -20 * t + 10)) / 2; },
+      inOutSine: function (t) { return -(Math.cos(Math.PI * t) - 1) / 2; },
+      inOutBack: function (t, a) { var s = (a / 25) * 1.525; return t < 0.5 ? (P(2 * t, 2) * ((s + 1) * 2 * t - s)) / 2 : (P(2 * t - 2, 2) * ((s + 1) * (t * 2 - 2) + s) + 2) / 2; },
+      inCubic: function (t) { return t * t * t; },
+      inExpo: function (t) { return t <= 0 ? 0 : P(2, 10 * t - 10); },
+      inBack: function (t, a) { var s = a / 25; return t * t * ((s + 1) * t - s); },
+      linear: function (t) { return t; }
+    };
+    var EASES = ['outQuad', 'outCubic', 'outQuart', 'outExpo', 'outCirc', 'outSine', 'outBack', 'outElastic', 'spring', 'outBounce', 'inOutCubic', 'inOutExpo', 'inOutSine', 'inOutBack', 'inCubic', 'inExpo', 'inBack', 'linear'];
+    var AM = { outBack: 1, outElastic: 1, spring: 1, inOutBack: 1, inBack: 1 };
+    function path(n, a, steps, x0, w, y0, h) {
+      var d = '';
+      for (var i = 0; i <= steps; i++) { var t = i / steps; var v = i === steps ? 1 : F[n](t, a); d += (i ? ' L' : 'M') + (x0 + t * w).toFixed(1) + ' ' + (y0 - v * h).toFixed(1); }
+      return d;
+    }
+    function easeLabel(k) { var n = st.ease[k]; return AM[n] ? n + ' · ' + st.amount[k] : n; }
+    function mini(k) { return path(st.ease[k], st.amount[k], 16, 2, 36, 22, 16); }
+    var light = st.theme === 'light';
+    var MAT = {
+      'Glass': { kind: 'Glass · refracts the plate', css: 'radial-gradient(circle at 32% 28%, #ffffff 0 12%, #dfe6f5 40%, #b7c3db 100%)',
+        panel: 'background:rgba(255,255,255,0.08);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);border:1px solid rgba(255,255,255,0.5);box-shadow:inset 0 1px 0 rgba(255,255,255,0.7);', text: '#ffffff' },
+      'Frosted': { kind: 'Glass · frosted', css: 'radial-gradient(circle at 35% 30%, #ffffff 0%, #e4e8ef 50%, #b9bfca 100%)',
+        panel: 'background:rgba(255,255,255,0.16);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.3);', text: '#ffffff' },
+      'Chrome': { kind: 'Metal', css: 'radial-gradient(circle at 35% 28%, #ffffff 0 10%, #c9cdd3 30%, #3a3e44 62%, #d6d9de 90%)',
+        panel: 'background:linear-gradient(180deg,#f5f6f8 0%,#aeb3ba 46%,#3a3e44 50%,#c9cdd3 100%);', text: '#d9dce1' },
+      'Gloss': { kind: 'Plastic · brand primary', css: 'radial-gradient(circle at 33% 27%, #ffffff 0 7%, #4d70ff 18%, #1f4bff 55%, #0d248a 100%)',
+        panel: 'background:#1f4bff;box-shadow:inset 0 2px 0 rgba(255,255,255,0.5);', text: '#ffffff' },
+      'Foil': { kind: 'Iridescent', css: 'radial-gradient(circle at 35% 30%, #ffffff 0 8%, #27e7f9 28%, #8b5cff 55%, #ff39d1 80%, #fdc436 100%)',
+        panel: 'background:linear-gradient(110deg,#9ef3fb 0%,#b9a3ff 35%,#ffa3e8 65%,#ffe08a 100%);', text: '#e9e3ff' },
+      'Paper': { kind: 'Solid · brand paper', css: '#ffffff', panel: 'background:#ffffff;', text: '#ffffff' },
+      'Ink': { kind: 'Solid · brand ink', css: '#0b0b0f', panel: 'background:#0b0b0f;', text: '#0b0b0f' },
+      'Primary': { kind: 'Solid · brand primary', css: '#1f4bff', panel: 'background:#1f4bff;', text: '#1f4bff' }
+    };
+    var curves = {
+      outBack: 'M2 22 C 10 -6, 18 4, 38 6',
+      outExpo: 'M2 22 C 6 4, 14 6, 38 6',
+      outCubic: 'M2 22 C 10 8, 22 6, 38 6'
+    };
+    var L = {
+      panel: { name: 'Panel', type: 'Shape', role: 'shape', ease: 'outExpo', span: '0:00 → 5:30', detail: 'Grows from the left edge in 0.5 s.', promoted: false,
+        box: { l: 10, t: 60, w: 46, h: 26 } },
+      name: { name: 'Name', type: 'Text · by words', role: 'headline', ease: 'outBack · 40', span: '0:05 → 5:30', detail: 'Words rise 24 px and fade in, 40 ms apart.', promoted: true,
+        box: { l: 13, t: 63, w: 25, h: 10 } },
+      title: { name: 'Title', type: 'Text', role: 'subline', ease: 'outCubic', span: '0:10 → 5:30', detail: 'Fades up 12 px after the name lands.', promoted: true,
+        box: { l: 13, t: 75, w: 21, h: 6 } }
+    };
+    var curveOf = { panel: curves.outExpo, name: curves.outBack, title: curves.outCubic };
+    var cur = L[st.sel];
+    var curMat = mats[st.sel];
+    var dot = function (m, size) { return 'width:' + size + 'px;height:' + size + 'px;border-radius:50%;flex:none;border:1px solid var(--line2);background:' + MAT[m].css; };
+    var sel = {
+      name: cur.name, type: cur.type, role: cur.role, ease: easeLabel(st.sel), span: cur.span, detail: cur.detail, promoted: cur.promoted,
+      mat: curMat, matKind: MAT[curMat].kind, dot: dot(curMat, 14), bigDot: dot(curMat, 30), curve: mini(st.sel)
+    };
+    var b = cur.box;
+    var rowBase = 'position:relative;height:30px;display:flex;align-items:center;gap:8px;padding:0 10px 0 34px;border:0;border-radius:10px;font-size:13px;';
+    var r = {};
+    ['panel', 'name', 'title'].forEach(function (k) {
+      var on = st.sel === k;
+      var barLeft = { panel: 1, name: 3.3, title: 6.6 }[k];
+      var barW = { panel: 90.6, name: 88.3, title: 85 }[k];
+      r[k] = {
+        on: on,
+        pick: function () { self.setState({ sel: k }); },
+        style: rowBase + (on ? 'background:var(--raised);box-shadow:var(--shadow);font-weight:600;color:var(--ink)' : 'background:transparent;color:var(--muted)'),
+        dot: dot(mats[k], 12),
+        bar: 'position:absolute;left:' + barLeft + '%;width:' + barW + '%;top:6px;bottom:6px;border-radius:999px;' + (on ? 'background:var(--raised);border:1.5px solid var(--ink);box-sizing:border-box' : 'background:var(--bar)')
+      };
+    });
+    var libNames = ['Glass', 'Frosted', 'Chrome', 'Gloss', 'Foil', 'Paper', 'Ink', 'Primary'];
+    var lib = libNames.map(function (n) {
+      return {
+        name: n,
+        label: 'Apply ' + n + ' to ' + cur.name,
+        sphere: 'width:44px;height:44px;border-radius:50%;border:1px solid var(--line2);background:' + MAT[n].css + (n === curMat ? ';box-shadow:0 0 0 2px var(--card),0 0 0 4px var(--ink)' : ''),
+        apply: function () { applyMat(n); }
+      };
+    });
+    /* ---- bottom tabs ---- */
+    var tab = st.tab;
+    var tabOn = 'height:28px;padding:0 14px;border:0;border-radius:9px;background:var(--raised);box-shadow:var(--shadow);font-size:12px;font-weight:600;color:var(--ink)';
+    var tabOff = 'height:28px;padding:0 14px;border:0;border-radius:9px;background:transparent;font-size:12px;color:var(--muted)';
+
+    /* ---- graph ---- */
+    var gEase = st.ease[st.sel], gA = st.amount[st.sel];
+    var samples = [];
+    for (var i = 0; i <= 30; i++) samples.push(i === 30 ? 1 : +F[gEase](i / 30, gA).toFixed(3));
+    var easeString = gEase;
+    if (gEase === 'outBack' || gEase === 'inBack' || gEase === 'inOutBack') easeString = gEase + '(' + (gA / 25).toFixed(3) + ')';
+    else if (gEase === 'outElastic') easeString = 'outElastic(1,' + (0.6 - 0.45 * gA / 100).toFixed(3) + ')';
+    else if (gEase === 'spring') easeString = 'spring(' + (gA / 100).toFixed(3) + ',628)';
+    var presets = EASES.map(function (n) {
+      var on = n === gEase;
+      return {
+        name: n, selected: on,
+        mini: path(n, gA, 16, 2, 36, 22, 16),
+        stroke: 'stroke:' + (on ? 'var(--ink)' : 'var(--muted)'),
+        style: 'display:flex;flex-direction:column;align-items:center;gap:3px;padding:7px 4px 5px;border-radius:10px;background:' + (on ? 'var(--raised)' : 'var(--field)') + ';border:1.5px solid ' + (on ? 'var(--ink)' : 'transparent') + ';color:' + (on ? 'var(--ink)' : 'var(--muted)'),
+        pick: function () { var e = Object.assign({}, self.state.ease); e[self.state.sel] = n; self.setState({ ease: e }); }
+      };
+    });
+
+    /* ---- network ---- */
+    var OFFX = 172, LAYER_X = 260, NODE_W = 130, NODE_H = 52;
+    var LAYERS = [
+      { key: 'panel', label: 'Panel', sub: 'Shape' },
+      { key: 'name', label: 'Name', sub: 'Text' },
+      { key: 'title', label: 'Title', sub: 'Text' }
+    ];
+    function hitLayer(x, y) {
+      for (var j = 0; j < LAYERS.length; j++) {
+        var t = ROW_TOP[LAYERS[j].key];
+        if (x >= LAYER_X - 16 && x <= LAYER_X + NODE_W && y >= t - 6 && y <= t + NODE_H + 6) return LAYERS[j];
+      }
+      return null;
+    }
+    function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+    function curve(sx, sy, ex, ey) { var c = Math.max(30, Math.abs(ex - sx) / 2); return 'M' + sx + ' ' + sy + ' C ' + (sx + c) + ' ' + sy + ', ' + (ex - c) + ' ' + ey + ', ' + ex + ' ' + ey; }
+    var drag = st.drag;
+    var dragging = !!drag && (drag.kind === 'new' || drag.kind === 'wire');
+    var target = dragging && drag.x != null ? hitLayer(drag.x, drag.y) : null;
+    var shelf = Object.keys(MAT).map(function (n) {
+      var active = drag && drag.kind === 'new' && drag.mat === n;
+      return {
+        name: n,
+        sphere: dot(n, 16),
+        style: 'display:flex;align-items:center;gap:8px;height:30px;padding:0 8px;border-radius:9px;font-size:12px;text-align:left;cursor:grab;touch-action:none;color:var(--ink);border:0;background:' + (active ? 'var(--raised)' : 'transparent') + (active ? ';box-shadow:var(--shadow)' : ''),
+        grab: function (e) { e.preventDefault(); self.setState({ drag: { kind: 'new', mat: n, x: null, y: null } }); }
+      };
+    });
+    var matNodes = st.nodes.map(function (n) {
+      var feeds = LAYERS.filter(function (l) { return st.links[l.key] === n.id; }).map(function (l) { return l.label; });
+      var moving = drag && drag.kind === 'move' && drag.id === n.id;
+      return {
+        mat: n.mat,
+        feeds: feeds.length ? '→ ' + feeds.join(', ') : 'not attached',
+        sphere: dot(n.mat, 24),
+        style: 'position:absolute;left:' + n.x + 'px;top:' + n.y + 'px;width:' + NODE_W + 'px;height:' + NODE_H + 'px;box-sizing:border-box;display:flex;align-items:center;gap:8px;padding:0 24px 0 10px;border-radius:12px;background:var(--card);touch-action:none;cursor:' + (moving ? 'grabbing' : 'grab') + ';box-shadow:' + (moving ? 'var(--float)' : 'var(--shadow)'),
+        portStyle: 'position:absolute;right:-7px;top:19px;width:14px;height:14px;padding:0;border-radius:50%;background:var(--card);border:2px solid var(--ink);cursor:crosshair;touch-action:none',
+        grab: function (e) { var r = e.currentTarget.getBoundingClientRect(); self.setState({ drag: { kind: 'move', id: n.id, dx: e.clientX - r.left, dy: e.clientY - r.top } }); },
+        wire: function (e) { e.stopPropagation(); e.preventDefault(); self.setState({ drag: { kind: 'wire', id: n.id, x: n.x + NODE_W, y: n.y + 26 } }); },
+        stop: function (e) { e.stopPropagation(); },
+        remove: function () {
+          var links = Object.assign({}, self.state.links);
+          Object.keys(links).forEach(function (k) { if (links[k] === n.id) links[k] = null; });
+          self.setState({ nodes: self.state.nodes.filter(function (m) { return m.id !== n.id; }), links: links });
+        }
+      };
+    });
+    var layerNodes = LAYERS.map(function (l) {
+      var isT = target && target.key === l.key;
+      var linked = findNode(st.links[l.key]);
+      var isSel = st.sel === l.key;
+      return {
+        label: l.label, sub: l.sub,
+        style: 'position:absolute;left:' + LAYER_X + 'px;top:' + ROW_TOP[l.key] + 'px;width:' + NODE_W + 'px;height:' + NODE_H + 'px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;gap:1px;padding:0 12px 0 16px;border-radius:12px;background:var(--card);box-shadow:var(--shadow);outline:' + (isT ? '2px solid #9ad81f' : (dragging ? '1.5px dashed #9ad81f' : (isSel ? '1.5px solid var(--ink)' : 'none'))) + ';outline-offset:2px',
+        portLabel: linked ? l.label + ' material input, ' + linked.mat + ' attached. Click to detach' : l.label + ' material input, empty',
+        portStyle: 'position:absolute;left:-7px;top:19px;width:14px;height:14px;padding:0;border-radius:50%;cursor:pointer;background:' + (linked ? 'var(--ink)' : 'var(--card)') + ';border:2px solid ' + (dragging ? '#9ad81f' : 'var(--ink)'),
+        unlink: function () { if (!self.state.links[l.key]) return; var links = Object.assign({}, self.state.links); links[l.key] = null; self.setState({ links: links }); }
+      };
+    });
+    var linkD = '';
+    LAYERS.forEach(function (l) { var n = findNode(st.links[l.key]); if (n) linkD += curve(n.x + NODE_W, n.y + 26, LAYER_X, ROW_TOP[l.key] + 26) + ' '; });
+    var liveD = '';
+    if (drag && drag.kind === 'wire') { var wn = findNode(drag.id); if (wn && drag.x != null) liveD = curve(wn.x + NODE_W, wn.y + 26, drag.x, drag.y); }
+    var showGhost = !!drag && drag.kind === 'new' && drag.x != null && drag.x > 0;
+    function point(e) { var r = e.currentTarget.getBoundingClientRect(); return { x: Math.round(e.clientX - r.left - OFFX), y: Math.round(e.clientY - r.top) }; }
+    var netMove = function (e) {
+      var d = self.state.drag; if (!d) return;
+      var p = point(e);
+      if (d.kind === 'move') {
+        self.setState({ nodes: self.state.nodes.map(function (m) { return m.id === d.id ? Object.assign({}, m, { x: clamp(p.x - (d.dx), 0, 700), y: clamp(p.y - d.dy, 24, 180) }) : m; }) });
+      } else {
+        self.setState({ drag: Object.assign({}, d, { x: p.x, y: p.y }) });
+      }
+    };
+    var netUp = function () {
+      var d = self.state.drag; if (!d) return;
+      if (d.kind === 'new' && d.x != null && d.x > 0) {
+        var hit = hitLayer(d.x, d.y);
+        var id = 'm' + self.state.seq;
+        var node = hit ? { id: id, mat: d.mat, x: 110, y: ROW_TOP[hit.key] } : { id: id, mat: d.mat, x: clamp(d.x - NODE_W / 2, 0, 700), y: clamp(d.y - NODE_H / 2, 24, 180) };
+        var links = Object.assign({}, self.state.links);
+        if (hit) links[hit.key] = id;
+        self.setState({ nodes: self.state.nodes.concat([node]), links: links, seq: self.state.seq + 1, drag: null });
+        return;
+      }
+      if (d.kind === 'wire' && d.x != null) {
+        var t = hitLayer(d.x, d.y);
+        if (t) { var l2 = Object.assign({}, self.state.links); l2[t.key] = d.id; self.setState({ links: l2, drag: null }); return; }
+      }
+      self.setState({ drag: null });
+    };
+    var netCancel = function () { if (self.state.drag) self.setState({ drag: null }); };
+    var netHint = 'Drag a material onto the network, then pull a wire from its dot to a layer. Or drop it straight on a layer.';
+    if (drag && drag.kind === 'new') netHint = target ? 'Release to attach ' + drag.mat + ' to ' + target.label : 'Release to add a ' + drag.mat + ' node';
+    if (drag && drag.kind === 'wire') netHint = target ? 'Release to connect to ' + target.label : 'Drop the wire on Panel, Name or Title';
+
+    var pm = MAT[mats.panel];
+    return {
+      appClass: 'v2 ' + (light ? 't-light' : 't-dark') + (st.lib ? '' : ' no-lib'),
+      libOpen: st.lib,
+      toggleLib: function () { self.setState({ lib: !self.state.lib }); },
+      libBtn: 'width:40px;height:40px;display:grid;place-items:center;border:0;border-radius:50%;' + (st.lib ? 'background:var(--active);color:var(--active-ink)' : 'background:transparent;color:var(--muted)'),
+      toggleTheme: function () { self.setState({ theme: light ? 'dark' : 'light' }); },
+      themeLabel: light ? 'Switch to dark' : 'Switch to light',
+      sel: sel,
+      r: r,
+      lib: lib,
+      panelLook: 'position:absolute;left:10%;top:60%;width:46%;height:26%;border-radius:10px;box-sizing:border-box;' + pm.panel,
+      nameLook: 'position:absolute;left:14%;top:64.5%;font-weight:700;font-size:clamp(12px,2.1vw,22px);letter-spacing:-0.01em;white-space:nowrap;color:' + (mats.name === 'Paper' ? '#ffffff' : MAT[mats.name].text),
+      titleLook: 'position:absolute;left:14%;top:75.5%;font-size:clamp(9px,1.1vw,12px);white-space:nowrap;color:' + (mats.title === 'Paper' ? 'rgba(255,255,255,0.55)' : MAT[mats.title].text),
+      selBox: 'position:absolute;left:' + b.l + '%;top:' + b.t + '%;width:' + b.w + '%;height:' + b.h + '%;outline:1.5px solid #c3fc2f;outline-offset:3px;border-radius:6px;pointer-events:none',
+      toolbarPos: 'position:absolute;left:' + b.l + '%;top:' + b.t + '%;transform:translateY(calc(-100% - 14px));display:flex;align-items:center;gap:2px;padding:4px;border-radius:999px;background:var(--card);color:var(--ink);box-shadow:var(--float);white-space:nowrap',
+      toolbarLabel: cur.name + ' quick actions',
+      isTimeline: tab === 'timeline',
+      isGraph: tab === 'graph',
+      isNetwork: tab === 'network',
+      tabTimeline: tab === 'timeline' ? tabOn : tabOff,
+      tabGraph: tab === 'graph' ? tabOn : tabOff,
+      tabNetwork: tab === 'network' ? tabOn : tabOff,
+      showTimeline: function () { self.setState({ tab: 'timeline' }); },
+      showGraph: function () { self.setState({ tab: 'graph' }); },
+      showNetwork: function () { self.setState({ tab: 'network' }); },
+      easeString: easeString,
+      hasAmount: !!AM[gEase],
+      amount: gA,
+      setAmount: function (e) { var a = Object.assign({}, self.state.amount); a[self.state.sel] = +e.target.value; self.setState({ amount: a }); },
+      curveD: path(gEase, gA, 64, 20, 560, 170, 140),
+      curveLabel: 'Animate-in curve of ' + cur.name + ': ' + gEase,
+      dotStyle: 'position:absolute;top:11px;left:0;width:12px;height:12px;margin-left:-6px;border-radius:50%;background:#c3fc2f;border:1.5px solid #16171a;box-sizing:border-box;animation:mbmove 1.6s linear(' + samples.join(', ') + ') infinite',
+      presets: presets,
+      nameEase: easeLabel('name'),
+      shelf: shelf,
+      matNodes: matNodes,
+      layerNodes: layerNodes,
+      linkD: linkD,
+      liveD: liveD,
+      showGhost: showGhost,
+      ghostStyle: showGhost ? 'position:absolute;left:' + (drag.x - NODE_W / 2) + 'px;top:' + (drag.y - NODE_H / 2) + 'px;width:' + NODE_W + 'px;height:' + NODE_H + 'px;box-sizing:border-box;display:flex;align-items:center;gap:8px;padding:0 10px;border-radius:12px;border:1.5px dashed #9ad81f;background:var(--card);opacity:0.92;pointer-events:none;font-size:12px;font-weight:600;box-shadow:var(--float)' : 'display:none',
+      ghostSphere: showGhost ? dot(drag.mat, 24) : 'display:none',
+      ghostName: showGhost ? drag.mat : '',
+      netMove: netMove,
+      netUp: netUp,
+      netCancel: netCancel,
+      hintStyle: 'position:absolute;left:12px;top:8px;right:12px;font-size:12px;pointer-events:none;' + (dragging ? 'color:var(--ink);font-weight:600' : 'color:var(--muted)'),
+      netHint: netHint
+    };
+  }
+}
+</script>
+</body>
+</html>
