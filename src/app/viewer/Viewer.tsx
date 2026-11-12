@@ -14,6 +14,9 @@ import { pick3D } from "@/render/three/install";
 import { docStore } from "@/store";
 import { setValue } from "@/inspector/edits";
 import { rotationAt, turned, turnTarget } from "./turn3d";
+import { Gizmo, handlesFor, sceneDrawableFor } from "./Gizmo";
+import { plus, vecAt } from "./manipulate";
+import { planeDelta3D } from "@/render/three/install";
 import { applySolid, SOLID_MIME } from "@/panels/materials";
 import { openSubnet } from "@/store/navigation";
 import { SelectionOverlay } from "./Selection";
@@ -132,26 +135,81 @@ export function Viewer() {
     return undefined;
   };
 
-  /** Drag on a selected 3D object (or 3D scene layer) to turn it; one undo step per drag. */
+  /**
+   * Shift+click: select the part under the pointer, not the whole thing. A precomp (Subnet) opens
+   * with the layer you hit selected; a 3D scene opens with the object you hit selected.
+   */
+  const selectPart = (e: React.MouseEvent) => {
+    if (!layout || !measure) return;
+    const r = wrap.current!.getBoundingClientRect();
+    for (const { d, lx, ly } of hitTestAll(drawables, layout.view, measure, e.clientX - r.left, e.clientY - r.top)) {
+      const owner = net.nodes.find((x) => x.id === ownerIn(net.id, d));
+      if (d.kind === "scene3d") {
+        const obj = pick3D(d.scene, lx / d.size[0], ly / d.size[1]);
+        if (!obj) continue;
+        if (net.id === d.subnet) return useUi.getState().selectNodes([obj]);
+        if (owner?.type === "Scene3D") {
+          openSubnet(owner);
+          return useUi.getState().selectNodes([obj]);
+        }
+        continue;
+      }
+      if (owner?.type === "Subnet" && d.instance.length) {
+        const inner = d.instance[1] ?? d.node; // the layer one level inside the precomp
+        openSubnet(owner);
+        return useUi.getState().selectNodes([inner]);
+      }
+      if (owner) return useUi.getState().selectNodes([owner.id]);
+    }
+    useUi.getState().selectNodes([]);
+  };
+
+  const selected = useUi((s) => s.selectedNodes[0]);
+  const tool = useUi((s) => s.tool);
+  const selNode = net.nodes.find((n) => n.id === selected);
+  const handles = layout && selNode && cache ? handlesFor(doc, net, selNode, frame / comp.fps, drawables, layout.view, layout.k) : undefined;
+  void tool; // re-render the handles when the tool changes
+
+  /**
+   * Drag a selected object: the Move tool moves it (2D: in the comp; 3D: parallel to the screen),
+   * the Turn tool turns it (3D). One undo step per drag.
+   */
   const dragged = useRef(false);
   const turnStart = (e: React.PointerEvent) => {
     dragged.current = false;
-    if (e.button !== 0) return;
+    if (e.button !== 0 || e.shiftKey) return;
     const n = pick(e);
     const ui = useUi.getState();
-    if (!n || !ui.selectedNodes.includes(n.id)) return;
+    if (!n || !ui.selectedNodes.includes(n.id) || !layout) return;
     const doc0 = docStore.getState().doc;
-    const target = turnTarget(doc0, net, n, ui.frame / comp.fps);
-    if (!target) return;
-    e.preventDefault();
-    const start = rotationAt(doc0, target);
-    const x0 = e.clientX, y0 = e.clientY, key = `turn-${target.net}-${target.node}-${x0}-${y0}`;
+    const t = ui.frame / comp.fps;
     const tol = 0.5 / comp.fps;
+    const target = turnTarget(doc0, net, n, t);
+    const sd = target && sceneDrawableFor(drawables, net, n);
+    let apply: (dx: number, dy: number, ev: PointerEvent) => void;
+    if (ui.tool === "turn") {
+      if (!target) return;
+      const start = rotationAt(doc0, target);
+      apply = (dx, dy, ev) => docStore.getState().edit(`Turn ${target.name}`, (d) => setValue(d, target.net, target.node, "rotation", turned(start, dx, dy, ev.shiftKey), target.t, tol), { coalesce: key });
+    } else if (target && sd) {
+      const start = vecAt(doc0, target.net, target.node, "position", target.t, 3);
+      const [w, h] = [sd.size[0] * layout.k * Math.hypot(sd.matrix[0], sd.matrix[1]), sd.size[1] * layout.k * Math.hypot(sd.matrix[2], sd.matrix[3])];
+      const scene0 = sd.scene;
+      apply = (dx, dy) => {
+        const delta = planeDelta3D(scene0, target.node, dx / w, dy / h);
+        if (delta) docStore.getState().edit(`Move ${target.name}`, (d) => setValue(d, target.net, target.node, "position", plus(start, delta) as never, target.t, tol), { coalesce: key });
+      };
+    } else if (!target && n.params && n.type !== "Scene3D") {
+      const start = vecAt(doc0, net.id, n.id, "position", t, 2);
+      apply = (dx, dy) => docStore.getState().edit(`Move ${n.name}`, (d) => setValue(d, net.id, n.id, "position", plus(start, [dx / layout.k, dy / layout.k]) as never, t, tol), { coalesce: key });
+    } else return;
+    e.preventDefault();
+    const x0 = e.clientX, y0 = e.clientY, key = `drag-${n.id}-${x0}-${y0}`;
     const move = (ev: PointerEvent) => {
       const dx = ev.clientX - x0, dy = ev.clientY - y0;
       if (!dragged.current && Math.hypot(dx, dy) < 3) return;
       dragged.current = true;
-      docStore.getState().edit(`Turn ${target.name}`, (d) => setValue(d, target.net, target.node, "rotation", turned(start, dx, dy, ev.shiftKey), target.t, tol), { coalesce: key });
+      apply(dx, dy, ev);
     };
     const up = () => {
       window.removeEventListener("pointermove", move);
@@ -227,7 +285,8 @@ export function Viewer() {
         aria-label={`${net.name}, frame ${frame}. Click a layer to select it.`}
         onPointerDown={turnStart}
         onClick={(e) => {
-          if (dragged.current) return void (dragged.current = false); // that was a turn, not a click
+          if (dragged.current) return void (dragged.current = false); // that was a drag, not a click
+          if (e.shiftKey) return void selectPart(e);
           useUi.getState().selectNodes(((n) => (n ? [n.id] : []))(pick(e)));
         }}
         onDoubleClick={(e) => {
@@ -242,6 +301,7 @@ export function Viewer() {
         }}
       />
       {layout && measure && <SelectionOverlay net={net} drawables={drawables} view={layout.view} measure={measure} bounds={size} />}
+      {handles && <Gizmo handles={handles} />}
       {!cache && <p className="absolute inset-0 grid place-items-center text-xs text-muted-foreground">Loading fonts</p>}
 
       <div className="absolute left-3 top-3 flex gap-1.5">

@@ -113,6 +113,37 @@ export class ScenePass {
     return [u0, v0, u1, v1];
   }
 
+  /**
+   * Where an object's origin and the world X, Y, Z axes through it land on screen, in layer uv
+   * (0..1 from the top-left). Each axis endpoint is `unit` world px from the origin. For the gizmo.
+   */
+  axes(data: Scene3D, node: string, unit = 100): { origin: [number, number]; ends: [[number, number], [number, number], [number, number]]; unit: number } | undefined {
+    const o = data.objects.find((x) => x.node === node);
+    if (!o) return undefined;
+    const cam = camera(data);
+    cam.updateMatrixWorld(true);
+    const p0 = new THREE.Vector3(0, 0, 0).applyMatrix4(new THREE.Matrix4().fromArray(o.matrix));
+    const uv = (p: THREE.Vector3): [number, number] => {
+      const q = p.clone().project(cam);
+      return [(q.x + 1) / 2, (1 - q.y) / 2];
+    };
+    const ends = [new THREE.Vector3(unit, 0, 0), new THREE.Vector3(0, unit, 0), new THREE.Vector3(0, 0, unit)].map((d) => uv(p0.clone().add(d))) as [[number, number], [number, number], [number, number]];
+    return { origin: uv(p0), ends, unit };
+  }
+
+  /** The world move that shifts an object by (du, dv) of the layer, parallel to the screen at its depth. */
+  planeDelta(data: Scene3D, node: string, du: number, dv: number): [number, number, number] {
+    const o = data.objects.find((x) => x.node === node);
+    if (!o) return [0, 0, 0];
+    const cam = camera(data);
+    cam.updateMatrixWorld(true);
+    const p0 = new THREE.Vector3(0, 0, 0).applyMatrix4(new THREE.Matrix4().fromArray(o.matrix));
+    const q = p0.clone().project(cam);
+    const moved = new THREE.Vector3(q.x + du * 2, q.y - dv * 2, q.z).unproject(cam);
+    const d = moved.sub(p0);
+    return [d.x, d.y, d.z];
+  }
+
   /* ---------- look ---------- */
 
   private environment(scene: THREE.Scene, data: Scene3D) {

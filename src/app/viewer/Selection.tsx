@@ -7,7 +7,32 @@ import { CATALOG, chainAfter, evaluateParam, isNodeType, type Drawable, type Mat
 import { boxOf, ownerIn, type Box } from "@/render/bounds";
 import { box3D } from "@/render/three/install";
 import { mul } from "@core/scene";
-import { Rotate3d } from "lucide-react";
+import { Move, Rotate3d } from "lucide-react";
+import { cn } from "@/design-system/motionbuilder---brandbook-c4b4eb/lib/utils";
+
+/** Move / Turn: what dragging the selection and the gizmo does (E / R). */
+function ToolSwitch() {
+  const tool = useUi((s) => s.tool);
+  const setTool = useUi((s) => s.setTool);
+  const item = (t: "move" | "turn", label: string, key: string, icon: React.ReactNode) => (
+    <button
+      type="button"
+      aria-pressed={tool === t}
+      title={`${label} (${key})`}
+      onClick={() => setTool(t)}
+      className={cn("flex h-[26px] items-center gap-1 rounded-full px-2 text-xs [&_svg]:size-3.5", tool === t ? "bg-raised font-semibold shadow-card" : "text-muted-foreground hover:text-foreground")}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+  return (
+    <span role="group" aria-label="Drag tool" className="flex gap-0.5 rounded-full bg-field p-0.5">
+      {item("move", "Move", "E", <Move aria-hidden />)}
+      {item("turn", "Turn", "R", <Rotate3d aria-hidden />)}
+    </span>
+  );
+}
 
 /** On-screen box of a 3D object inside the shown 3D network (its scene drawable fills the view). */
 function objectBox(drawables: readonly Drawable[], netId: string, node: string, view: Mat): Box | undefined {
@@ -41,7 +66,7 @@ export function SelectionOverlay({ net, drawables, view, measure, bounds }: { ne
   if (!node) return null;
   const box = boxOf(drawables.filter((d) => ownerIn(net.id, d) === node.id), view, measure) ?? objectBox(drawables, net.id, node.id, view);
   if (!box) return null;
-  const turnable = node.type === "Text3D" || node.type === "Shape3D" || node.type === "Scene3D";
+  const movable = node.type === "Text3D" || node.type === "Shape3D" || node.type === "Scene3D" || (isNodeType(node.type) && "position" in CATALOG[node.type].params);
 
   const fps = viewComp(doc, path).fps;
   const t = frame / fps, tol = 0.5 / fps;
@@ -92,12 +117,7 @@ export function SelectionOverlay({ net, drawables, view, measure, bounds }: { ne
               <span className="font-mono text-[11px]">{inEase}</span>
             </button>
           )}
-          {turnable && (
-            <span className="flex items-center gap-1.5 px-2 text-xs text-muted-foreground" title="Drag the selection in the viewer: left/right turns around Y, up/down around X, Shift keeps one axis">
-              <Rotate3d aria-hidden className="size-3.5" />
-              Drag to turn
-            </span>
-          )}
+          {movable && <ToolSwitch />}
           {canKey && (
             <button
               type="button"

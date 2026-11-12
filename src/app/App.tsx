@@ -107,7 +107,7 @@ export function App() {
       <Splitter pane="inspector" />
       <Splitter pane="timeline" max={maxTimeline} />
       <section aria-label="Timeline and network" className={`${card} [grid-area:tl]`}>
-        <Tabs value={bottomTab} defaultValue="timeline" onValueChange={(v) => setBottomTab(v as BottomTab)} className="flex h-full min-h-0 flex-col gap-0">
+        <Tabs value={bottomTab} defaultValue="network" onValueChange={(v) => setBottomTab(v as BottomTab)} className="flex h-full min-h-0 flex-col gap-0">
           <div className="flex items-center gap-2.5 px-3 pb-1.5 pt-2.5">
             <TabsList aria-label="Bottom panel">
               <TabsTrigger value="timeline">Timeline</TabsTrigger>

@@ -33,6 +33,12 @@ export const pick3D = (scene: Scene3DDrawable["scene"], u: number, v: number) =>
 /** An object's on-screen box within its scene layer ([u0, v0, u1, v1], 0..1), once the pass is loaded. */
 export const box3D = (scene: Scene3DDrawable["scene"], node: string) => shared.pass?.box(scene, node);
 
+/** Object origin and world axes on screen (see `ScenePass.axes`), once the pass is loaded. */
+export const axes3D = (scene: Scene3DDrawable["scene"], node: string) => shared.pass?.axes(scene, node);
+
+/** World move for a screen move of (du, dv) of the layer, parallel to the screen (see `ScenePass.planeDelta`). */
+export const planeDelta3D = (scene: Scene3DDrawable["scene"], node: string, du: number, dv: number) => shared.pass?.planeDelta(scene, node, du, dv);
+
 export function install3D() {
   setScene3DRenderer((ctx, d: Scene3DDrawable) => {
     const pass = shared.pass;

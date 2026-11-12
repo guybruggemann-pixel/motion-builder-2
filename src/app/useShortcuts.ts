@@ -1,6 +1,6 @@
 /**
  * Global keys: Space play, ←/→ step (Shift = 10), Home/End, J/K previous/next key (AE),
- * Delete removes selected keys, ⌘Z / ⇧⌘Z (Ctrl on Windows). Ignored while typing.
+ * E / R move / turn tool (Cinema 4D), Delete removes selected keys, ⌘Z / ⇧⌘Z (Ctrl on Windows). Ignored while typing.
  */
 import { useEffect } from "react";
 import { docStore, shownNetwork, useUi, viewComp } from "@/store";
@@ -49,7 +49,9 @@ export function useShortcuts() {
         go(ui.frame + (e.shiftKey ? 10 : 1));
       } else if (e.key === "Home") go(0);
       else if (e.key === "End") go(last);
-      else if (!mod && (e.key === "j" || e.key === "k")) jumpToKey(e.key === "j" ? -1 : 1); else if ((e.key === "Delete" || e.key === "Backspace") && ui.selectedKeys.length) {
+      else if (!mod && (e.key === "j" || e.key === "k")) jumpToKey(e.key === "j" ? -1 : 1);
+      else if (!mod && (e.key === "e" || e.key === "r")) ui.setTool(e.key === "e" ? "move" : "turn"); // Cinema 4D's move / rotate
+      else if ((e.key === "Delete" || e.key === "Backspace") && ui.selectedKeys.length) {
         e.preventDefault();
         const net = shownNetwork(docStore.getState().doc, ui.path).id;
         const keys = ui.selectedKeys;

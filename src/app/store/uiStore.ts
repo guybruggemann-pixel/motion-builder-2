@@ -57,6 +57,7 @@ const storedPanes = (): Panes => {
 };
 
 export type BottomTab = "timeline" | "graph" | "network";
+export type Tool = "move" | "turn";
 
 export interface UiState {
   theme: Theme;
@@ -68,6 +69,9 @@ export interface UiState {
   /** The bottom card's tab. The contextual toolbar and the inspector's ease cards open the Graph. */
   bottomTab: BottomTab;
   setBottomTab(tab: BottomTab): void;
+  /** What dragging a selected object in the viewer does (Cinema 4D: E move, R turn). */
+  tool: Tool;
+  setTool(tool: Tool): void;
   /** Resize a pane (clamped to its limits); `save` remembers it in this browser (on release). */
   setPane(key: keyof Panes, px: number, save?: boolean): void;
   /** Opened subnets below the root comp. Empty = the root comp. */
@@ -102,8 +106,10 @@ export const useUi = create<UiState>()((set) => ({
   libraryOpen: stored("mb.library") !== "closed",
   transparency: false,
   panes: storedPanes(),
-  bottomTab: "timeline",
+  bottomTab: "network",
   setBottomTab: (bottomTab) => set({ bottomTab }),
+  tool: "move",
+  setTool: (tool) => set({ tool }),
   setPane: (key, px, save) =>
     set((s) => {
       const [lo, hi] = PANE_LIMITS[key];

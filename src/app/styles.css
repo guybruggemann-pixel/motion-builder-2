@@ -51,3 +51,15 @@ body,
   --xy-controls-button-border-color: var(--line);
   --xy-edge-stroke: var(--line2);
 }
+
+/* Transform gizmo axes (X red, Y green, Z blue, as in Cinema 4D and three.js), readable in both themes. */
+:root {
+  --axis-x: #e5484d;
+  --axis-y: #2f9e5e;
+  --axis-z: #3e63dd;
+}
+.dark {
+  --axis-x: #ff6369;
+  --axis-y: #4cc38a;
+  --axis-z: #6e8cff;
+}
