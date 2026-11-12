@@ -57,11 +57,7 @@ export class ScenePass {
     }
     for (const l of data.lights) this.light(scene, l, data);
 
-    const cam = new THREE.PerspectiveCamera(data.camera.fov, data.size[0] / data.size[1], 1, 200_000);
-    cam.position.set(...data.camera.position);
-    const dir = new THREE.Vector3(...data.camera.target).sub(cam.position).normalize();
-    cam.up.set(0, 1, 0).applyAxisAngle(dir, (data.camera.roll * Math.PI) / 180);
-    cam.lookAt(...data.camera.target);
+    const cam = camera(data);
 
     this.renderer.setRenderTarget(null);
     this.renderer.setSize(pw, ph, false);
@@ -70,6 +66,51 @@ export class ScenePass {
     for (const m of disposable) m.dispose();
     scene.traverse((o) => (o as { shadow?: { dispose?: () => void } }).shadow?.dispose?.());
     return this.canvas;
+  }
+
+  /**
+   * Which object is under a point of the layer (u, v from its top-left, 0..1), front-most first.
+   * Used for click-to-select and drag-to-turn in the viewer.
+   */
+  pick(data: Scene3D, u: number, v: number): string | undefined {
+    const scene = new THREE.Scene();
+    const mat = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide });
+    for (const o of data.objects) {
+      const geo = this.geometry(o);
+      if (!geo || o.opacity <= 0.01) continue;
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.matrixAutoUpdate = false;
+      mesh.matrix.fromArray(o.matrix);
+      mesh.userData.node = o.node;
+      scene.add(mesh);
+    }
+    scene.updateMatrixWorld(true);
+    const cam = camera(data);
+    cam.updateMatrixWorld(true);
+    const ray = new THREE.Raycaster();
+    ray.setFromCamera(new THREE.Vector2(u * 2 - 1, -(v * 2 - 1)), cam);
+    const hit = ray.intersectObjects(scene.children, false)[0];
+    mat.dispose();
+    return hit?.object.userData.node as string | undefined;
+  }
+
+  /** An object's on-screen box in the layer, as [u0, v0, u1, v1] (0..1 from the top-left), or undefined. */
+  box(data: Scene3D, node: string): [number, number, number, number] | undefined {
+    const o = data.objects.find((x) => x.node === node);
+    const geo = o && this.geometry(o);
+    if (!o || !geo) return undefined;
+    if (!geo.boundingBox) geo.computeBoundingBox();
+    const bb = geo.boundingBox!, m = new THREE.Matrix4().fromArray(o.matrix), cam = camera(data);
+    cam.updateMatrixWorld(true);
+    let u0 = Infinity, v0 = Infinity, u1 = -Infinity, v1 = -Infinity;
+    for (const x of [bb.min.x, bb.max.x])
+      for (const y of [bb.min.y, bb.max.y])
+        for (const z of [bb.min.z, bb.max.z]) {
+          const p = new THREE.Vector3(x, y, z).applyMatrix4(m).project(cam);
+          const u = (p.x + 1) / 2, v = (1 - p.y) / 2;
+          u0 = Math.min(u0, u), v0 = Math.min(v0, v), u1 = Math.max(u1, u), v1 = Math.max(v1, v);
+        }
+    return [u0, v0, u1, v1];
   }
 
   /* ---------- look ---------- */
@@ -207,6 +248,16 @@ export function textShapes(fonts: OutlineFonts, o: Text3D): THREE.Shape[] {
         shapes.push(...sp.toShapes());
       }
     return shapes;
+}
+
+/** The scene's camera as three.js sees it (AE lens maths and roll already in the data). */
+function camera(data: Scene3D): THREE.PerspectiveCamera {
+  const cam = new THREE.PerspectiveCamera(data.camera.fov, data.size[0] / data.size[1], 1, 200_000);
+  cam.position.set(...data.camera.position);
+  const dir = new THREE.Vector3(...data.camera.target).sub(cam.position).normalize();
+  cam.up.set(0, 1, 0).applyAxisAngle(dir, (data.camera.roll * Math.PI) / 180);
+  cam.lookAt(...data.camera.target);
+  return cam;
 }
 
 export function shapeShapes(o: Shape3D): THREE.Shape[] {

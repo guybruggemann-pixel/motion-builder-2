@@ -4,7 +4,23 @@
  * "key position at the playhead". Positions come from the evaluated drawables. Hidden while playing.
  */
 import { CATALOG, chainAfter, evaluateParam, isNodeType, type Drawable, type Mat, type MeasureText, type Network, type Node, type ParamSpec } from "@core/scene";
-import { boxOf, ownerIn } from "@/render/bounds";
+import { boxOf, ownerIn, type Box } from "@/render/bounds";
+import { box3D } from "@/render/three/install";
+import { mul } from "@core/scene";
+import { Rotate3d } from "lucide-react";
+
+/** On-screen box of a 3D object inside the shown 3D network (its scene drawable fills the view). */
+function objectBox(drawables: readonly Drawable[], netId: string, node: string, view: Mat): Box | undefined {
+  const d = drawables.find((x) => x.kind === "scene3d" && x.subnet === netId);
+  if (!d || d.kind !== "scene3d") return undefined;
+  const uv = box3D(d.scene, node);
+  if (!uv) return undefined;
+  const m = mul(view, d.matrix);
+  const [w, h] = d.size;
+  const pt = (u: number, v: number) => [m[0] * u * w + m[2] * v * h + m[4], m[1] * u * w + m[3] * v * h + m[5]] as const;
+  const [x0, y0] = pt(uv[0], uv[1]), [x1, y1] = pt(uv[2], uv[3]);
+  return { x: Math.min(x0, x1), y: Math.min(y0, y1), w: Math.abs(x1 - x0), h: Math.abs(y1 - y0) };
+}
 import { takesMaterial } from "@/panels/materials";
 import { layerFill, MiniCurve, Sphere } from "@/shell/look";
 import { docStore, useDocStore, useUi, viewComp } from "@/store";
@@ -23,8 +39,9 @@ export function SelectionOverlay({ net, drawables, view, measure, bounds }: { ne
   const path = useUi((s) => s.path);
   const node = net.nodes.find((n) => n.id === selected[0]);
   if (!node) return null;
-  const box = boxOf(drawables.filter((d) => ownerIn(net.id, d) === node.id), view, measure);
+  const box = boxOf(drawables.filter((d) => ownerIn(net.id, d) === node.id), view, measure) ?? objectBox(drawables, net.id, node.id, view);
   if (!box) return null;
+  const turnable = node.type === "Text3D" || node.type === "Shape3D" || node.type === "Scene3D";
 
   const fps = viewComp(doc, path).fps;
   const t = frame / fps, tol = 0.5 / fps;
@@ -74,6 +91,12 @@ export function SelectionOverlay({ net, drawables, view, measure, bounds }: { ne
               <MiniCurve ease={inEase} />
               <span className="font-mono text-[11px]">{inEase}</span>
             </button>
+          )}
+          {turnable && (
+            <span className="flex items-center gap-1.5 px-2 text-xs text-muted-foreground" title="Drag the selection in the viewer: left/right turns around Y, up/down around X, Shift keeps one axis">
+              <Rotate3d aria-hidden className="size-3.5" />
+              Drag to turn
+            </span>
           )}
           {canKey && (
             <button

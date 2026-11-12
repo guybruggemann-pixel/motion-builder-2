@@ -44,8 +44,9 @@ import {
   type ModifierKind,
 } from "./edits";
 import type { Draft } from "immer";
-import { layerFill, MiniCurve, roleLabel, Sphere } from "@/shell/look";
+import { cssColor, layerFill, MiniCurve, roleLabel, Sphere } from "@/shell/look";
 import { phaseOf } from "@/viewer/Selection";
+import { openSubnet } from "@/store/navigation";
 import { takesMaterial } from "@/panels/materials";
 
 /* ---------- helpers ---------- */
@@ -450,6 +451,34 @@ function MotionSection({ doc, net, node, span }: { doc: SceneDoc; net: Network; 
   );
 }
 
+/** On a 3D scene layer: what's inside, one click from editing it (opens the scene and selects it). */
+function SceneContents({ doc, scene }: { doc: SceneDoc; scene: Node }) {
+  const inner = doc.networks.find((n) => n.id === scene.subnet);
+  if (!inner) return null;
+  const items = inner.nodes.filter((n) => isNodeType(n.type) && (CATALOG[n.type].category === "3d" || CATALOG[n.type].category === "material"));
+  return (
+    <Section title="In this scene" aside={`(${items.length})`}>
+      <p className="text-xs text-muted-foreground">Select the scene in the viewer and drag to turn its first object, or open one to edit it in 3D.</p>
+      <div className="grid gap-1">
+        {items.map((n) => (
+          <button
+            key={n.id}
+            type="button"
+            onClick={() => {
+              openSubnet(scene);
+              useUi.getState().selectNodes([n.id]);
+            }}
+            className="flex items-center gap-2 rounded-md bg-card px-2.5 py-1.5 text-left hover:shadow-card"
+          >
+            <span className="min-w-0 flex-1 truncate font-medium">{n.name}</span>
+            <span className="text-[11px] text-muted-foreground">{CATALOG[n.type as keyof typeof CATALOG].label}</span>
+          </button>
+        ))}
+      </div>
+    </Section>
+  );
+}
+
 function NodePanel({ doc, net, node }: { doc: SceneDoc; net: Network; node: Node }) {
   const path = useUi((s) => s.path);
   const frame = useUi((s) => s.frame);
@@ -468,6 +497,11 @@ function NodePanel({ doc, net, node }: { doc: SceneDoc; net: Network; node: Node
   const hasFill = takesMaterial(node.type);
   const fill = hasFill ? layerFill(doc, node, t) : undefined;
   const fillRaw = String(valueNow(node, "fill", params.find(([n]) => n === "fill")?.[1], t) ?? "");
+  // a Material wired into this node's material input wins over its fill
+  const matWire = net.wires.find((w) => w.to.node === node.id && w.to.port === "material");
+  const material = matWire ? net.nodes.find((n) => n.id === matWire.from.node && n.type === "Material" && n.enabled) : undefined;
+  const matColor = material ? cssColor(doc, valueNow(material, "color", CATALOG.Material.params.color, t)) : undefined;
+  const matKind = material ? String(valueNow(material, "kind", CATALOG.Material.params.kind, t)) : undefined;
   const own = params.filter(([n]) => !TRANSFORM.has(n) && n !== "fill");
   const xf = params.filter(([n]) => TRANSFORM.has(n) && n !== "opacity");
   const opacity = params.find(([n]) => n === "opacity");
@@ -543,7 +577,19 @@ function NodePanel({ doc, net, node }: { doc: SceneDoc; net: Network; node: Node
 
       {(isLayer || spec?.category === "3d") && (hasFill || opacity) && (
         <Section title="Look">
-          {hasFill && (
+          {hasFill && material && (
+            <div className="flex items-center gap-2.5 rounded-md bg-card px-2.5 py-2">
+              <Sphere color={matColor} size={30} />
+              <span className="flex min-w-0 flex-col">
+                <span className="truncate text-[13px] font-semibold">{material.name}</span>
+                <span className="text-[11px] capitalize text-muted-foreground">{matKind} material</span>
+              </span>
+              <button type="button" onClick={() => useUi.getState().selectNodes([material.id])} className="ml-auto rounded-full px-2.5 py-1 text-xs hover:bg-field">
+                Edit
+              </button>
+            </div>
+          )}
+          {hasFill && !material && (
             <div className="flex items-center gap-2.5 rounded-md bg-card px-2.5 py-2">
               <Sphere color={fill} size={30} />
               <span className="flex min-w-0 flex-col">
@@ -555,7 +601,7 @@ function NodePanel({ doc, net, node }: { doc: SceneDoc; net: Network; node: Node
               </button>
             </div>
           )}
-          {hasFill && <ParamRow net={net} node={node} name="fill" label="Colour" spec={params.find(([n]) => n === "fill")![1]} showMods={false} />}
+          {hasFill && !material && <ParamRow net={net} node={node} name="fill" label="Colour" spec={params.find(([n]) => n === "fill")![1]} showMods={false} />}
           {opacity && <ParamRow net={net} node={node} name="opacity" spec={opacity[1]} showMods={false} />}
         </Section>
       )}
@@ -568,8 +614,16 @@ function NodePanel({ doc, net, node }: { doc: SceneDoc; net: Network; node: Node
         </Section>
       )}
 
+      {node.type === "Scene3D" && subnet && <SceneContents doc={doc} scene={node} />}
+
       {xf.length > 0 && (
-        <Fold title="Transform" summary={xfSummary} live={xfKeyHere}>
+        <Fold
+          key={node.id}
+          title={node.type === "Scene3D" ? "Placement in the comp (2D)" : spec?.category === "3d" ? "Transform 3D" : "Transform"}
+          summary={xfSummary}
+          live={xfKeyHere}
+          defaultOpen={spec?.category === "3d"}
+        >
           {xf.map(([n, s]) => (
             <ParamRow key={n} net={net} node={node} name={n} spec={s} showMods={false} />
           ))}

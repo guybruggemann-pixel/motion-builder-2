@@ -48,6 +48,12 @@ export function boxOf(drawables: readonly Drawable[], view: Mat, measure: Measur
 
 /** The topmost visible drawable under (x, y) in view space. */
 export function hitTest(drawables: readonly Drawable[], view: Mat, measure: MeasureText, x: number, y: number): Drawable | undefined {
+  return hitTestAll(drawables, view, measure, x, y)[0]?.d;
+}
+
+/** Every visible drawable under (x, y), topmost first, with the point in the drawable's own space. */
+export function hitTestAll(drawables: readonly Drawable[], view: Mat, measure: MeasureText, x: number, y: number): { d: Drawable; lx: number; ly: number }[] {
+  const out: { d: Drawable; lx: number; ly: number }[] = [];
   for (let i = drawables.length - 1; i >= 0; i--) {
     const d = drawables[i]!;
     if (d.opacity <= 0.01) continue;
@@ -59,9 +65,9 @@ export function hitTest(drawables: readonly Drawable[], view: Mat, measure: Meas
     // invert the 2D affine: local = M⁻¹ (p - t)
     const px = x - e, py = y - f;
     const lx = (dd * px - c * py) / det, ly = (-bb * px + a * py) / det;
-    if (lx >= b[0] && lx <= b[0] + b[2] && ly >= b[1] && ly <= b[1] + b[3]) return d;
+    if (lx >= b[0] && lx <= b[0] + b[2] && ly >= b[1] && ly <= b[1] + b[3]) out.push({ d, lx, ly });
   }
-  return undefined;
+  return out;
 }
 
 /**

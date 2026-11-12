@@ -9,7 +9,11 @@ import { Grid2x2, ScanLine, Wind } from "lucide-react";
 import { cn } from "@/design-system/motionbuilder---brandbook-c4b4eb/lib/utils";
 import { Transport } from "./Transport";
 import { FrameCache, type Mat, type MeasureText } from "@core/scene";
-import { hitTest, ownerIn } from "@/render/bounds";
+import { hitTestAll, ownerIn } from "@/render/bounds";
+import { pick3D } from "@/render/three/install";
+import { docStore } from "@/store";
+import { setValue } from "@/inspector/edits";
+import { rotationAt, turned, turnTarget } from "./turn3d";
 import { applySolid, SOLID_MIME } from "@/panels/materials";
 import { openSubnet } from "@/store/navigation";
 import { SelectionOverlay } from "./Selection";
@@ -109,11 +113,55 @@ export function Viewer() {
   /** The shown network's drawables now (flattened subnets), for selection and hit testing. */
   const drawables = useMemo(() => (cache ? cache.frame(doc, net.id, Math.min(frame, Math.round(comp.duration * comp.fps) - 1)) : []), [cache, doc, net.id, frame, comp]);
 
+  /**
+   * The node under the pointer in the shown network. In a 3D scene the hit must land on an object
+   * (empty space falls through to what's below); inside a 3D network it's the object itself.
+   */
   const pick = (e: React.MouseEvent) => {
     if (!layout || !measure) return undefined;
     const r = wrap.current!.getBoundingClientRect();
-    const d = hitTest(drawables, layout.view, measure, e.clientX - r.left, e.clientY - r.top);
-    return d && net.nodes.find((n) => n.id === ownerIn(net.id, d));
+    for (const { d, lx, ly } of hitTestAll(drawables, layout.view, measure, e.clientX - r.left, e.clientY - r.top)) {
+      if (d.kind === "scene3d") {
+        const obj = pick3D(d.scene, lx / d.size[0], ly / d.size[1]);
+        if (!obj) continue;
+        if (net.id === d.subnet) return net.nodes.find((n) => n.id === obj);
+      }
+      const n = net.nodes.find((x) => x.id === ownerIn(net.id, d));
+      if (n) return n;
+    }
+    return undefined;
+  };
+
+  /** Drag on a selected 3D object (or 3D scene layer) to turn it; one undo step per drag. */
+  const dragged = useRef(false);
+  const turnStart = (e: React.PointerEvent) => {
+    dragged.current = false;
+    if (e.button !== 0) return;
+    const n = pick(e);
+    const ui = useUi.getState();
+    if (!n || !ui.selectedNodes.includes(n.id)) return;
+    const doc0 = docStore.getState().doc;
+    const target = turnTarget(doc0, net, n, ui.frame / comp.fps);
+    if (!target) return;
+    e.preventDefault();
+    const start = rotationAt(doc0, target);
+    const x0 = e.clientX, y0 = e.clientY, key = `turn-${target.net}-${target.node}-${x0}-${y0}`;
+    const tol = 0.5 / comp.fps;
+    const move = (ev: PointerEvent) => {
+      const dx = ev.clientX - x0, dy = ev.clientY - y0;
+      if (!dragged.current && Math.hypot(dx, dy) < 3) return;
+      dragged.current = true;
+      docStore.getState().edit(`Turn ${target.name}`, (d) => setValue(d, target.net, target.node, "rotation", turned(start, dx, dy, ev.shiftKey), target.t, tol), { coalesce: key });
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      document.body.style.cursor = "";
+      if (dragged.current) docStore.getState().commit();
+    };
+    document.body.style.cursor = "grabbing";
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
   };
 
   useEffect(() => {
@@ -177,7 +225,11 @@ export function Viewer() {
         className="absolute inset-0 size-full"
         role="img"
         aria-label={`${net.name}, frame ${frame}. Click a layer to select it.`}
-        onClick={(e) => useUi.getState().selectNodes(((n) => (n ? [n.id] : []))(pick(e)))}
+        onPointerDown={turnStart}
+        onClick={(e) => {
+          if (dragged.current) return void (dragged.current = false); // that was a turn, not a click
+          useUi.getState().selectNodes(((n) => (n ? [n.id] : []))(pick(e)));
+        }}
         onDoubleClick={(e) => {
           const n = pick(e);
           if (n?.subnet) openSubnet(n);
