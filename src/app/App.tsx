@@ -16,6 +16,8 @@ import { Viewer } from "@/viewer/Viewer";
 import { Rail } from "@/shell/Rail";
 import { TopBar } from "@/shell/TopBar";
 import { Splitter } from "@/shell/Splitter";
+import { AddMenu } from "@/panels/AddMenu";
+import type { BottomTab } from "@/store/uiStore";
 import { useEffect, useState } from "react";
 
 /** Why the last edit was refused (it failed validateDoc), until the next edit goes through. */
@@ -64,6 +66,8 @@ export function App() {
   useShortcuts();
   const libraryOpen = useUi((s) => s.libraryOpen);
   const panes = useUi((s) => s.panes);
+  const bottomTab = useUi((s) => s.bottomTab);
+  const setBottomTab = useUi((s) => s.setBottomTab);
   // the timeline may grow until the viewer is 120px tall (top bar 48, padding and gaps 48)
   const [vh, setVh] = useState(() => window.innerHeight);
   useEffect(() => {
@@ -103,7 +107,7 @@ export function App() {
       <Splitter pane="inspector" />
       <Splitter pane="timeline" max={maxTimeline} />
       <section aria-label="Timeline and network" className={`${card} [grid-area:tl]`}>
-        <Tabs defaultValue="timeline" className="flex h-full min-h-0 flex-col gap-0">
+        <Tabs value={bottomTab} defaultValue="timeline" onValueChange={(v) => setBottomTab(v as BottomTab)} className="flex h-full min-h-0 flex-col gap-0">
           <div className="flex items-center gap-2.5 px-3 pb-1.5 pt-2.5">
             <TabsList aria-label="Bottom panel">
               <TabsTrigger value="timeline">Timeline</TabsTrigger>
@@ -111,6 +115,7 @@ export function App() {
               <TabsTrigger value="network">Network</TabsTrigger>
             </TabsList>
             <Breadcrumb />
+            <AddMenu />
           </div>
           <TabsContent value="timeline" className="min-h-0 flex-1">
             <Timeline />

@@ -8,7 +8,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Grid2x2, ScanLine, Wind } from "lucide-react";
 import { cn } from "@/design-system/motionbuilder---brandbook-c4b4eb/lib/utils";
 import { Transport } from "./Transport";
-import { FrameCache, type Mat } from "@core/scene";
+import { FrameCache, type Mat, type MeasureText } from "@core/scene";
+import { hitTest, ownerIn } from "@/render/bounds";
+import { applySolid, SOLID_MIME } from "@/panels/materials";
+import { openSubnet } from "@/store/navigation";
+import { SelectionOverlay } from "./Selection";
 import { canvasMeasure, drawCompFrame, setImageListener } from "@/render/canvas2d";
 import { loadFonts } from "@/render/fonts";
 import { shownNetwork, useDocStore, useUi, viewComp } from "@/store";
@@ -60,6 +64,7 @@ export function Viewer() {
   const canvas = useRef<HTMLCanvasElement>(null);
   const [size, setSize] = useState({ w: 0, h: 0, dpr: 1 });
   const [cache, setCache] = useState<FrameCache>();
+  const [measure, setMeasure] = useState<MeasureText>();
   const [imageTick, setImageTick] = useState(0);
   const scratch = useMemo(
     () => ({ sample: new OffscreenCanvas(1, 1).getContext("2d")!, accum: new OffscreenCanvas(1, 1).getContext("2d")! }),
@@ -69,7 +74,12 @@ export function Viewer() {
   // Measure text only once the real fonts are in, or layouts would use fallback metrics.
   useEffect(() => {
     let alive = true;
-    loadFonts().then(() => alive && setCache(new FrameCache({ measure: canvasMeasure() })));
+    loadFonts().then(() => {
+      if (!alive) return;
+      const m = canvasMeasure();
+      setMeasure(() => m);
+      setCache(new FrameCache({ measure: m }));
+    });
     setImageListener(() => setImageTick((n) => n + 1)); // drawables don't change, only pixels
     return () => {
       alive = false;
@@ -87,9 +97,28 @@ export function Viewer() {
     return () => ro.disconnect();
   }, []);
 
+  /** Where the comp sits, in CSS px: scale and top-left. Shared by drawing, hit testing and overlays. */
+  const layout = useMemo(() => {
+    const k = Math.min((size.w - 2 * PAD.x) / comp.width, (size.h - PAD.top - PAD.bottom) / comp.height);
+    if (!(k > 0)) return undefined;
+    const ox = Math.round(((size.w - comp.width * k) / 2) * size.dpr) / size.dpr;
+    const oy = Math.round((PAD.top + (size.h - PAD.top - PAD.bottom - comp.height * k) / 2) * size.dpr) / size.dpr;
+    return { k, ox, oy, view: [k, 0, 0, k, ox, oy] as Mat };
+  }, [size, comp.width, comp.height]);
+
+  /** The shown network's drawables now (flattened subnets), for selection and hit testing. */
+  const drawables = useMemo(() => (cache ? cache.frame(doc, net.id, Math.min(frame, Math.round(comp.duration * comp.fps) - 1)) : []), [cache, doc, net.id, frame, comp]);
+
+  const pick = (e: React.MouseEvent) => {
+    if (!layout || !measure) return undefined;
+    const r = wrap.current!.getBoundingClientRect();
+    const d = hitTest(drawables, layout.view, measure, e.clientX - r.left, e.clientY - r.top);
+    return d && net.nodes.find((n) => n.id === ownerIn(net.id, d));
+  };
+
   useEffect(() => {
     const cv = canvas.current;
-    if (!cv || !size.w || !size.h) return;
+    if (!cv || !size.w || !size.h || !layout) return;
     const W = Math.round(size.w * size.dpr), H = Math.round(size.h * size.dpr);
     if (cv.width !== W || cv.height !== H) {
       cv.width = W;
@@ -105,10 +134,9 @@ export function Viewer() {
     ctx.clearRect(0, 0, W, H);
 
     const d = size.dpr;
-    const k = Math.min((W - 2 * PAD.x * d) / comp.width, (H - (PAD.top + PAD.bottom) * d) / comp.height);
-    if (k <= 0) return;
+    const k = layout.k * d;
     const cw = comp.width * k, ch = comp.height * k;
-    const ox = Math.round((W - cw) / 2), oy = Math.round(PAD.top * d + (H - (PAD.top + PAD.bottom) * d - ch) / 2);
+    const ox = Math.round(layout.ox * d), oy = Math.round(layout.oy * d);
     const view: Mat = [k, 0, 0, k, ox, oy];
 
     // the comp frame sits on the stage with a soft shadow and rounded corners (view only)
@@ -137,14 +165,31 @@ export function Viewer() {
     if (cache) drawCompFrame(ctx, scratch, cache, doc, net.id, frame, view, motionBlur ? comp.motionBlur : undefined);
     ctx.restore();
     if (safeAreas) drawSafeAreas(ctx, ox, oy, cw, ch, size.dpr);
-  }, [doc, net.id, comp, frame, size, cache, safeAreas, motionBlur, transparency, theme, scratch, imageTick]);
+  }, [doc, net.id, comp, frame, size, layout, cache, safeAreas, motionBlur, transparency, theme, scratch, imageTick]);
 
   const pill = "flex h-[30px] items-center rounded-full bg-card px-3 text-xs shadow-card";
   const opt = (on: boolean) =>
     cn("grid h-[26px] w-[30px] place-items-center rounded-full transition-colors [&_svg]:size-[15px]", on ? "bg-field text-foreground" : "text-muted-foreground hover:text-foreground");
   return (
     <div ref={wrap} className="relative min-h-0 flex-1">
-      <canvas ref={canvas} className="absolute inset-0 size-full" role="img" aria-label={`${net.name}, frame ${frame}`} />
+      <canvas
+        ref={canvas}
+        className="absolute inset-0 size-full"
+        role="img"
+        aria-label={`${net.name}, frame ${frame}. Click a layer to select it.`}
+        onClick={(e) => useUi.getState().selectNodes(((n) => (n ? [n.id] : []))(pick(e)))}
+        onDoubleClick={(e) => {
+          const n = pick(e);
+          if (n?.subnet) openSubnet(n);
+        }}
+        onDragOver={(e) => e.dataTransfer.types.includes(SOLID_MIME) && e.preventDefault()}
+        onDrop={(e) => {
+          const n = pick(e);
+          const m = JSON.parse(e.dataTransfer.getData(SOLID_MIME) || "null") as { value: string; name: string } | null;
+          if (n && m && applySolid(n.id, m.value, m.name)) useUi.getState().selectNodes([n.id]);
+        }}
+      />
+      {layout && measure && <SelectionOverlay net={net} drawables={drawables} view={layout.view} measure={measure} bounds={size} />}
       {!cache && <p className="absolute inset-0 grid place-items-center text-xs text-muted-foreground">Loading fonts</p>}
 
       <div className="absolute left-3 top-3 flex gap-1.5">

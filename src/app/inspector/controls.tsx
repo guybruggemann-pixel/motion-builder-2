@@ -15,7 +15,7 @@ const fmt = (v: number, step: number) => {
 };
 
 const selectCls =
-  "h-7 w-full min-w-0 rounded-sm border border-border bg-muted px-1.5 text-xs text-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+  "h-7 w-full min-w-0 rounded-[8px] bg-card px-1.5 text-xs text-foreground focus-visible:outline-2 focus-visible:outline-ink";
 
 /**
  * Number field you can type into or drag: drag the field sideways to scrub (Shift ×10, Alt ×0.1),
@@ -104,7 +104,7 @@ export function NumberField({
             onChange(clampV(round(value + dir * step * (e.shiftKey ? 10 : 1))), true);
           }
         }}
-        className={cn("cursor-ew-resize pr-5 text-right focus:cursor-text", unit && "pr-6")}
+        className={cn("cursor-ew-resize rounded-[8px] bg-card pr-5 text-right focus:cursor-text", unit && "pr-6")}
       />
       {unit && <span className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 font-mono text-[10px] text-muted-foreground">{unit}</span>}
     </div>
@@ -125,7 +125,7 @@ export function TextField({ value, onChange, label, multiline }: { value: string
   const [text, setText] = useState(value);
   useEffect(() => setText(value), [value]);
   const cls =
-    "w-full min-w-0 rounded-sm border border-border bg-muted px-2 py-1 text-xs text-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+    "w-full min-w-0 rounded-[8px] bg-card px-2 py-1 text-xs text-foreground focus-visible:outline-2 focus-visible:outline-ink";
   const props = {
     "aria-label": label,
     value: text,
@@ -162,7 +162,7 @@ export function ColorField({ value, onChange, label, brand }: { value: string; o
   const hex = token ? brand.find((c) => c.token === token)?.value ?? "#FF00FF" : value;
   return (
     <div className="flex min-w-0 items-center gap-1">
-      <label className="relative size-7 shrink-0 cursor-pointer rounded-sm border border-border" style={{ background: hex }}>
+      <label className="relative size-7 shrink-0 cursor-pointer rounded-full shadow-[inset_0_0_0_1px_rgba(16,17,20,0.12)]" style={{ background: hex }}>
         <span className="sr-only">{label} picker</span>
         <input
           type="color"
@@ -223,7 +223,7 @@ export function EaseField({ value, onChange, label, extra = [] }: { value: strin
       </select>
       {choice && AMOUNT_EASES.has(choice.ease) && (
         <div className="grid grid-cols-[1fr_64px] items-center gap-1">
-          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Overshoot / bounce</span>
+          <span className="text-[11px] text-muted-foreground">Overshoot / bounce</span>
           <NumberField label={`${label} amount`} value={choice.amount ?? 40} min={0} max={100} step={1} onChange={(a, f) => set({ ...choice, amount: a }, f)} />
         </div>
       )}

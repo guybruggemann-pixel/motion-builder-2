@@ -56,6 +56,8 @@ const storedPanes = (): Panes => {
   }
 };
 
+export type BottomTab = "timeline" | "graph" | "network";
+
 export interface UiState {
   theme: Theme;
   /** The Library card next to the viewer (opened from the rail). */
@@ -63,6 +65,9 @@ export interface UiState {
   /** Preview the comp's alpha on a checkerboard instead of its background colour. */
   transparency: boolean;
   panes: Panes;
+  /** The bottom card's tab. The contextual toolbar and the inspector's ease cards open the Graph. */
+  bottomTab: BottomTab;
+  setBottomTab(tab: BottomTab): void;
   /** Resize a pane (clamped to its limits); `save` remembers it in this browser (on release). */
   setPane(key: keyof Panes, px: number, save?: boolean): void;
   /** Opened subnets below the root comp. Empty = the root comp. */
@@ -97,6 +102,8 @@ export const useUi = create<UiState>()((set) => ({
   libraryOpen: stored("mb.library") !== "closed",
   transparency: false,
   panes: storedPanes(),
+  bottomTab: "timeline",
+  setBottomTab: (bottomTab) => set({ bottomTab }),
   setPane: (key, px, save) =>
     set((s) => {
       const [lo, hi] = PANE_LIMITS[key];

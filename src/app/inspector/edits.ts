@@ -148,3 +148,34 @@ export function setComp(
   if (patch.motionBlur === null) delete comp.motionBlur;
   else if (patch.motionBlur) comp.motionBlur = { ...patch.motionBlur };
 }
+
+/** What a designer gets to change on a layer when it's made editable: its content and its colour. */
+export const DESIGNER_PARAMS: Record<string, { param: string; control: "text" | "color"; label: (name: string) => string }[]> = {
+  Text: [{ param: "text", control: "text", label: (n) => n }],
+  Shape: [{ param: "fill", control: "color", label: (n) => `${n} colour` }],
+};
+
+/** Promoted ids for a layer's designer controls: `<node>-<param>`, kept a valid slug. */
+export const promotedId = (nodeId: string, param: string) => `${nodeId}-${param}`.toLowerCase().replace(/[^a-z0-9_-]/g, "-").slice(0, 64);
+
+/** Whether any of this layer's params is promoted on its network (the asset). */
+export const isDesignerEditable = (net: Network, nodeId: string) => (net.promoted ?? []).some((p) => p.target.node === nodeId);
+
+/**
+ * "Designers can edit": promote (or stop promoting) this layer's content controls on the asset
+ * network, so designers see them as controls on every instance. Off removes every control that
+ * targets the layer; instance values set for them are left on the instances (reset clears them).
+ */
+export function setDesignerEditable(d: Draft<SceneDoc>, netId: string, nodeId: string, on: boolean) {
+  const net = netOf(d, netId);
+  const node = nodeOf(d, netId, nodeId);
+  net.promoted ??= [];
+  if (!on) {
+    net.promoted = net.promoted.filter((p) => p.target.node !== nodeId);
+    return;
+  }
+  for (const c of DESIGNER_PARAMS[node.type] ?? []) {
+    if (net.promoted.some((p) => p.target.node === nodeId && p.target.param === c.param)) continue;
+    net.promoted.push({ id: promotedId(nodeId, c.param), label: c.label(node.name), target: { node: nodeId, param: c.param }, control: c.control });
+  }
+}

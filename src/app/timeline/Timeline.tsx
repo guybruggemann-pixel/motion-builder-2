@@ -1,19 +1,24 @@
 /**
- * Timeline for the shown network: a ruler you scrub, one row per layer node (frontmost on top)
- * with its in/out bar, and twirl-down rows for keyed params (diamonds) and the Phase nodes acting
- * on the layer (per-part ranges). Bars and keys drag in whole frames; every drag is one undo step.
+ * Timeline for the shown network, and the app's one layer list: a tree of layers (frontmost on
+ * top, AE style) with connector lines, material dot and role, next to the tracks: a ruler you
+ * scrub, each layer's in/out bar, and twirl-down rows for keyed params (diamonds) and the Phase
+ * nodes acting on the layer (per-part ranges). Bars and keys drag in whole frames; every drag is
+ * one undo step. Selecting a row selects the node everywhere (uiStore.selectedNodes).
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, Layers } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { CATALOG, chainAfter, isNodeType, layerOrder, phaseRanges, type Network, type Node, type PhaseRange, type SceneDoc } from "@core/scene";
+import { layerFill, roleLabel, Sphere } from "@/shell/look";
+import { applySolid, SOLID_MIME, takesMaterial } from "@/panels/materials";
 import { cn } from "@/design-system/motionbuilder---brandbook-c4b4eb/lib/utils";
 import { docStore, sameKey, shownNetwork, useDocStore, useUi, viewComp, type KeyRef } from "@/store";
 import { openSubnet } from "@/store/navigation";
 import { dragLayer, moveKeys, type BarDrag } from "./edits";
 
-const NAME_W = 232;
-const ROW_H = 24;
+const NAME_W = 236;
+const ROW_H = 30;
+const SUB_H = 26;
 const PAD = 10; // px inside the track at both ends, so keys at 0 and at the end stay grabbable
 
 interface Scale {
@@ -87,7 +92,7 @@ function Ruler({ scale, width }: { scale: Scale; width: number }) {
 
   return (
     <div
-      className="relative h-7 cursor-ew-resize select-none border-b border-border"
+      className="relative h-[22px] cursor-ew-resize select-none"
       style={{ width }}
       onPointerDown={scrub}
       role="slider"
@@ -100,9 +105,9 @@ function Ruler({ scale, width }: { scale: Scale; width: number }) {
         const isMajor = f % major === 0;
         return (
           <div key={f} className="absolute bottom-0" style={{ left: scale.x(f / scale.fps) }}>
-            <div className={cn("w-px bg-wire", isMajor ? "h-2.5" : "h-1.5")} />
+            <div className={cn("w-px bg-line2", isMajor ? "h-2" : "h-1")} />
             {isMajor && (
-              <span className="absolute bottom-3 -translate-x-1/2 font-mono text-[10px] tabular-nums text-muted-foreground">
+              <span className="absolute bottom-2 -translate-x-1/2 font-mono text-[10px] tabular-nums text-faint">
                 {f / scale.fps}s
               </span>
             )}
@@ -137,20 +142,21 @@ function rowsFor(doc: SceneDoc, net: Network, node: Node, phases: Map<string, Ph
   return rows;
 }
 
-function Diamond({ k, selected, onPointerDown, hold }: { k: KeyRef; selected: boolean; hold: boolean; onPointerDown: (e: React.PointerEvent) => void }) {
+function Diamond({ k, selected, onPointerDown, hold, live }: { k: KeyRef; selected: boolean; hold: boolean; live: boolean; onPointerDown: (e: React.PointerEvent) => void }) {
   return (
     <button
       type="button"
       aria-label={`Key ${k.param} at ${k.t.toFixed(2)}s`}
       aria-pressed={selected}
       onPointerDown={onPointerDown}
-      className="group absolute top-1/2 grid size-[18px] -translate-x-1/2 -translate-y-1/2 cursor-ew-resize place-items-center focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      className="group absolute top-1/2 grid size-[18px] -translate-x-1/2 -translate-y-1/2 cursor-ew-resize place-items-center rounded-xs"
     >
       <span
         className={cn(
-          "size-[9px] rounded-[2px] border-[1.5px]",
+          "rounded-[2px] border-[1.5px]",
           hold ? "rounded-none" : "rotate-45",
-          selected ? "border-ink bg-ink" : "border-ink/70 bg-card group-hover:bg-ink",
+          live ? "size-[11px] border-ink bg-volt" : "size-[9px]",
+          !live && (selected ? "border-ink bg-ink ring-2 ring-ink/25" : "border-ink bg-ink/80 group-hover:bg-ink"),
         )}
       />
     </button>
@@ -160,6 +166,7 @@ function Diamond({ k, selected, onPointerDown, hold }: { k: KeyRef; selected: bo
 function KeyTrack({ net, node, param, scale }: { net: Network; node: Node; param: string; scale: Scale }) {
   const keys = node.params[param]?.keys ?? [];
   const selectedKeys = useUi((s) => s.selectedKeys);
+  const frame = useUi((s) => s.frame);
 
   const down = (e: React.PointerEvent, k: KeyRef) => {
     const ui = useUi.getState();
@@ -193,7 +200,7 @@ function KeyTrack({ net, node, param, scale }: { net: Network; node: Node; param
         const ref = { node: node.id, param, t: k.t };
         return (
           <div key={i} className="absolute inset-y-0" style={{ left: scale.x(k.t) }}>
-            <Diamond k={ref} hold={k.ease === "hold"} selected={selectedKeys.some((s) => sameKey(s, ref))} onPointerDown={(e) => down(e, ref)} />
+            <Diamond k={ref} hold={k.ease === "hold"} live={Math.abs(k.t * scale.fps - frame) < 0.5} selected={selectedKeys.some((s) => sameKey(s, ref))} onPointerDown={(e) => down(e, ref)} />
           </div>
         );
       })}
@@ -226,7 +233,7 @@ function LayerBar({ net, node, scale }: { net: Network; node: Node; scale: Scale
   return (
     <div
       className={cn(
-        "absolute inset-y-1 cursor-grab rounded-full border-[1.5px] bg-bar active:cursor-grabbing",
+        "absolute inset-y-[7px] cursor-grab rounded-full border-[1.5px] bg-bar active:cursor-grabbing",
         selected ? "border-ink" : "border-transparent",
         !node.enabled && "opacity-40",
       )}
@@ -245,12 +252,12 @@ function PhaseBar({ ranges, scale, mode }: { ranges: PhaseRange[]; scale: Scale;
   const start = Math.min(...ranges.map((r) => r.start)), end = Math.max(...ranges.map((r) => r.end));
   const span = scale.x(end) - scale.x(start);
   return (
-    <div className="absolute inset-y-[7px]" style={{ left: scale.x(start), width: Math.max(2, span) }} title={`${mode}: ${start.toFixed(2)}s to ${end.toFixed(2)}s`}>
-      <div className="absolute inset-0 bg-iris-cyan/25" />
+    <div className="absolute inset-y-[7px] overflow-hidden rounded-full" style={{ left: scale.x(start), width: Math.max(2, span) }} title={`${mode}: ${start.toFixed(2)}s to ${end.toFixed(2)}s`}>
+      <div className="absolute inset-0 bg-bar" />
       {ranges.slice(0, 200).map((r) => (
         <div
           key={r.part}
-          className="absolute top-0 h-full bg-iris-cyan/60"
+          className="absolute top-0 h-full bg-ink/15"
           style={{ left: scale.x(r.start) - scale.x(start), width: Math.max(1, scale.x(r.end) - scale.x(r.start)) }}
         />
       ))}
@@ -258,7 +265,7 @@ function PhaseBar({ ranges, scale, mode }: { ranges: PhaseRange[]; scale: Scale;
   );
 }
 
-function LayerRows({ doc, net, node, scale, width, phases, unwired }: { doc: SceneDoc; net: Network; node: Node; scale: Scale; width: number; phases: Map<string, PhaseRange[]>; unwired?: boolean }) {
+function LayerRows({ doc, net, node, scale, width, phases, unwired, last }: { doc: SceneDoc; net: Network; node: Node; scale: Scale; width: number; phases: Map<string, PhaseRange[]>; unwired?: boolean; last: boolean }) {
   const sub = rowsFor(doc, net, node, phases);
   const { open, selected, selectedIds, setExpanded, selectNodes } = useUi(
     useShallow((s) => ({
@@ -270,66 +277,79 @@ function LayerRows({ doc, net, node, scale, width, phases, unwired }: { doc: Sce
     })),
   );
   const label = isNodeType(node.type) ? CATALOG[node.type].label : node.type;
+  const fill = layerFill(doc, node);
+  const role = roleLabel(node.role);
 
   return (
     <>
-      <div className={cn("flex", unwired && "opacity-50")} style={{ height: ROW_H }}>
-        <div
-          className={cn(
-            "z-10 flex shrink-0 items-center gap-1 border-b border-r border-border bg-surface pr-2 text-sm",
-            selected && "bg-accent",
-          )}
-          style={{ width: NAME_W }}
-          onClick={() => selectNodes([node.id])}
-          onDoubleClick={() => node.subnet && openSubnet(node)}
-          title={node.subnet ? "Double-click to open" : undefined}
-        >
-          <button
-            type="button"
-            aria-label={open ? `Collapse ${node.name}` : `Expand ${node.name}`}
-            aria-expanded={open}
-            disabled={!sub.length}
-            onClick={(e) => {
-              e.stopPropagation();
-              setExpanded(node.id, !open);
-            }}
-            className="grid size-5 place-items-center text-muted-foreground hover:text-foreground disabled:invisible"
+      <div
+        className={cn("flex", unwired && "opacity-50")}
+        style={{ height: ROW_H }}
+        onDragOver={(e) => e.dataTransfer.types.includes(SOLID_MIME) && takesMaterial(node.type) && e.preventDefault()}
+        onDrop={(e) => {
+          const m = JSON.parse(e.dataTransfer.getData(SOLID_MIME) || "null") as { value: string; name: string } | null;
+          if (m && applySolid(node.id, m.value, m.name)) selectNodes([node.id]);
+        }}
+      >
+        <div role="treeitem" aria-selected={selected} aria-expanded={sub.length ? open : undefined} className="relative z-10 shrink-0 bg-card pr-2.5" style={{ width: NAME_W }}>
+          <Elbow last={last} />
+          <div
+            className={cn(
+              "ml-[30px] flex h-full cursor-default items-center gap-1.5 rounded-md pl-1 pr-2 transition-colors",
+              selected ? "bg-raised font-semibold shadow-card" : "hover:bg-field",
+            )}
+            onClick={() => selectNodes([node.id])}
+            onDoubleClick={() => node.subnet && openSubnet(node)}
+            title={node.subnet ? "Double-click to open" : undefined}
           >
-            {open ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
-          </button>
-          {node.subnet && <Layers className="size-3.5 shrink-0 text-iris-violet" aria-hidden />}
-          <span className="truncate">{node.name}</span>
-          <span className="ml-auto shrink-0 font-mono text-[10px] uppercase text-muted-foreground">{unwired ? "not wired" : label}</span>
+            <button
+              type="button"
+              aria-label={open ? `Collapse ${node.name}` : `Expand ${node.name}`}
+              aria-expanded={open}
+              disabled={!sub.length}
+              onClick={(e) => {
+                e.stopPropagation();
+                setExpanded(node.id, !open);
+              }}
+              className="grid size-4 shrink-0 place-items-center rounded-xs text-muted-foreground hover:text-foreground disabled:invisible"
+            >
+              {open ? <ChevronDown className="size-3" strokeWidth={2.5} /> : <ChevronRight className="size-3" strokeWidth={2.5} />}
+            </button>
+            {node.subnet && <Layers className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />}
+            <span className="min-w-0 flex-1 truncate">{node.name}</span>
+            {fill && <Sphere color={fill} size={12} />}
+            <span className="shrink-0 text-[11px] font-normal text-muted-foreground">{unwired ? "not wired" : role ?? label.toLowerCase()}</span>
+          </div>
         </div>
-        <div className="relative border-b border-border" style={{ width }}>
+        <div className="relative" style={{ width }}>
           <LayerBar net={net} node={node} scale={scale} />
         </div>
       </div>
       {open &&
         sub.map((r) => (
-          <div key={r.kind === "param" ? `p:${r.param}` : `ph:${r.phase.id}`} className="flex" style={{ height: ROW_H }}>
-            <div
-              className={cn(
-                "z-10 flex shrink-0 items-center gap-2 border-b border-r border-border bg-surface pl-9 pr-2",
-                r.kind === "phase" && "cursor-pointer hover:bg-accent",
-                r.kind === "phase" && selectedIds.includes(r.phase.id) && "bg-accent",
-              )}
-              style={{ width: NAME_W }}
-              onClick={r.kind === "phase" ? () => selectNodes([r.phase.id]) : undefined}
-            >
-              {r.kind === "param" ? (
-                <span className="truncate font-mono text-xs text-muted-foreground">{r.label}</span>
-              ) : (
-                <>
-                  <span className="size-2 shrink-0 bg-iris-cyan" aria-hidden />
-                  <span className="truncate text-xs">{r.phase.name}</span>
-                  <span className="ml-auto font-mono text-[10px] uppercase text-muted-foreground">
-                    {String(r.phase.params.mode?.value ?? "in")}
-                  </span>
-                </>
-              )}
+          <div key={r.kind === "param" ? `p:${r.param}` : `ph:${r.phase.id}`} className="flex" style={{ height: SUB_H }}>
+            <div className="relative z-10 shrink-0 bg-card pr-2.5" style={{ width: NAME_W }}>
+              {!last && <span aria-hidden className="absolute bottom-0 left-[14px] top-0 border-l-[1.5px] border-line2" />}
+              <span aria-hidden className="absolute bottom-0 left-[38px] top-0 border-l-[1.5px] border-line2" />
+              <div
+                className={cn(
+                  "ml-[50px] flex h-full items-center gap-2 rounded-md px-2 text-xs text-muted-foreground",
+                  r.kind === "phase" && "cursor-pointer hover:bg-field hover:text-foreground",
+                  r.kind === "phase" && selectedIds.includes(r.phase.id) && "bg-raised text-foreground shadow-card",
+                )}
+                onClick={r.kind === "phase" ? () => selectNodes([r.phase.id]) : undefined}
+              >
+                {r.kind === "param" ? (
+                  <span className="truncate">{r.label.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase())}</span>
+                ) : (
+                  <>
+                    <span className="truncate">{r.phase.name}</span>
+                    <span className="ml-auto text-[11px]">{String(r.phase.params.mode?.value ?? "in")}</span>
+                  </>
+                )}
+              </div>
             </div>
-            <div className="relative border-b border-border bg-background/40" style={{ width }}>
+            <div className="relative" style={{ width }}>
               {r.kind === "param" ? (
                 <KeyTrack net={net} node={node} param={r.param} scale={scale} />
               ) : (
@@ -340,6 +360,16 @@ function LayerRows({ doc, net, node, scale, width, phases, unwired }: { doc: Sce
         ))}
     </>
   );
+}
+
+/** Tree connector from the network row down to a layer: a vertical line with a rounded elbow. */
+function Elbow({ last }: { last: boolean }) {
+  return (
+    <>
+      <span aria-hidden className="absolute left-[14px] top-[-4px] h-[19px] w-[10px] rounded-bl-[7px] border-b-[1.5px] border-l-[1.5px] border-line2" />
+      {!last && <span aria-hidden className="absolute bottom-0 left-[14px] top-[14px] border-l-[1.5px] border-line2" />}
+    </>
+  )
 }
 
 /* ---------- timeline ---------- */
@@ -362,6 +392,7 @@ export function Timeline() {
   const scale = useScale(width, comp.duration, comp.fps);
 
   const { wired, unwired } = useMemo(() => layerOrder(net), [net]);
+  const ordered = [...[...wired].reverse().map((n) => ({ n, unwired: false })), ...unwired.map((n) => ({ n, unwired: true }))];
   const phases = useMemo(() => {
     const m = new Map<string, PhaseRange[]>();
     for (const n of net.nodes) if (n.type === "Phase") m.set(n.id, phaseRanges(doc, net.id, n.id));
@@ -371,37 +402,42 @@ export function Timeline() {
   const clearSelection = () => useUi.getState().selectNodes([]);
 
   return (
-    <div className="relative h-full">
+    <div className="relative h-full px-3 pb-2.5">
     <div ref={track} className="h-full overflow-y-auto overflow-x-hidden" onPointerDown={(e) => e.target === e.currentTarget && clearSelection()}>
-      <div className="sticky top-0 z-20 flex bg-surface">
-        <div className="z-10 flex h-7 shrink-0 items-center border-b border-r border-border bg-surface px-3" style={{ width: NAME_W }}>
-          <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">{net.name}</span>
-        </div>
+      <div className="sticky top-0 z-20 flex bg-card">
+        <div className="z-10 h-[22px] shrink-0 bg-card" style={{ width: NAME_W }} />
         {width > 0 && <Ruler scale={scale} width={width} />}
       </div>
 
       {width > 0 && (
-        <div className="relative">
-          {[...wired].reverse().map((n) => (
-            <LayerRows key={n.id} doc={doc} net={net} node={n} scale={scale} width={width} phases={phases} />
+        <div role="tree" aria-label="Layers" className="relative">
+          <div className="flex" style={{ height: ROW_H }}>
+            <div role="treeitem" aria-expanded className="flex shrink-0 items-center gap-2 bg-card px-2 font-semibold" style={{ width: NAME_W }}>
+              <ChevronDown className="size-3" strokeWidth={2.5} aria-hidden />
+              <span className="truncate">{net.name}</span>
+              <span className="font-normal text-faint">({ordered.length})</span>
+            </div>
+            <div className="relative" style={{ width }}>
+              <div className="absolute inset-y-[7px] rounded-full bg-bar opacity-60" style={{ left: scale.x(0), width: scale.x(comp.duration) - scale.x(0) }} />
+            </div>
+          </div>
+          {ordered.map(({ n, unwired: u }, i) => (
+            <LayerRows key={n.id} doc={doc} net={net} node={n} scale={scale} width={width} phases={phases} unwired={u} last={i === ordered.length - 1} />
           ))}
-          {unwired.map((n) => (
-            <LayerRows key={n.id} doc={doc} net={net} node={n} scale={scale} width={width} phases={phases} unwired />
-          ))}
-          {!wired.length && !unwired.length && (
-            <p className="p-6 text-center font-mono text-xs text-muted-foreground">No layers in this network</p>
-          )}
+          {!ordered.length && <p className="p-6 text-center text-xs text-muted-foreground">No layers here yet. Add one with + Add.</p>}
         </div>
       )}
 
     </div>
       {width > 0 && (
         <div
-          className="pointer-events-none absolute inset-y-0 z-30 w-[1.5px] bg-ink"
-          style={{ left: NAME_W + scale.x(frame / comp.fps) }}
+          className="pointer-events-none absolute top-0 z-30 w-[1.5px] bg-ink"
+          style={{ left: 12 + NAME_W + scale.x(frame / comp.fps), bottom: 10 }}
           aria-hidden
         >
-          <div className="absolute -left-[5px] top-0 h-[9px] w-[11px] rounded-b-full border-[1.5px] border-t-0 border-ink bg-volt" />
+          <span className="absolute left-1/2 top-0.5 -translate-x-1/2 whitespace-nowrap rounded-full bg-volt px-[7px] py-px font-mono text-[10px] font-medium text-volt-ink">
+            {Math.floor(frame / comp.fps)}:{String(frame % Math.round(comp.fps)).padStart(2, "0")}
+          </span>
         </div>
       )}
     </div>

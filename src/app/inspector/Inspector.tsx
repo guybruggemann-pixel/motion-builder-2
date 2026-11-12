@@ -1,13 +1,16 @@
 /**
- * Inspector: edits the selected node of the shown network (or the comp when nothing is selected).
- * Every animatable param has a key diamond (add/remove at the playhead), previous/next key, the
- * ease of the key under the playhead, and its modifier list. A Subnet shows its promoted controls
- * first: that's all a designer needs to touch.
+ * Inspector: edits the selected node of the shown network (or the comp when nothing is selected),
+ * ordered by intent (docs/ui-handover.md §2): title, promoted controls (on a Subnet: all a
+ * designer touches), Motion, Look, then the layer's own params, and folded Transform, Modifiers
+ * and Layer timing. Every animatable param has a key diamond (add/remove at the playhead),
+ * previous/next key, the ease of the key under the playhead and its modifiers.
  */
-import { ChevronLeft, ChevronRight, Plus, RotateCcw, X } from "lucide-react";
+import { useState } from "react";
+import { ChevronDown, ChevronLeft, ChevronRight, RotateCcw, X } from "lucide-react";
 import {
   CATALOG,
   evaluateParam,
+  phaseRanges,
   isNodeType,
   promotedSpecs,
   Role as RoleSchema,
@@ -26,7 +29,10 @@ import { docStore, shownNetwork, useDocStore, useUi, viewComp } from "@/store";
 import { ChoiceField, ColorField, EaseField, NumberField, TextField, ToggleField, Vec2Field, type Change } from "./controls";
 import {
   addModifier,
+  DESIGNER_PARAMS,
+  isDesignerEditable,
   keyAt,
+  setDesignerEditable,
   removeModifier,
   resetParam,
   setComp,
@@ -38,6 +44,9 @@ import {
   type ModifierKind,
 } from "./edits";
 import type { Draft } from "immer";
+import { layerFill, MiniCurve, roleLabel, Sphere } from "@/shell/look";
+import { phaseOf } from "@/viewer/Selection";
+import { takesMaterial } from "@/panels/materials";
 
 /* ---------- helpers ---------- */
 
@@ -63,14 +72,31 @@ const fmtValue = (v: Value) =>
 const asVec = (v: Value): [number, number] => (Array.isArray(v) && v.length >= 2 ? [v[0]!, v[1]!] : [0, 0]);
 const asStr = (v: Value) => (typeof v === "string" ? v : String(v));
 
+/** A grouped section: field background, radius 16, sentence-case heading. */
 function Section({ title, children, aside }: { title: string; children: React.ReactNode; aside?: React.ReactNode }) {
   return (
-    <section aria-label={title} className="border-b border-border px-3 pb-3 pt-2.5">
-      <div className="mb-2 flex items-center">
-        <h3 className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">{title}</h3>
-        {aside && <div className="ml-auto">{aside}</div>}
+    <section aria-label={title} className="flex flex-col gap-2.5 rounded-lg bg-field p-3.5">
+      <div className="flex items-center">
+        <h3 className="text-[13px] font-semibold">{title}</h3>
+        {aside && <div className="ml-auto text-xs text-muted-foreground">{aside}</div>}
       </div>
       <div className="grid gap-1.5">{children}</div>
+    </section>
+  );
+}
+
+/** A section folded to one line (its summary) until opened. */
+function Fold({ title, summary, live, children, defaultOpen = false }: { title: string; summary: React.ReactNode; live?: boolean; children: React.ReactNode; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <section aria-label={title} className="rounded-lg bg-field">
+      <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="flex w-full items-center gap-2 rounded-lg px-3.5 py-3 text-left">
+        <h3 className="text-[13px] font-semibold">{title}</h3>
+        {!open && <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-muted-foreground">{summary}</span>}
+        {live && !open && <span aria-label="keyed at the playhead" className="size-[9px] shrink-0 rotate-45 rounded-[2px] border-[1.5px] border-ink bg-volt" />}
+        <ChevronDown aria-hidden className={cn("ml-auto size-3.5 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} />
+      </button>
+      {open && <div className="grid gap-1.5 px-3.5 pb-3.5">{children}</div>}
     </section>
   );
 }
@@ -148,7 +174,7 @@ function LinkFields({ m, net, change }: { m: Modifier; net: Network; change: (pa
 function ModifierCard({ m, isVec, net, change, remove }: { m: Modifier; isVec: boolean; net: Network; change: (patch: Parameters<typeof updateModifier>[5], final: boolean) => void; remove: () => void }) {
   const fields = m.type === "link" ? [] : MOD_FIELDS[m.type as ModifierKind] ?? [];
   return (
-    <div className={cn("ml-[48px] grid gap-1 rounded-sm border border-border bg-background/60 p-2", !m.enabled && "opacity-60")}>
+    <div className={cn("ml-[48px] grid gap-1 rounded-md bg-card p-2", !m.enabled && "opacity-60")}>
       <div className="flex items-center gap-1.5">
         <Switch aria-label={`${m.type} on`} checked={m.enabled} onCheckedChange={(v) => change({ enabled: v }, true)} />
         <span className="text-xs font-medium capitalize">{m.type}</span>
@@ -157,7 +183,7 @@ function ModifierCard({ m, isVec, net, change, remove }: { m: Modifier; isVec: b
             aria-label={`${m.type} blend`}
             value={m.blend}
             onChange={(e) => change({ blend: e.target.value as Modifier["blend"] }, true)}
-            className="ml-auto h-6 rounded-sm border border-border bg-muted px-1 font-mono text-[11px]"
+            className="ml-auto h-6 rounded-[8px] bg-field px-1 font-mono text-[11px]"
           >
             <option value="add">add</option>
             <option value="multiply">multiply</option>
@@ -199,6 +225,7 @@ function ParamRow({
   label = human(name),
   fallback,
   onReset,
+  showMods = true,
 }: {
   net: Network;
   node: Node;
@@ -208,6 +235,8 @@ function ParamRow({
   /** Value shown when the node doesn't carry the param (promoted controls: the subnet's own value). */
   fallback?: Value;
   onReset?: () => void;
+  /** Show the modifier cards here (off where the folded Modifiers section lists them). */
+  showMods?: boolean;
 }) {
   const doc = useDocStore((s) => s.doc);
   const path = useUi((s) => s.path);
@@ -298,7 +327,7 @@ function ParamRow({
               title="Add modifier"
               value=""
               onChange={(e) => apply("Add modifier", (d) => void addModifier(d, net.id, node.id, name, e.target.value as ModifierKind), true, `mod-${ckey}`)}
-              className="h-6 w-6 shrink-0 cursor-pointer appearance-none rounded-sm bg-transparent text-center text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+              className="h-6 w-6 shrink-0 cursor-pointer appearance-none rounded-full bg-transparent text-center text-xs text-muted-foreground hover:bg-card hover:text-foreground"
             >
               <option value="" disabled>
                 +
@@ -313,7 +342,7 @@ function ParamRow({
       </div>
       {keyHere && (
         <div className="ml-[48px] grid grid-cols-[80px_minmax(0,1fr)] items-center gap-1">
-          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Ease out</span>
+          <span className="text-[11px] text-muted-foreground">Ease out</span>
           <EaseField
             label={`${label} key ease`}
             value={keyHere.ease}
@@ -322,12 +351,12 @@ function ParamRow({
           />
         </div>
       )}
-      {mods.some((m) => m.enabled) && (
+      {showMods && mods.some((m) => m.enabled) && (
         <p className="ml-[48px] font-mono text-[10px] tabular-nums text-muted-foreground" aria-live="off">
           With modifiers: {fmtValue(evaluateParam(p, t))}
         </p>
       )}
-      {mods.map((m) => (
+      {showMods && mods.map((m) => (
         <ModifierCard
           key={m.id}
           m={m}
@@ -344,9 +373,85 @@ function ParamRow({
 /* ---------- panels ---------- */
 
 const ROLES = RoleSchema.options;
+const r2 = (v: number) => +v.toFixed(2);
+
+/** Current value of a param at t (keys applied, modifiers not), or the catalog default. */
+function valueNow(node: Node, name: string, spec: ParamSpec | undefined, t: number): Value | undefined {
+  const p = node.params[name];
+  if (!p) return spec?.default;
+  return p.keys?.length ? evaluateParam({ value: p.value, keys: p.keys }, t) : p.value;
+}
+
+/** Motion: the layer's in / hold / out as a proportion bar, ease cards and one sentence. */
+function MotionSection({ doc, net, node, span }: { doc: SceneDoc; net: Network; node: Node; span: [number, number] }) {
+  const inP = phaseOf(net, node.id, "in"), outP = phaseOf(net, node.id, "out");
+  const range = (p?: Node): [number, number] | undefined => {
+    if (!p) return undefined;
+    const rs = phaseRanges(doc, net.id, p.id).filter((r) => r.node === node.id);
+    return rs.length ? [Math.min(...rs.map((r) => r.start)), Math.max(...rs.map((r) => r.end))] : undefined;
+  };
+  const ri = range(inP), ro = range(outP);
+  const [a, b] = span;
+  const total = Math.max(1e-6, b - a);
+  const inLen = ri ? Math.max(0, ri[1] - a) : 0;
+  const outLen = ro ? Math.max(0, b - ro[0]) : 0;
+  const hold = Math.max(0, total - inLen - outLen);
+  const keyed = Object.entries(node.params).filter(([, p]) => p.keys?.length).map(([n]) => human(n).toLowerCase());
+  const open = (p?: Node) => {
+    const ui = useUi.getState();
+    if (p) ui.setBottomTab("graph");
+  };
+  const card = (label: string, p: Node | undefined) =>
+    p ? (
+      <button type="button" onClick={() => open(p)} aria-label={`Animate ${label.toLowerCase()}: ${String(p.params.ease?.value ?? "outExpo")}. Open in graph`} className="flex flex-col gap-1.5 rounded-md bg-card p-2.5 text-left hover:shadow-card">
+        <span className="text-[11px] text-muted-foreground">{label}</span>
+        <MiniCurve ease={String(p.params.ease?.value ?? "outExpo")} width="100%" height={26} strokeWidth={1.75} />
+        <span className="truncate font-mono text-[11px] font-medium">{String(p.params.ease?.value ?? "outExpo")}</span>
+      </button>
+    ) : (
+      <div className="flex flex-col justify-center gap-1 rounded-md border border-dashed border-line2 p-2.5 text-[11px] text-muted-foreground">
+        <span>{label}</span>
+        <span>None yet</span>
+      </div>
+    );
+  const sentence = (p: Node | undefined, verb: string, len: number) =>
+    p ? `${verb} over ${r2(len)}s with ${String(p.params.ease?.value ?? "outExpo")}${asNum(p.params.stagger?.value ?? 0) > 0 ? `, parts ${r2(asNum(p.params.stagger?.value ?? 0))}s apart` : ""}.` : "";
+
+  if (node.subnet)
+    return (
+      <Section title="Motion" aside={`${r2(a)}–${r2(b)}s`}>
+        <p className="text-xs text-muted-foreground">The motion lives inside {doc.networks.find((n) => n.id === node.subnet)?.name ?? "the asset"}. Double-click the layer to open it.</p>
+      </Section>
+    );
+  return (
+    <Section title="Motion" aside={`${r2(a)}–${r2(b)}s`}>
+      {(inP || outP) && (
+        <div aria-hidden className="grid h-2 gap-[3px]" style={{ gridTemplateColumns: `${inLen || 0.0001}fr ${hold || 0.0001}fr ${outLen || 0.0001}fr` }}>
+          <span className="rounded-l-full rounded-r-[2px] bg-ink" />
+          <span className="rounded-[2px] bg-line2" />
+          <span className="rounded-l-[2px] rounded-r-full bg-muted-foreground" />
+        </div>
+      )}
+      <div className="grid grid-cols-2 gap-1.5">
+        {card("In", inP)}
+        {card("Out", outP)}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        {inP || outP
+          ? [sentence(inP, "Comes in", inLen), sentence(outP, "Leaves", outLen)].filter(Boolean).join(" ")
+          : keyed.length
+            ? `Animated with keys on ${keyed.join(", ")}.`
+            : "No motion yet. Add Animate in / out from + Add, or key a value."}
+      </p>
+    </Section>
+  );
+}
 
 function NodePanel({ doc, net, node }: { doc: SceneDoc; net: Network; node: Node }) {
-  const comp = viewComp(doc, useUi((s) => s.path));
+  const path = useUi((s) => s.path);
+  const frame = useUi((s) => s.frame);
+  const comp = viewComp(doc, path);
+  const t = frame / comp.fps, tol = 0.5 / comp.fps;
   const spec = isNodeType(node.type) ? CATALOG[node.type] : undefined;
   const params = Object.entries((spec?.params ?? {}) as Record<string, ParamSpec>);
   const isLayer = spec?.category === "layer";
@@ -355,19 +460,132 @@ function NodePanel({ doc, net, node }: { doc: SceneDoc; net: Network; node: Node
   const promoted = subnet?.promoted ?? [];
   const pSpecs = node.subnet ? promotedSpecs(doc.networks, node.subnet) : {};
   const k = `${net.id}/${node.id}`;
+  const span: [number, number] = [node.timing?.in ?? 0, node.timing?.out ?? comp.duration];
+  const role = roleLabel(node.role);
+  const hasFill = takesMaterial(node.type);
+  const fill = hasFill ? layerFill(doc, node, t) : undefined;
+  const fillRaw = String(valueNow(node, "fill", params.find(([n]) => n === "fill")?.[1], t) ?? "");
+  const own = params.filter(([n]) => !TRANSFORM.has(n) && n !== "fill");
+  const xf = params.filter(([n]) => TRANSFORM.has(n) && n !== "opacity");
+  const opacity = params.find(([n]) => n === "opacity");
+  const modded = params.filter(([n]) => node.params[n]?.modifiers?.length);
+  const xfKeyHere = xf.some(([n]) => keyAt(node.params[n]?.keys, t, tol));
+  const fmt = (n: string, unit = "") => {
+    const v = valueNow(node, n, params.find(([m]) => m === n)?.[1], t);
+    return v === undefined ? "–" : `${Array.isArray(v) ? v.map(r2).join(", ") : typeof v === "number" ? r2(v) : String(v)}${unit}`;
+  };
+  const sc = valueNow(node, "scale", params.find(([n]) => n === "scale")?.[1], t);
+  const scText = Array.isArray(sc) ? (r2(sc[0]!) === r2(sc[1]!) ? `${r2(sc[0]!)}%` : `${r2(sc[0]!)}×${r2(sc[1]!)}%`) : "–";
+  const xfSummary = `${fmt("position")} · ${scText} · ${fmt("rotation", "°")}`;
+  const modSummary = modded.length ? modded.map(([n]) => `${(node.params[n]!.modifiers ?? []).map((m) => m.type).join(" + ")} on ${human(n).toLowerCase()}`).join(", ") : "None";
+  const inAsset = net.id !== doc.root && !!DESIGNER_PARAMS[node.type];
+  const editable = isDesignerEditable(net, node.id);
 
   return (
-    <div className="min-h-0 overflow-y-auto">
-      <div className="flex items-center gap-2 border-b border-border px-3 py-2.5">
-        <Switch aria-label={`${node.name} enabled`} checked={node.enabled} onCheckedChange={(v) => apply(v ? "Enable" : "Disable", (d) => setNodeProps(d, net.id, node.id, { enabled: v }), true, `en-${k}`)} />
-        <div className="min-w-0 flex-1">
-          <TextField label="Node name" value={node.name} onChange={(v, fin) => fin && v.trim() && apply("Rename", (d) => setNodeProps(d, net.id, node.id, { name: v.trim() }), true, `name-${k}`)} />
+    <div className="flex min-h-0 flex-col gap-2.5 overflow-y-auto p-3.5">
+      <div className="flex items-start gap-2.5 px-0.5">
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <input
+            aria-label="Layer name"
+            defaultValue={node.name}
+            key={node.name}
+            onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+            onBlur={(e) => {
+              const v = e.currentTarget.value.trim();
+              if (v && v !== node.name) apply("Rename", (d) => setNodeProps(d, net.id, node.id, { name: v }), true, `name-${k}`);
+              else e.currentTarget.value = node.name;
+            }}
+            className="-ml-1 min-w-0 rounded-sm bg-transparent px-1 font-display text-[22px] font-semibold tracking-[-0.02em] hover:bg-field focus:bg-field"
+          />
+          <span className="text-xs text-muted-foreground">
+            {spec?.label ?? node.type}
+            {role && ` · ${role}`}
+            {!node.enabled && " · off"}
+          </span>
         </div>
-        <span className="shrink-0 font-mono text-[10px] uppercase text-muted-foreground">{spec?.label ?? node.type}</span>
+        <Switch
+          className="mt-2"
+          aria-label={`${node.name} enabled`}
+          title={node.enabled ? "On: click to switch this node off" : "Off: click to switch it on"}
+          checked={node.enabled}
+          onCheckedChange={(v) => apply(v ? "Enable" : "Disable", (d) => setNodeProps(d, net.id, node.id, { enabled: v }), true, `en-${k}`)}
+        />
       </div>
 
+      {promoted.length > 0 && (
+        <Section title="Controls" aside={`(${promoted.length})`}>
+          {promoted.map((c) => {
+            const target = subnet!.nodes.find((n) => n.id === c.target.node);
+            const tp = target?.params[c.target.param];
+            const ps = pSpecs[c.id];
+            if (!ps) return null;
+            const fallback = tp ? evaluateParam({ value: tp.value, keys: tp.keys }, 0) : ps.default;
+            return (
+              <ParamRow
+                key={c.id}
+                net={net}
+                node={node}
+                name={c.id}
+                label={c.label}
+                spec={{ ...ps, min: c.min ?? ps.min, max: c.max ?? ps.max, options: c.options ?? ps.options }}
+                fallback={fallback}
+                onReset={() => apply(`Reset ${c.label}`, (d) => resetParam(d, net.id, node.id, c.id), true, `reset-${k}-${c.id}`)}
+              />
+            );
+          })}
+        </Section>
+      )}
+
+      {isLayer && <MotionSection doc={doc} net={net} node={node} span={span} />}
+
+      {isLayer && (hasFill || opacity) && (
+        <Section title="Look">
+          {hasFill && (
+            <div className="flex items-center gap-2.5 rounded-md bg-card px-2.5 py-2">
+              <Sphere color={fill} size={30} />
+              <span className="flex min-w-0 flex-col">
+                <span className="text-[13px] font-semibold">Solid</span>
+                <span className="truncate font-mono text-[11px] text-muted-foreground">{fillRaw.replace(/^brand:/, "brand · ")}</span>
+              </span>
+              <button type="button" onClick={() => useUi.getState().setLibraryOpen(true)} className="ml-auto rounded-full px-2.5 py-1 text-xs hover:bg-field">
+                Library
+              </button>
+            </div>
+          )}
+          {hasFill && <ParamRow net={net} node={node} name="fill" label="Colour" spec={params.find(([n]) => n === "fill")![1]} showMods={false} />}
+          {opacity && <ParamRow net={net} node={node} name="opacity" spec={opacity[1]} showMods={false} />}
+        </Section>
+      )}
+
+      {own.length > 0 && (
+        <Section title={spec?.label ?? node.type}>
+          {own.map(([n, s]) => (
+            <ParamRow key={n} net={net} node={node} name={n} spec={s} showMods={false} />
+          ))}
+        </Section>
+      )}
+
+      {xf.length > 0 && (
+        <Fold title="Transform" summary={xfSummary} live={xfKeyHere}>
+          {xf.map(([n, s]) => (
+            <ParamRow key={n} net={net} node={node} name={n} spec={s} showMods={false} />
+          ))}
+          {!isLayer && opacity && <ParamRow net={net} node={node} name="opacity" spec={opacity[1]} showMods={false} />}
+        </Fold>
+      )}
+
+      {params.some(([, s]) => s.animatable && (s.kind === "number" || s.kind === "vec2")) && (
+        <Fold title="Modifiers" summary={modSummary}>
+          {modded.length ? (
+            modded.map(([n, s]) => <ParamRow key={n} net={net} node={node} name={n} spec={s} />)
+          ) : (
+            <p className="text-xs text-muted-foreground">Add wave, noise, stagger or link with the + next to any value.</p>
+          )}
+        </Fold>
+      )}
+
       {isLayer && (
-        <Section title="Layer">
+        <Fold title="Layer" summary={`${r2(span[0])}–${r2(span[1])}s${role ? ` · ${role}` : ""}`}>
           <div className="grid grid-cols-[44px_80px_minmax(0,1fr)] items-center gap-1">
             <span />
             <Label>In / out</Label>
@@ -397,56 +615,31 @@ function NodePanel({ doc, net, node }: { doc: SceneDoc; net: Network; node: Node
               id={`role-${k}`}
               value={node.role ?? ""}
               onChange={(e) => apply("Role", (d) => setNodeProps(d, net.id, node.id, { role: (e.target.value || null) as never }), true, `role-${k}`)}
-              className="h-7 rounded-sm border border-border bg-muted px-1.5 text-xs"
+              className="h-7 rounded-[8px] bg-card px-1.5 text-xs"
             >
               <option value="">Not set</option>
               {ROLES.map((r) => (
                 <option key={r} value={r}>
-                  {r}
+                  {roleLabel(r)}
                 </option>
               ))}
             </select>
           </div>
-        </Section>
+        </Fold>
       )}
 
-      {promoted.length > 0 && (
-        <Section title="Controls">
-          {promoted.map((c) => {
-            const target = subnet!.nodes.find((n) => n.id === c.target.node);
-            const tp = target?.params[c.target.param];
-            const ps = pSpecs[c.id];
-            if (!ps) return null;
-            const fallback = tp ? evaluateParam({ value: tp.value, keys: tp.keys }, 0) : ps.default;
-            return (
-              <ParamRow
-                key={c.id}
-                net={net}
-                node={node}
-                name={c.id}
-                label={c.label}
-                spec={{ ...ps, min: c.min ?? ps.min, max: c.max ?? ps.max, options: c.options ?? ps.options }}
-                fallback={fallback}
-                onReset={() => apply(`Reset ${c.label}`, (d) => resetParam(d, net.id, node.id, c.id), true, `reset-${k}-${c.id}`)}
-              />
-            );
-          })}
-        </Section>
-      )}
-
-      {params.some(([n]) => !TRANSFORM.has(n)) && (
-        <Section title={spec?.label ?? node.type}>
-          {params.filter(([n]) => !TRANSFORM.has(n)).map(([n, s]) => (
-            <ParamRow key={n} net={net} node={node} name={n} spec={s} />
-          ))}
-        </Section>
-      )}
-      {params.some(([n]) => TRANSFORM.has(n)) && (
-        <Section title="Transform">
-          {params.filter(([n]) => TRANSFORM.has(n)).map(([n, s]) => (
-            <ParamRow key={n} net={net} node={node} name={n} spec={s} />
-          ))}
-        </Section>
+      {inAsset && (
+        <label className="flex items-center gap-2.5 rounded-lg bg-field px-3.5 py-3">
+          <span className="flex flex-1 flex-col">
+            <span className="text-[13px] font-semibold">Designers can edit</span>
+            <span className="text-xs text-muted-foreground">Shows this layer's {DESIGNER_PARAMS[node.type]!.map((c) => (c.param === "fill" ? "colour" : c.param)).join(" and ")} as a control on every {net.name} instance.</span>
+          </span>
+          <Switch
+            aria-label="Designers can edit this layer"
+            checked={editable}
+            onCheckedChange={(on) => apply(on ? "Let designers edit" : "Stop designer edits", (d) => setDesignerEditable(d, net.id, node.id, on), true, `designer-${k}`)}
+          />
+        </label>
       )}
     </div>
   );
@@ -463,10 +656,10 @@ function CompPanel({ doc, net }: { doc: SceneDoc; net: Network }) {
     </div>
   );
   return (
-    <div className="min-h-0 overflow-y-auto">
-      <div className="border-b border-border px-3 py-2.5">
-        <p className="text-sm">{net.name}</p>
-        <p className="font-mono text-[11px] text-muted-foreground">Comp · select a layer in the timeline to edit it</p>
+    <div className="flex min-h-0 flex-col gap-2.5 overflow-y-auto p-3.5">
+      <div className="flex flex-col gap-0.5 px-0.5">
+        <h2 className="font-display text-[22px] font-semibold tracking-[-0.02em]">{net.name}</h2>
+        <p className="text-xs text-muted-foreground">Comp · select a layer to edit it</p>
       </div>
       <Section title="Comp">
         {row(
@@ -515,5 +708,5 @@ export function Inspector() {
   const node = net.nodes.find((n) => n.id === selected[0]);
   if (node) return <NodePanel key={node.id} doc={doc} net={net} node={node} />;
   if (net.comp) return <CompPanel doc={doc} net={net} />;
-  return <p className="grid h-full place-items-center px-6 text-center font-mono text-xs text-muted-foreground">Select a layer in the timeline</p>;
+  return <p className="grid h-full place-items-center px-6 text-center text-xs text-muted-foreground">Select a layer in the viewer or the timeline</p>;
 }
