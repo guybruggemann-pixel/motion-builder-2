@@ -383,6 +383,48 @@ function evalNode(ctx: Ctx, id: string, stack: string[] = []): Part[] {
       case "NoiseField":
         out = []; // only meaningful inside a 3D scene (evalScene3D reads them)
         break;
+      case "Cloner": {
+        // 2D: every input part is copied per clone (offsets in the network's px, y down), then
+        // renumbered, so a Phase after the cloner staggers over the copies.
+        const v = (name: string) => paramValue(ctx, node, name);
+        const clones = makeClones({
+          mode: oneOf(v("mode"), ["grid", "linear", "radial"] as const, "grid"),
+          count: vec3(v("count"), [3, 3, 1]),
+          spacing: vec3(v("spacing"), [300, 200, 200]),
+          step: vec3(v("step"), [250, 0, 0]),
+          stepRotation: vec3(v("stepRotation")),
+          radius: num(v("radius"), 400),
+          plane: "xy",
+          align: v("align") !== false,
+          rowSlide: num(v("rowSlide")),
+        });
+        const [ox, oy] = vec3(v("position"));
+        out = reindex(
+          clones.flatMap((c) =>
+            inputs().map((p) => ({
+              ...p,
+              anim: { ...p.anim, dx: p.anim.dx + ox + c.position[0], dy: p.anim.dy + oy - c.position[1], rot: p.anim.rot + c.rotation[2], sx: p.anim.sx * (c.scale[0] / 100), sy: p.anim.sy * (c.scale[1] / 100) },
+            })),
+          ),
+        );
+        break;
+      }
+      case "Random":
+      case "Plain":
+      case "Step": {
+        // 2D effectors on cloned parts: offsets in px (y down), rotation is z, colours become the fill
+        const parts = inputs();
+        const fw = ctx.net.wires.find((w) => w.to.node === node.id && w.to.port === "field");
+        const fnode = fw && ctx.net.nodes.find((n) => n.id === fw.from.node && n.enabled);
+        const field = fnode && fieldSpec(ctx, fnode);
+        const asClones = parts.map((p, i) => ({ index: i, position: [p.anim.dx, p.anim.dy, 0] as [number, number, number], rotation: [0, 0, p.anim.rot] as [number, number, number], scale: [p.anim.sx * 100, p.anim.sy * 100, 100] as [number, number, number], opacity: 1 }));
+        const done = applyEffector(asClones, effectorSpec(ctx, node), field ? (c) => fieldWeight(field, c.position) : () => 1);
+        out = parts.map((p, i) => {
+          const c = done[i]!;
+          return { ...p, anim: { ...p.anim, dx: c.position[0], dy: c.position[1], rot: c.rotation[2], sx: c.scale[0] / 100, sy: c.scale[1] / 100, ...(c.color ? { fill: c.color } : {}) } };
+        });
+        break;
+      }
       case "Split": {
         const by = oneOf(paramValue(ctx, node, "by"), ["characters", "words", "lines"] as const, "words");
         out = reindex(inputs().flatMap((p) => splitPart(ctx, p, by)));
@@ -735,7 +777,7 @@ function resolvePart(ctx: Ctx, p: Part): Drawable[] {
 
   switch (content.kind) {
     case "text": {
-      const fill = str(v("fill"), "#FFFFFF");
+      const fill = anim.fill ?? str(v("fill"), "#FFFFFF");
       return content.runs.map((r, i) => ({
         ...base,
         kind: "text" as const,
@@ -757,7 +799,7 @@ function resolvePart(ctx: Ctx, p: Part): Drawable[] {
           shape: oneOf(v("shape"), ["rect", "ellipse", "line", "path"] as const, "rect"),
           size: vec2(v("size"), [400, 120]),
           radius: num(v("radius")),
-          fill: str(v("fill"), "#000000"),
+          fill: anim.fill ?? str(v("fill"), "#000000"),
           stroke: str(v("stroke"), "#00000000"),
           strokeWidth: num(v("strokeWidth")),
           path: str(v("path")),

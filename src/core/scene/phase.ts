@@ -49,6 +49,8 @@ export interface PartAnim {
   op: number;
   blur: number;
   reveal?: Reveal;
+  /** A colour from an effector (cloned 2D parts); replaces the layer's fill. */
+  fill?: string;
 }
 
 export const REST: PartAnim = { dx: 0, dy: 0, sx: 1, sy: 1, rot: 0, op: 1, blur: 0 };

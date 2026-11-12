@@ -127,3 +127,39 @@ describe("Reveal effector", () => {
     expect(scaleOf(early[40]!.matrix)).toBeCloseTo(0, 6); // still at 0 % scale
   });
 });
+
+describe("cloners on 2D layers", () => {
+  const doc2d = (): SceneDoc => {
+    const d = structuredClone(uniqueGrid);
+    d.networks = [
+      {
+        id: "main",
+        name: "Main",
+        comp: { width: 1920, height: 1080, fps: 25, duration: 4 },
+        output: "out",
+        nodes: [
+          { id: "t", type: "Text", name: "Word", enabled: true, params: { text: { value: "Hi" }, position: { value: [100, 200] } }, ui: { x: 0, y: 0 } },
+          { id: "c", type: "Cloner", name: "Row", enabled: true, params: { mode: { value: "linear" }, count: { value: [3, 1, 1] }, step: { value: [300, 0, 0] } }, ui: { x: 0, y: 0 } },
+          { id: "r", type: "Random", name: "Colours", enabled: true, params: { palette: { value: "#111111, #222222" } }, ui: { x: 0, y: 0 } },
+          { id: "out", type: "Output", name: "Output", enabled: true, params: {}, ui: { x: 0, y: 0 } },
+        ],
+        wires: [
+          { from: { node: "t", port: "out" }, to: { node: "c", port: "in" } },
+          { from: { node: "c", port: "out" }, to: { node: "r", port: "in" } },
+          { from: { node: "r", port: "out" }, to: { node: "out", port: "in" } },
+        ],
+      },
+    ];
+    return d;
+  };
+
+  it("copies the layer per clone, offset in px, with palette fills and part numbers for a Phase", () => {
+    const d = doc2d();
+    expect(validateDoc(d).ok).toBe(true);
+    const ds = evaluateFrame(d, "main", 1, { measure: approxMeasure });
+    expect(ds).toHaveLength(3);
+    expect(ds.map((x) => x.matrix[4])).toEqual([-200, 100, 400]);
+    expect(ds.map((x) => x.part)).toEqual([0, 1, 2]);
+    expect(ds.every((x) => x.kind === "text" && ["#111111", "#222222"].includes(x.fill))).toBe(true);
+  });
+});

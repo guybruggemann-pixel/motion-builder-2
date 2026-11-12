@@ -41,8 +41,10 @@ export function addToNetwork(type: NodeType) {
 const GROUPS_2D: [string, (t: NodeType) => boolean][] = [
   ["Layers", (t) => CATALOG[t].category === "layer" && t !== "Scene3D"],
   ["3D", (t) => t === "Scene3D"],
-  ["Split", (t) => CATALOG[t].category === "split"],
-  ["Animate", (t) => CATALOG[t].category === "animate"],
+  ["Split", (t) => CATALOG[t].category === "split" && t !== "Cloner"],
+  ["Animate", (t) => CATALOG[t].category === "animate" && !["Random", "Plain", "Step", "Reveal"].includes(t)],
+  ["Cloners and effectors", (t) => ["Cloner", "Random", "Plain", "Step"].includes(t)],
+  ["Fields", (t) => CATALOG[t].category === "field"],
   ["Utility", (t) => CATALOG[t].category === "utility"],
 ];
 const CLONING = ["Cloner", "Random", "Plain", "Step", "Reveal"];
@@ -56,7 +58,7 @@ const GROUPS_3D: [string, (t: NodeType) => boolean][] = [
 
 /** What a new node chains after when that's what's selected. */
 const CHAIN_AFTER: Partial<Record<NodeType, string[]>> = {
-  Cloner: ["Text3D", "Shape3D"],
+  Cloner: ["Text3D", "Shape3D", "Text", "Shape", "Image", "Group", "Subnet", "Split"],
   Random: ["Cloner", "Random", "Plain", "Step", "Reveal"],
   Plain: ["Cloner", "Random", "Plain", "Step", "Reveal"],
   Step: ["Cloner", "Random", "Plain", "Step", "Reveal"],
