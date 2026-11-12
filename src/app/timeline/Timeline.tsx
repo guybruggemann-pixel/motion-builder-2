@@ -10,7 +10,7 @@ import { ChevronDown, ChevronRight, Layers } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { CATALOG, chainAfter, isNodeType, layerOrder, phaseRanges, type Network, type Node, type PhaseRange, type SceneDoc } from "@core/scene";
 import { layerFill, roleLabel, Sphere } from "@/shell/look";
-import { applySolid, SOLID_MIME, takesMaterial } from "@/panels/materials";
+import { applyDropped, SOLID_MIME, takesMaterial } from "@/panels/materials";
 import { cn } from "@/design-system/motionbuilder---brandbook-c4b4eb/lib/utils";
 import { docStore, sameKey, shownNetwork, useDocStore, useUi, viewComp, type KeyRef } from "@/store";
 import { openSubnet } from "@/store/navigation";
@@ -285,10 +285,9 @@ function LayerRows({ doc, net, node, scale, width, phases, unwired, last }: { do
       <div
         className={cn("flex", unwired && "opacity-50")}
         style={{ height: ROW_H }}
-        onDragOver={(e) => e.dataTransfer.types.includes(SOLID_MIME) && takesMaterial(node.type) && e.preventDefault()}
+        onDragOver={(e) => e.dataTransfer.types.includes(SOLID_MIME) && (takesMaterial(node.type) || node.type === "Scene3D") && e.preventDefault()}
         onDrop={(e) => {
-          const m = JSON.parse(e.dataTransfer.getData(SOLID_MIME) || "null") as { value: string; name: string } | null;
-          if (m && applySolid(node.id, m.value, m.name)) selectNodes([node.id]);
+          if (applyDropped(node.id, e.dataTransfer.getData(SOLID_MIME))) selectNodes([node.id]);
         }}
       >
         <div role="treeitem" aria-selected={selected} aria-expanded={sub.length ? open : undefined} className="relative z-10 shrink-0 bg-card pr-2.5" style={{ width: NAME_W }}>

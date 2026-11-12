@@ -23,7 +23,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/base.css";
 import { Layers } from "lucide-react";
-import { CATALOG, isNodeType, type Category, type Node } from "@core/scene";
+import { CATALOG, isNodeType, portsOf, type Category, type Node } from "@core/scene";
 import { NodeCard } from "@/design-system/motionbuilder---brandbook-c4b4eb";
 import { cn } from "@/design-system/motionbuilder---brandbook-c4b4eb/lib/utils";
 import { docStore, shownNetwork, useDocStore, useUi } from "@/store";
@@ -52,6 +52,10 @@ function summary(n: Node): string {
       return String(v("shape") ?? "rect");
     case "Split":
       return `by ${String(v("by") ?? "words")}`;
+    case "Text3D":
+      return `“${String(v("text") ?? "Text").split("\n")[0]!.slice(0, 22)}” · 3D`;
+    case "Material":
+      return `${String(v("kind") ?? "plastic")} · ${String(v("color") ?? "#FFFFFF").replace(/^brand:/, "")}`;
     case "Phase":
       return `${String(v("mode") ?? "in")} · ${String(v("ease") ?? "outExpo")} · ${v("duration") ?? 0.6}s`;
     default:
@@ -72,6 +76,18 @@ function CardNode({ data, selected }: NodeProps<FlowNode<CardData>>) {
       className={cn("w-48", isOutput && "ring-2 ring-ink/25")}
     >
       {(spec?.inputs ?? 0) > 0 && <Handle type="target" position={Position.Left} className="!size-2.5 !rotate-45 !rounded-none !border !border-wire !bg-background" />}
+      {portsOf(node.type).map((port) => (
+        <Handle
+          key={port}
+          id={port}
+          type="target"
+          position={Position.Left}
+          title={`${port} input: wire a Material here`}
+          style={{ top: "auto", bottom: 10 }}
+          className="!size-3 !rounded-full !border-2 !border-[var(--color-node-field)] !bg-card"
+        />
+      ))}
+      {portsOf(node.type).length > 0 && <div className="px-2.5 text-[10px] text-muted-foreground">◂ material</div>}
       <div className="px-2.5 font-mono text-[11px] text-muted-foreground">{data.summary || (isOutput ? "network output" : " ")}</div>
       {!isOutput && <Handle type="source" position={Position.Right} className="!size-2.5 !rotate-45 !rounded-none !border !border-wire !bg-background" />}
     </NodeCard>
@@ -113,8 +129,9 @@ function Graph() {
         id: `${w.from.node}>${w.to.node}#${i}`,
         source: w.from.node,
         target: w.to.node,
+        targetHandle: w.to.port === "in" ? undefined : w.to.port,
         type: "default",
-        className: "[&_path]:!stroke-wire [&.selected_path]:!stroke-ink",
+        className: w.to.port === "material" ? "[&_path]:!stroke-[var(--color-node-field)] [&_path]:[stroke-dasharray:5_4] [&.selected_path]:!stroke-ink" : "[&_path]:!stroke-wire [&.selected_path]:!stroke-ink",
       })),
     [net],
   );
@@ -153,7 +170,7 @@ function Graph() {
 
   const onConnect = useCallback(
     (c: Connection) => {
-      if (c.source && c.target) docStore.getState().edit("Connect", (d) => connect(d, net.id, c.source, c.target));
+      if (c.source && c.target) docStore.getState().edit(c.targetHandle ? "Wire material" : "Connect", (d) => connect(d, net.id, c.source, c.target, c.targetHandle ?? "in"));
     },
     [net.id],
   );

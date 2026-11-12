@@ -37,18 +37,32 @@ export function layerFill(doc: SceneDoc, node: Node, t = 0): string | undefined 
   return undefined;
 }
 
+/** Highlights per material kind, so a sphere hints at the look (a preview, not a render). */
+const SPHERE_LOOK: Record<string, { image: string; opacity?: number; glow?: boolean }> = {
+  default: { image: "radial-gradient(circle at 32% 28%, rgba(255,255,255,0.75), rgba(255,255,255,0) 42%), radial-gradient(circle at 70% 80%, rgba(0,0,0,0.28), rgba(0,0,0,0) 60%)" },
+  solid: { image: "none" },
+  plaster: { image: "radial-gradient(circle at 35% 30%, rgba(255,255,255,0.35), rgba(255,255,255,0) 55%), radial-gradient(circle at 70% 80%, rgba(0,0,0,0.22), rgba(0,0,0,0) 65%)" },
+  metal: { image: "radial-gradient(circle at 30% 25%, #fff, rgba(255,255,255,0) 22%), linear-gradient(160deg, rgba(255,255,255,0.15), rgba(0,0,0,0.45) 55%, rgba(255,255,255,0.35) 80%, rgba(0,0,0,0.3))" },
+  glass: { image: "radial-gradient(circle at 32% 26%, rgba(255,255,255,0.95), rgba(255,255,255,0) 22%), radial-gradient(circle at 60% 75%, rgba(255,255,255,0.5), rgba(255,255,255,0) 40%)", opacity: 0.45 },
+  iridescent: { image: "radial-gradient(circle at 30% 25%, rgba(255,255,255,0.9), rgba(255,255,255,0) 25%), conic-gradient(from 200deg, #9be7ff, #c79bff, #ff9bd6, #ffe19b, #9be7ff)" },
+  emissive: { image: "radial-gradient(circle at 50% 50%, rgba(255,255,255,0.65), rgba(255,255,255,0) 60%)", glow: true },
+};
+
 /** CSS material preview: a lit sphere in the material's colour (12/14/24/30/44 px). */
-export function Sphere({ color, size = 14, className }: { color?: string; size?: number; className?: string }) {
+export function Sphere({ color, size = 14, kind, className }: { color?: string; size?: number; kind?: string; className?: string }) {
+  const look = SPHERE_LOOK[kind ?? "default"] ?? SPHERE_LOOK.default!;
   return (
     <span
       aria-hidden
-      className={cn("inline-block shrink-0 rounded-full", className)}
+      className={cn("relative inline-block shrink-0 rounded-full", className)}
       style={{
         width: size,
         height: size,
         backgroundColor: color ?? "var(--line2)",
-        backgroundImage: "radial-gradient(circle at 32% 28%, rgba(255,255,255,0.75), rgba(255,255,255,0) 42%), radial-gradient(circle at 70% 80%, rgba(0,0,0,0.28), rgba(0,0,0,0) 60%)",
-        boxShadow: "inset 0 0 0 1px rgba(16,17,20,0.12)",
+        backgroundImage: look.image,
+        opacity: look.opacity ? 1 : undefined,
+        boxShadow: `inset 0 0 0 1px rgba(16,17,20,0.12)${look.glow ? `, 0 0 ${Math.round(size / 3)}px ${color ?? "transparent"}` : ""}${look.opacity ? `, inset 0 0 ${Math.round(size / 4)}px rgba(255,255,255,0.6)` : ""}`,
+        ...(look.opacity ? { backgroundColor: `color-mix(in srgb, ${color ?? "#fff"} ${Math.round(look.opacity * 100)}%, transparent)` } : {}),
       }}
     />
   );

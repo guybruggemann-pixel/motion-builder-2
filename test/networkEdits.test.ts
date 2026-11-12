@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { evaluateFrame, lowerThird } from "@core/scene";
 import { createDocStore } from "@/store/docStore";
 import { addNode, connect, deleteNodes, disconnect, moveNodes, wireToOutput } from "@/network/edits";
-import { approxMeasure } from "@core/scene";
+import { approxMeasure, title3d, validateDoc } from "@core/scene";
 
 const NET = "lower-third";
 const store = () => createDocStore(lowerThird);
@@ -96,5 +96,25 @@ describe("new layers show straight away", () => {
     const before = wires(s);
     s.getState().edit("Rewire", (d) => wireToOutput(d, NET, "panel"));
     expect(wires(s)).toEqual(before);
+  });
+});
+
+describe("material inputs in the network", () => {
+  it("wires a Material into an object's material input, replacing the one there", () => {
+    const s = createDocStore(title3d);
+    expect(
+      s.getState().edit("Wire material", (d) => {
+        d.networks[1]!.nodes.push({ id: "gold", type: "Material", name: "Gold", enabled: true, params: {}, ui: { x: 0, y: 0 } });
+        connect(d, "title-3d", "gold", "word", "material");
+      }),
+    ).toBe(true);
+    const into = s.getState().doc.networks[1]!.wires.filter((w) => w.to.node === "word" && w.to.port === "material");
+    expect(into.map((w) => w.from.node)).toEqual(["gold"]);
+    expect(validateDoc(s.getState().doc).ok).toBe(true);
+  });
+
+  it("refuses a non-material in a material input", () => {
+    const s = createDocStore(title3d);
+    expect(s.getState().edit("Wire", (d) => connect(d, "title-3d", "camera", "word", "material"))).toBe(false);
   });
 });

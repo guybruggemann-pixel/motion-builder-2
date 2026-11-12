@@ -106,9 +106,18 @@ export function wireToOutput(d: Draft<SceneDoc>, netId: string, nodeId: string) 
   wire(mid, out.id);
 }
 
-/** Wire `from` into `to`. A single-input node swaps its old wire for the new one; duplicates are ignored. */
-export function connect(d: Draft<SceneDoc>, netId: string, from: string, to: string) {
+/**
+ * Wire `from` into `to` (into a named port like `material`, or the main input). A single-input
+ * node, and every named port, swaps its old wire for the new one; duplicates are ignored.
+ */
+export function connect(d: Draft<SceneDoc>, netId: string, from: string, to: string, port = "in") {
   const net = netOf(d, netId);
+  if (port !== "in") {
+    if (from === to) return;
+    net.wires = net.wires.filter((w) => !(w.to.node === to && w.to.port === port));
+    net.wires.push({ from: { node: from, port: "out" }, to: { node: to, port } });
+    return;
+  }
   if (from === to || net.wires.some((w) => w.from.node === from && w.to.node === to)) return;
   const target = net.nodes.find((n) => n.id === to);
   if (target && isNodeType(target.type) && CATALOG[target.type].inputs === 1) net.wires = net.wires.filter((w) => w.to.node !== to);

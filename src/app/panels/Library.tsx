@@ -1,21 +1,34 @@
 /**
- * Library (opens from the rail): Materials, Presets, Brand. Materials are Solid colours for now
- * (the brand kit's colours); click applies to the selected layer, drag drops onto a layer in the
- * viewer or the timeline. Physical materials (glass, metal…) come with material nodes (phase D).
+ * Library (opens from the rail): Materials, Presets, Brand. Materials: the materials already in
+ * the open 3D scene (shared when applied), starter materials and brand colours; click applies to
+ * the selection, drag drops onto a layer in the viewer or the timeline. 2D layers take the colour.
  * The node catalog moved to "+ Add" in the timeline card.
  */
 import { useState } from "react";
 import { Search } from "lucide-react";
-import { lowerThird, lowerThirdFit, title3d, type SceneDoc } from "@core/scene";
+import { lowerThird, lowerThirdFit, MATERIAL_PRESETS, sceneOwner, title3d, type SceneDoc } from "@core/scene";
 import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from "@/design-system/motionbuilder---brandbook-c4b4eb";
 import { docStore, shownNetwork, useDocStore, useUi } from "@/store";
-import { Sphere } from "@/shell/look";
-import { applySolid, SOLID_MIME, takesMaterial } from "./materials";
+import { cssColor, Sphere } from "@/shell/look";
+import { applyItem, libraryTarget, SOLID_MIME, type LibraryItem } from "./materials";
 
-interface Solid {
-  name: string;
-  value: string;
-  css: string;
+function Tile({ label, item, sphere, onApply }: { label: string; item: LibraryItem; sphere: React.ReactNode; onApply: () => void }) {
+  return (
+    <button
+      type="button"
+      draggable
+      aria-label={label}
+      onDragStart={(e) => {
+        e.dataTransfer.setData(SOLID_MIME, JSON.stringify(item));
+        e.dataTransfer.effectAllowed = "copy";
+      }}
+      onClick={onApply}
+      className="flex cursor-grab flex-col items-center gap-2 rounded-[14px] bg-field px-1.5 pb-2.5 pt-3 hover:bg-line2/50"
+    >
+      {sphere}
+      <span className="max-w-full truncate text-xs font-medium">{label}</span>
+    </button>
+  );
 }
 
 function Materials() {
@@ -23,13 +36,23 @@ function Materials() {
   const [q, setQ] = useState("");
   const sel = useUi((s) => s.selectedNodes[0]);
   const path = useUi((s) => s.path);
-  const node = shownNetwork(doc, path).nodes.find((n) => n.id === sel);
-  const target = node && takesMaterial(node.type) ? node : undefined;
-  const solids: Solid[] = [
+  const net = shownNetwork(doc, path);
+  const node = net.nodes.find((n) => n.id === sel);
+  const target = node && libraryTarget(doc, net, node, 0);
+  const match = (name: string) => name.toLowerCase().includes(q.trim().toLowerCase());
+  const apply = (item: LibraryItem) => node && target && applyItem(node.id, item);
+  const presets = MATERIAL_PRESETS.filter((p) => match(p.name));
+  const inScene = sceneOwner(doc, net.id) ? net.nodes.filter((n) => n.type === "Material" && match(n.name)) : [];
+  const colours = [
     ...(doc.brand?.colors ?? []).map((c) => ({ name: c.token.replace(/^./, (x) => x.toUpperCase()), value: `brand:${c.token}`, css: c.value })),
     { name: "White", value: "#ffffff", css: "#ffffff" },
     { name: "Black", value: "#000000", css: "#000000" },
-  ].filter((m) => m.name.toLowerCase().includes(q.trim().toLowerCase()));
+  ].filter((c) => match(c.name));
+  const heading = (t: string, n: number) => (
+    <h3 className="col-span-2 px-1 pt-2 text-[13px] font-semibold">
+      {t} <span className="font-normal text-faint">({n})</span>
+    </h3>
+  );
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -39,34 +62,35 @@ function Materials() {
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search materials" className="min-w-0 flex-1 bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground" />
       </label>
       <div className="grid min-h-0 flex-1 grid-cols-2 content-start gap-2 overflow-y-auto px-3">
-        {solids.map((m) => (
-          <button
-            key={m.value}
-            type="button"
-            draggable
-            aria-label={`${m.name}, solid${target ? `: apply to ${target.name}` : ""}`}
-            onDragStart={(e) => {
-              e.dataTransfer.setData(SOLID_MIME, JSON.stringify({ value: m.value, name: m.name }));
-              e.dataTransfer.effectAllowed = "copy";
-            }}
-            onClick={() => target && applySolid(target.id, m.value, m.name)}
-            className="flex cursor-grab flex-col items-center gap-2 rounded-[14px] bg-field px-1.5 pb-2.5 pt-3 hover:bg-line2/50"
-          >
-            <Sphere color={m.css} size={44} />
-            <span className="text-xs font-medium">{m.name}</span>
-          </button>
+        {inScene.length > 0 && heading("In this scene", inScene.length)}
+        {inScene.map((m) => (
+          <Tile
+            key={m.id}
+            label={m.name}
+            item={{ kind: "node", network: net.id, node: m.id, name: m.name }}
+            sphere={<Sphere color={cssColor(doc, m.params.color?.value) ?? "#ffffff"} kind={String(m.params.kind?.value ?? "plastic")} size={44} />}
+            onApply={() => apply({ kind: "node", network: net.id, node: m.id, name: m.name })}
+          />
         ))}
-        {!solids.length && <p className="col-span-2 py-6 text-center text-xs text-muted-foreground">No material matches “{q}”</p>}
+        {presets.length > 0 && heading("Materials", presets.length)}
+        {presets.map((p) => (
+          <Tile key={p.id} label={p.name} item={{ kind: "preset", preset: p }} sphere={<Sphere color={p.color} kind={p.kind} size={44} />} onApply={() => apply({ kind: "preset", preset: p })} />
+        ))}
+        {colours.length > 0 && heading("Colours", colours.length)}
+        {colours.map((c) => (
+          <Tile key={c.value} label={c.name} item={{ kind: "colour", value: c.value, name: c.name }} sphere={<Sphere color={c.css} kind="solid" size={44} />} onApply={() => apply({ kind: "colour", value: c.value, name: c.name })} />
+        ))}
+        {!presets.length && !colours.length && !inScene.length && <p className="col-span-2 py-6 text-center text-xs text-muted-foreground">No material matches “{q}”</p>}
       </div>
       <p className="px-3.5 pb-3 pt-2.5 text-xs leading-snug text-muted-foreground">
         {target ? (
           <>
-            Drag onto a layer, or click to apply to <strong className="font-semibold text-foreground">{target.name}</strong>.
+            Drag onto a layer, or click to apply to <strong className="font-semibold text-foreground">{node!.name}</strong>
+            {target.is3D ? "." : " (2D layers take the colour)."}
           </>
         ) : (
-          "Drag onto a layer, or select a text or shape layer and click."
+          "Select a layer or 3D object, then click a material; or drag one onto it."
         )}
-        <span className="mt-1 block text-faint">Glass, metal and other physical materials come later.</span>
       </p>
     </div>
   );

@@ -17,7 +17,7 @@ import { rotationAt, turned, turnTarget } from "./turn3d";
 import { Gizmo, handlesFor, sceneDrawableFor } from "./Gizmo";
 import { plus, vecAt } from "./manipulate";
 import { planeDelta3D } from "@/render/three/install";
-import { applySolid, SOLID_MIME } from "@/panels/materials";
+import { applyDropped, SOLID_MIME } from "@/panels/materials";
 import { openSubnet } from "@/store/navigation";
 import { SelectionOverlay } from "./Selection";
 import { canvasMeasure, drawCompFrame, setImageListener } from "@/render/canvas2d";
@@ -296,8 +296,7 @@ export function Viewer() {
         onDragOver={(e) => e.dataTransfer.types.includes(SOLID_MIME) && e.preventDefault()}
         onDrop={(e) => {
           const n = pick(e);
-          const m = JSON.parse(e.dataTransfer.getData(SOLID_MIME) || "null") as { value: string; name: string } | null;
-          if (n && m && applySolid(n.id, m.value, m.name)) useUi.getState().selectNodes([n.id]);
+          if (n && applyDropped(n.id, e.dataTransfer.getData(SOLID_MIME))) useUi.getState().selectNodes([n.id]);
         }}
       />
       {layout && measure && <SelectionOverlay net={net} drawables={drawables} view={layout.view} measure={measure} bounds={size} />}
