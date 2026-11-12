@@ -4,7 +4,7 @@
  */
 import type { Scene3DDrawable } from "@core/scene";
 import { requestRedraw, setScene3DRenderer } from "../canvas2d";
-import type { ScenePass } from "./pass";
+import type { PassMode, ScenePass } from "./pass";
 
 /**
  * One pass per page, shared by every copy of this module: the dev server can load a module twice
@@ -39,8 +39,11 @@ export const axes3D = (scene: Scene3DDrawable["scene"], node: string) => shared.
 /** World move for a screen move of (du, dv) of the layer, parallel to the screen (see `ScenePass.planeDelta`). */
 export const planeDelta3D = (scene: Scene3DDrawable["scene"], node: string, du: number, dv: number) => shared.pass?.planeDelta(scene, node, du, dv);
 
+/** Nearest and farthest view depth of a scene's objects, once the pass is loaded. */
+export const depthRange3D = (scene: Scene3DDrawable["scene"]) => shared.pass?.depthRange(scene);
+
 export function install3D() {
-  setScene3DRenderer((ctx, d: Scene3DDrawable) => {
+  setScene3DRenderer((ctx, d: Scene3DDrawable, mode) => {
     const pass = shared.pass;
     if (!pass) {
       stats3D.placeholder++;
@@ -50,7 +53,7 @@ export function install3D() {
     stats3D.rendered++;
     const t = ctx.getTransform();
     const sx = Math.hypot(t.a, t.b), sy = Math.hypot(t.c, t.d);
-    const out = pass.render(d.scene, Math.round(d.size[0] * sx), Math.round(d.size[1] * sy));
+    const out = pass.render(d.scene, Math.round(d.size[0] * sx), Math.round(d.size[1] * sy), mode as PassMode | undefined);
     ctx.drawImage(out, 0, 0, d.size[0], d.size[1]);
     return true;
   });

@@ -93,7 +93,12 @@ function drawShape(ctx: Ctx2D, d: ShapeDrawable) {
  * Draw drawables. `view` maps comp pixels to canvas pixels (fit + device pixel ratio);
  * blur radii are scaled by it because canvas filters ignore the current transform.
  */
-export function drawFrame(ctx: Ctx2D, drawables: readonly Drawable[], view: Mat) {
+/** Options for special renders (AE passes): how 3D scene layers draw. Opaque to this module. */
+export interface DrawOptions {
+  scene3d?: unknown;
+}
+
+export function drawFrame(ctx: Ctx2D, drawables: readonly Drawable[], view: Mat, opts: DrawOptions = {}) {
   const k = Math.sqrt(Math.abs(view[0] * view[3] - view[1] * view[2]));
   for (const d of drawables) {
     if (d.opacity <= 0) continue;
@@ -125,7 +130,7 @@ export function drawFrame(ctx: Ctx2D, drawables: readonly Drawable[], view: Mat)
         break;
       }
       case "scene3d":
-        draw3D(ctx, d);
+        draw3D(ctx, d, opts.scene3d);
         break;
     }
     ctx.restore();
@@ -136,12 +141,12 @@ export function drawFrame(ctx: Ctx2D, drawables: readonly Drawable[], view: Mat)
  * Draws a 3D scene layer. The three.js pass plugs in here (`setScene3DRenderer`); until it does,
  * or where it isn't available (tests), the layer shows as a labelled outline.
  */
-type Scene3DRenderer = (ctx: Ctx2D, d: Scene3DDrawable) => boolean;
+type Scene3DRenderer = (ctx: Ctx2D, d: Scene3DDrawable, mode?: unknown) => boolean;
 let scene3d: Scene3DRenderer | undefined;
 export const setScene3DRenderer = (r: Scene3DRenderer | undefined) => void (scene3d = r);
 
-function draw3D(ctx: Ctx2D, d: Scene3DDrawable) {
-  if (scene3d?.(ctx, d)) return;
+function draw3D(ctx: Ctx2D, d: Scene3DDrawable, mode?: unknown) {
+  if (scene3d?.(ctx, d, mode)) return;
   const [w, h] = d.size;
   ctx.save();
   ctx.strokeStyle = "rgba(127,127,127,0.6)";

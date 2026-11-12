@@ -30,10 +30,11 @@ Full, current plan with diagrams: https://claude.ai/artifact/DnRUjhGEjxW51N8FoYF
   - [ ] D. Materials → now part of 3D-a below (physical materials on 3D objects; glass and metal on flat layers go through the same renderer)
   - [ ] E. Other screens: Import, Draft, Edit mode, Deliver, Materials editor
 - [ ] AE passes and AOVs (decided 2026-11-12, before cloners). AE gets renders plus room to play: Gate: a 3D title + 2D type comp exports from Deliver and assembles in AE with every pass lined up.
-  - [ ] Beauty per top-level layer (ProRes 4444 + alpha, full frame, layer timing)
-  - [ ] Alpha mattes (visible coverage: what's covered by layers above is cut out) and puzzle mattes (three elements per file in R, G, B; 3D objects get their own, with depth occlusion)
-  - [ ] Depth for 3D scene layers (white = near, range fixed over the shot so it doesn't flicker; near/far in the script)
-  - [ ] Assembly .jsx: beauty layers in the comp, mattes and depth hidden in a "Mattes" folder/precomp, puzzle legend in the comp comment, depth wired to a disabled Camera Lens Blur
+  - [x] Beauty per top-level layer (ProRes 4444 + alpha, full frame, layer timing)
+  - [x] Alpha mattes (visible coverage: what's covered by layers above is cut out) and puzzle mattes (three elements per file in R, G, B; 3D objects get their own from an ID render, with depth occlusion; a scene layer whose objects have channels stays out of the puzzle)
+  - [x] Depth for 3D scene layers (white = near, range fixed over the shot so it doesn't flicker; near/far in the script)
+  - [~] Assembly .jsx: beauty layers in the comp, mattes and depth hidden in a "Mattes" precomp, puzzle legend in the comp comment, a disabled Camera Lens Blur next to the depth map (mock-AE tested; the Blur Map Layer matchName is a guess until it runs in real AE)
+  - Built: `render/passes/` (plan, coverage maths, export sweep), Render panel › After Effects passes. Browser check on the 3D title: 150 frames, 7 files in 12.5 s; the 3D ID pass matches the beauty's coverage on every pixel. Open: the run in real After Effects (the gate), memory for long or many-layer comps (all encoded frames are held until the files are written)
   - [ ] Later: normals, AO / shadow, motion vectors, EXR sequences + Cryptomatte, light passes
   - The native-layer export stays as a frozen simple-2D option.
 - [ ] 3D — scene layer, cloners and fields, Cinema 4D style (decided 2026-11-12, references in `docs/references/`). A **3D scene** layer is a subnet of 3D nodes that renders into the comp as one layer, so 2D type can sit above or below it. The core evaluates it (what is cloned where, which colour, every transform at time t; pure and seeded); three.js only draws it, the same code in preview and final render, frame-stepped. Gate per step below; preview and render match within tolerance (frame-diff tests).

@@ -23,7 +23,7 @@ export interface JobOptions {
 }
 
 /** A small pool of workers that each run the ProRes encoder; falls back to the page. */
-function encoderPool(w: number, h: number) {
+export function encoderPool(w: number, h: number) {
   const n = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 4) - 1));
   let url: string | undefined;
   const workers: Worker[] = [];
@@ -40,6 +40,7 @@ function encoderPool(w: number, h: number) {
   const pending = new Map<number, (f: Uint8Array) => void>();
   workers.forEach((wk) => (wk.onmessage = (e: MessageEvent<{ i: number; f: Uint8Array }>) => pending.get(e.data.i)?.(e.data.f)));
   let next = 0;
+  const running = new Set<Promise<void>>();
   return {
     async encode(i: number, rgba: Uint8ClampedArray) {
       if (local) {
@@ -58,6 +59,19 @@ function encoderPool(w: number, h: number) {
     results,
     inflight: () => pending.size,
     limit: Math.max(1, workers.length) * 2,
+    /**
+     * Encode with back-pressure: waits while `limit` frames are in flight. Waits only on frames
+     * that are still running; racing finished promises would spin without letting the workers
+     * report back (that froze long renders).
+     */
+    async submit(i: number, rgba: Uint8ClampedArray) {
+      while (running.size >= this.limit) await Promise.race(running);
+      const p = this.encode(i, rgba);
+      running.add(p);
+      void p.finally(() => running.delete(p));
+    },
+    /** All submitted frames encoded. */
+    drain: () => Promise.all([...running]).then(() => undefined),
     close() {
       workers.forEach((x) => x.terminate());
       if (url) URL.revokeObjectURL(url);
@@ -85,16 +99,14 @@ export async function renderToBlob(
   }
   const r = renderComp(doc, networkId, { width: o.width, height: o.height, motionBlur: o.motionBlur, measure: canvasMeasure(), to });
   const pool = encoderPool(r.width, r.height);
-  const pending: Promise<void>[] = [];
   try {
     for (let i = 0; i < r.frames; i++) {
       if (cancelled()) return undefined;
-      while (pool.inflight() >= pool.limit) await Promise.race(pending);
-      pending.push(pool.encode(i, new Uint8ClampedArray(r.frame(i))));
+      await pool.submit(i, new Uint8ClampedArray(r.frame(i)));
       onProgress(i + 1, r.frames);
       await new Promise((res) => setTimeout(res, 0)); // let the page breathe
     }
-    await Promise.all(pending);
+    await pool.drain();
   } finally {
     pool.close();
   }

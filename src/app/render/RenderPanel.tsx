@@ -10,7 +10,9 @@ import { loadFonts } from "./fonts";
 import { mp4Supported } from "./mp4";
 import { renderToBlob } from "./renderJob";
 import { canvasMeasure } from "./canvas2d";
-import { exportAe } from "@/export/exportAe";
+import { exportAe, passesScript } from "@/export/exportAe";
+import { exportPasses } from "./passes/export";
+import type { PassOptions } from "./passes/plan";
 
 type State =
   | { kind: "idle" }
@@ -22,6 +24,7 @@ export function RenderPanel({ onClose }: { onClose: () => void }) {
   const [scale, setScale] = useState(1);
   const [format, setFormat] = useState<"prores" | "mp4">("prores");
   const [blur, setBlur] = useState(true);
+  const [aov, setAov] = useState<PassOptions>({ mattes: true, puzzle: true, depth: true });
   const [state, setState] = useState<State>({ kind: "idle" });
   const cancel = useRef(false);
   const doc = docStore.getState().doc;
@@ -49,6 +52,32 @@ export function RenderPanel({ onClose }: { onClose: () => void }) {
    * The .jsx, plus a ProRes pass per 3D scene layer (AE imports them from the script's folder).
    * With passes, everything is written into a folder you pick; without folder access, each file downloads.
    */
+  /** AE passes: beauty per layer + the chosen AOVs + the assembly script, into a folder you pick. */
+  const exportAePasses = async () => {
+    try {
+      cancel.current = false;
+      const pick = (window as unknown as { showDirectoryPicker?: (o?: object) => Promise<FileSystemDirectoryHandle> }).showDirectoryPicker;
+      if (!pick) throw new Error("Pick-a-folder isn't available in this browser; use Chrome or Edge");
+      const dir = await pick({ mode: "readwrite", id: "ae-passes" });
+      await loadFonts();
+      const doc = docStore.getState().doc;
+      const started = performance.now();
+      const save = async (name: string, blob: Blob) => {
+        const w = await (await dir.getFileHandle(name, { create: true })).createWritable();
+        await w.write(blob);
+        await w.close();
+      };
+      const plan = await exportPasses(doc, net.id, aov, save, (done, total) => setState({ kind: "busy", done, total, started }), () => cancel.current);
+      if (!plan) return setState({ kind: "idle" });
+      const script = `${net.name.replace(/[^\w.-]+/g, "_")}_passes.jsx`;
+      await save(script, new Blob([passesScript(plan)], { type: "text/javascript" }));
+      setState({ kind: "done", url: "", name: "", seconds: (performance.now() - started) / 1000, frames: plan.comp.frames, note: `Saved ${plan.outputs.length} passes and ${script} in “${dir.name}”. In AE: File › Scripts › Run Script File.` });
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return setState({ kind: "idle" });
+      setState({ kind: "error", message: e instanceof Error ? e.message : String(e) });
+    }
+  };
+
   const exportForAe = async () => {
     try {
       cancel.current = false;
@@ -154,15 +183,37 @@ export function RenderPanel({ onClose }: { onClose: () => void }) {
         ) : (
           <>
             {state.kind === "error" && <p className="mb-2 font-mono text-[11px] text-destructive">Render failed: {state.message}</p>}
+            <div className="mb-3 rounded-lg bg-field p-3">
+              <p className="mb-2 text-[13px] font-semibold">After Effects passes</p>
+              <p className="mb-2 text-[11px] text-muted-foreground">A ProRes beauty per layer, plus room to play in comp:</p>
+              {(
+                [
+                  ["mattes", "Alpha mattes", "per layer and 3D object, what's covered cut out"],
+                  ["puzzle", "Puzzle mattes", "three elements per file in R, G, B"],
+                  ["depth", "Depth", "per 3D scene, ready for Camera Lens Blur"],
+                ] as [keyof PassOptions, string, string][]
+              ).map(([k, label, hint]) => (
+                <label key={k} className="flex items-start gap-2 py-1 text-xs">
+                  <input type="checkbox" checked={aov[k]} onChange={(e) => setAov({ ...aov, [k]: e.target.checked })} className="mt-0.5 accent-[var(--ink)]" />
+                  <span>
+                    {label} <span className="text-muted-foreground">· {hint}</span>
+                  </span>
+                </label>
+              ))}
+              <Button className="mt-2 w-full" onClick={exportAePasses} title="Pick a folder: the passes and an assembly script are written into it">
+                Export AE passes
+              </Button>
+            </div>
             <Button
-              variant="secondary"
+              variant="ghost"
+              size="sm"
               className="mb-2 w-full"
-              title="A script for File > Scripts > Run Script File in After Effects: native layers and keyframes, no expressions"
+              title="Frozen simple-2D option: rebuilds layers and keyframes natively in AE (no expressions)"
               onClick={exportForAe}
             >
-              Export for After Effects (.jsx)
+              Native AE layers (simple 2D, .jsx)
             </Button>
-            <Button className="w-full" onClick={run}>
+            <Button variant="secondary" className="w-full" onClick={run}>
               <Clapperboard /> Render {format === "mp4" ? "MP4" : "ProRes 4444"}
             </Button>
           </>

@@ -11,6 +11,17 @@ import { SVGLoader } from "three/examples/jsm/loaders/SVGLoader.js";
 import type { Light3D, Material3D, Object3D, Scene3D, Shape3D, Text3D } from "@core/scene";
 import type { OutlineFonts } from "../outlines";
 
+/**
+ * What a render draws. `beauty`: the look. `id`: unlit pure colours per object (others black,
+ * still occluding) for puzzle mattes. `depth`: view depth as grey, white = `near`, black = `far`.
+ */
+export type PassMode = { kind: "beauty" } | { kind: "id"; colors: Record<string, [number, number, number]> } | { kind: "depth"; near: number; far: number };
+
+const DEPTH_VERTEX = `varying float vDepth;
+void main() { vec4 v = modelViewMatrix * vec4(position, 1.0); vDepth = -v.z; gl_Position = projectionMatrix * v; }`;
+const DEPTH_FRAGMENT = `uniform float near; uniform float far; varying float vDepth;
+void main() { float g = 1.0 - clamp((vDepth - near) / max(far - near, 1e-3), 0.0, 1.0); gl_FragColor = vec4(vec3(g), 1.0); }`;
+
 /** Largest side of the pass in device px (memory and speed). */
 const MAX_PX = 4096;
 
@@ -37,31 +48,40 @@ export class ScenePass {
   }
 
   /** Render the scene at `w` × `h` device px. Returns the canvas holding the pixels. */
-  render(data: Scene3D, w: number, h: number): OffscreenCanvas {
+  render(data: Scene3D, w: number, h: number, mode: PassMode = { kind: "beauty" }): OffscreenCanvas {
     const k = Math.min(1, MAX_PX / Math.max(w, h));
     const pw = Math.max(2, Math.round(w * k)), ph = Math.max(2, Math.round(h * k));
+    const beauty = mode.kind === "beauty";
 
     const scene = new THREE.Scene();
     const disposable: THREE.Material[] = [];
-    this.environment(scene, data);
+    if (beauty) this.environment(scene, data);
     for (const o of data.objects) {
       const geo = this.geometry(o);
-      if (!geo) continue;
-      const mat = this.material(o.material, o.opacity);
+      if (!geo || (!beauty && o.opacity <= 0.01)) continue;
+      const mat =
+        mode.kind === "id"
+          ? new THREE.MeshBasicMaterial({ color: new THREE.Color().setRGB(...(mode.colors[o.node] ?? [0, 0, 0]), THREE.LinearSRGBColorSpace), toneMapped: false })
+          : mode.kind === "depth"
+            ? new THREE.ShaderMaterial({ vertexShader: DEPTH_VERTEX, fragmentShader: DEPTH_FRAGMENT, uniforms: { near: { value: mode.near }, far: { value: mode.far } } })
+            : this.material(o.material, o.opacity);
       disposable.push(mat);
       const mesh = new THREE.Mesh(geo, mat);
       mesh.matrixAutoUpdate = false;
       mesh.matrix.fromArray(o.matrix);
-      mesh.castShadow = mesh.receiveShadow = data.shadows && o.material.kind !== "solid";
+      mesh.castShadow = mesh.receiveShadow = beauty && data.shadows && o.material.kind !== "solid";
       scene.add(mesh);
     }
-    for (const l of data.lights) this.light(scene, l, data);
+    if (beauty) for (const l of data.lights) this.light(scene, l, data);
 
     const cam = camera(data);
 
     this.renderer.setRenderTarget(null);
     this.renderer.setSize(pw, ph, false);
     this.renderer.setViewport(0, 0, pw, ph);
+    // mattes and depth are data: no colour conversion, no tone mapping
+    this.renderer.outputColorSpace = beauty ? THREE.SRGBColorSpace : THREE.LinearSRGBColorSpace;
+    this.renderer.toneMapping = beauty ? THREE.NeutralToneMapping : THREE.NoToneMapping;
     this.renderer.render(scene, cam);
     for (const m of disposable) m.dispose();
     scene.traverse((o) => (o as { shadow?: { dispose?: () => void } }).shadow?.dispose?.());
@@ -111,6 +131,24 @@ export class ScenePass {
           u0 = Math.min(u0, u), v0 = Math.min(v0, v), u1 = Math.max(u1, u), v1 = Math.max(v1, v);
         }
     return [u0, v0, u1, v1];
+  }
+
+  /** Nearest and farthest view depth of the scene's objects (bounding spheres), for a depth pass range. */
+  depthRange(data: Scene3D): [number, number] | undefined {
+    const cam = camera(data);
+    cam.updateMatrixWorld(true);
+    let near = Infinity, far = -Infinity;
+    for (const o of data.objects) {
+      const geo = this.geometry(o);
+      if (!geo || o.opacity <= 0.01) continue;
+      if (!geo.boundingSphere) geo.computeBoundingSphere();
+      const m = new THREE.Matrix4().fromArray(o.matrix);
+      const c = geo.boundingSphere!.center.clone().applyMatrix4(m).applyMatrix4(cam.matrixWorldInverse);
+      const r = geo.boundingSphere!.radius * m.getMaxScaleOnAxis();
+      near = Math.min(near, -c.z - r);
+      far = Math.max(far, -c.z + r);
+    }
+    return near === Infinity ? undefined : [Math.max(1, near), far];
   }
 
   /**

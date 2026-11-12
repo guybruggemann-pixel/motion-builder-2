@@ -7,7 +7,8 @@ import { describe, expect, it } from "vitest";
 import { approxMeasure, evaluateFrame, lowerThird, lowerThirdFit, title3d, type Drawable } from "@core/scene";
 import { bake, type Baked } from "@/export/bake";
 import { buildAePlan, postScriptName, type AePlan } from "@/export/aePlan";
-import { aeScript } from "@/export/exportAe";
+import { aeScript, passesScript } from "@/export/exportAe";
+import { planPasses } from "@/render/passes/plan";
 
 /* ---------- a recording mock of the bits of AE's DOM the script uses ---------- */
 
@@ -62,6 +63,13 @@ class Layer extends Prop {
   startTime = 0;
   inPoint = 0;
   outPoint = 0;
+  owner?: Layer[];
+  /** AE: move this layer just below `other` (the layer list is top first). */
+  moveAfter(other: Layer) {
+    const a = this.owner!;
+    a.splice(a.indexOf(this), 1);
+    a.splice(a.indexOf(other) + 1, 0, this);
+  }
   constructor(public kind: string, public source?: unknown) {
     super("layer");
   }
@@ -74,7 +82,7 @@ class Comp {
   bgColor: unknown;
   constructor(public name: string, public width: number, public height: number, public pa: number, public duration: number, public frameRate: number) {
     this.frameDuration = 1 / frameRate;
-    const add = (L: Layer) => (this.layers.unshift(L), L); // AE puts a new layer on top
+    const add = (L: Layer) => (this.layers.unshift(L), (L.owner = this.layers), L); // AE puts a new layer on top
     Object.assign(this.layers, {
       addText: (s: string) => {
         const L = add(new Layer("text"));
@@ -261,5 +269,27 @@ describe("AE export of 3D scene layers", () => {
 
   it("says which passes are missing instead of failing silently", () => {
     expect(() => runInMockAe(aeScript(plan3d))).toThrow(/Main_v01_Title_scene_3d\.mov/);
+  });
+});
+
+describe("AE passes assembly script", () => {
+  const plan = planPasses(title3d, "main", { mattes: true, puzzle: true, depth: true });
+  const files = plan.outputs.map((o) => o.file);
+
+  it("puts the beauty layers in paint order and the rest in a hidden, shy Mattes precomp", () => {
+    const comps = runInMockAe(passesScript(plan), files);
+    expect(comps.map((c) => c.name)).toEqual(["Main_v01", "Main_v01 · Mattes"]);
+    const [main, mattes] = comps as unknown as (Comp & { comment?: string })[];
+    // AE stacks new layers on top: Mattes, then the label above the scene, the depth map hidden under the scene
+    expect(main!.layers.map((l) => l.name)).toEqual(["Mattes", "Label", "Title scene", "Depth · Title scene"]);
+    expect(main!.layers[0]).toMatchObject({ enabled: false, shy: true });
+    expect(main!.layers.find((l) => l.name.startsWith("Depth"))).toMatchObject({ enabled: false, shy: true });
+    expect(mattes!.layers.map((l) => l.name)).toContain("Matte · Title scene · Title");
+    expect(main!.comment).toMatch(/R Label \/ G Title scene · Title/);
+    expect(comps.imports).toHaveLength(files.length); // each pass imported once
+  });
+
+  it("names the passes that are missing", () => {
+    expect(() => runInMockAe(passesScript(plan), files.slice(1))).toThrow(new RegExp(files[0]!.replace(/\./g, "\\.")));
   });
 });

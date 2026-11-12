@@ -5,6 +5,7 @@
  */
 import { FrameCache, type Mat, type MeasureText, type SceneDoc } from "@core/scene";
 import { drawFrame, shutterSamples } from "./canvas2d";
+import { ownerIn } from "./bounds";
 
 export interface RenderOptions {
   /** Output size in px; the comp is scaled to fit. Defaults to the comp size. */
@@ -15,6 +16,12 @@ export interface RenderOptions {
   /** Opaque background colour, or undefined to keep alpha (the comp background is drawn if set). */
   background?: string;
   measure: MeasureText;
+  /** Never draw a background, even for a comp that has one (AE passes keep alpha). */
+  transparent?: boolean;
+  /** Draw only drawables owned by these nodes of the network (a layer on its own, for AE passes). */
+  only?: ReadonlySet<string>;
+  /** How 3D scene layers draw (AE passes: ID colours, depth). */
+  scene3d?: unknown;
   /** Frames [from, to), defaults to the whole comp. */
   from?: number;
   to?: number;
@@ -44,7 +51,7 @@ export function renderComp(doc: SceneDoc, networkId: string, opts: RenderOptions
   const g = canvas.getContext("2d", { willReadFrequently: true }) as Ctx2D;
   // Only a comp has a background; a subnet rendered on its own (a 3D pass, a precomp) keeps alpha.
   const own = net?.comp?.background;
-  const bg = opts.background ?? (own?.startsWith("brand:") ? doc.brand?.colors.find((c) => c.token === own.slice(6))?.value : own);
+  const bg = opts.transparent ? undefined : opts.background ?? (own?.startsWith("brand:") ? doc.brand?.colors.find((c) => c.token === own.slice(6))?.value : own);
 
   const one = (f: number) => {
     g.setTransform(1, 0, 0, 1, 0, 0);
@@ -53,7 +60,8 @@ export function renderComp(doc: SceneDoc, networkId: string, opts: RenderOptions
       g.fillStyle = bg;
       g.fillRect(0, 0, width, height);
     }
-    drawFrame(g, cache.frame(doc, networkId, f), view);
+    const all = cache.frame(doc, networkId, f);
+    drawFrame(g, opts.only ? all.filter((d) => opts.only!.has(ownerIn(networkId, d))) : all, view, { scene3d: opts.scene3d });
     return g.getImageData(0, 0, width, height).data;
   };
 
