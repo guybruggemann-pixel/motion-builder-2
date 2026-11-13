@@ -54,27 +54,13 @@ const SCHEMA = {
 export const describeMotion = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => Input.parse(d))
   .handler(async ({ data }) => {
-    const { generateResponse, GatewayError, PaymentRequiredError, RateLimitError } = await import("@lovable.dev/ai-gateway");
-    try {
-      const res = await generateResponse({
-        model: "openai/gpt-6-astra",
-        instructions: SYSTEM,
-        input: `Layer: ${JSON.stringify(data.context)}\n\nDesired animation: ${data.prompt}`,
-        text: { format: { type: "json_schema", name: "motion", schema: SCHEMA as unknown as Record<string, unknown>, strict: true } },
-      });
-      const text = (res.output ?? [])
-        .flatMap((o) => (o.type === "message" ? o.content : []))
-        .map((c) => (c.type === "output_text" ? c.text : ""))
-        .join("");
-      if (!text) return { ok: false as const, error: "The model gave no answer. Try again or rephrase." };
-      return { ok: true as const, json: text };
-    } catch (e) {
-      if (e instanceof GatewayError) {
-        const msg =
-          e instanceof PaymentRequiredError ? "AI credits are used up for this workspace." : e instanceof RateLimitError ? "Too many requests right now. Wait a moment and try again." : "The AI request failed. Try again.";
-        console.error("describeMotion", e.code, e.httpStatus, e.ids);
-        return { ok: false as const, error: msg };
-      }
-      throw e;
-    }
+    const { generate } = await import("./provider");
+    return generate({
+      task: "describe-motion",
+      name: "motion",
+      instructions: SYSTEM,
+      input: [{ type: "text", text: `Layer: ${JSON.stringify(data.context)}\n\nDesired animation: ${data.prompt}` }],
+      schema: SCHEMA as unknown as Record<string, unknown>,
+      check: (v) => (Array.isArray((v as { tracks?: unknown }).tracks) ? null : "no tracks"),
+    });
   });
