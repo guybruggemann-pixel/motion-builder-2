@@ -39,5 +39,9 @@ and WebGL 3D rely on them.
 
 ## Known limits
 
-The AI features ("Describe the motion", prompt drafts, picture and video rebuilds) call Lovable's
-AI gateway (`@lovable.dev/ai-gateway`, `LOVABLE_API_KEY`) and only work inside Lovable for now.
+The AI features ("Describe the motion", prompt drafts, picture and video rebuilds) go through one
+server-side provider (`src/lib/ai/provider.ts`, rules in `src/lib/ai/AGENTS.md`). Copy
+`.env.example` to `.env` and set `GEMINI_API_KEY`; without a key, requests wait in `.ai-bridge/`
+for a Claude Code session to answer (`AI_PROVIDER=bridge`), and tests play back saved answers
+(`AI_PROVIDER=replay`).
+

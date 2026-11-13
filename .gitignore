@@ -30,3 +30,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local secrets (API keys): never commit
+.env
+.env.*
+!.env.example
+
+# AI bridge requests and answers (local only)
+.ai-bridge/

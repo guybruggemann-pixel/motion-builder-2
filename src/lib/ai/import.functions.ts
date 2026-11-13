@@ -35,38 +35,19 @@ const SPEC = {
 const Layer = z.object({ node: z.string().max(64), name: z.string().max(80), role: z.string().max(30).optional(), type: z.string().max(30), text: z.string().max(2000).optional(), font: z.string().max(200).optional(), span: z.tuple([z.number(), z.number()]), params: z.array(z.object({ name: z.string(), kind: z.string(), value: z.union([z.number(), z.string(), z.boolean(), z.array(z.number())]), min: z.number().optional(), max: z.number().optional() })).max(40) });
 const Composition = z.object({ width: z.number(), height: z.number(), fps: z.number(), duration: z.number() });
 
-async function ask(instructions: string, content: ({ type: "input_text"; text: string } | { type: "input_image"; image_url: string; detail: "high" | "low" | "auto" })[], name: string, schema: Record<string, unknown>) {
-  const { generateResponse, GatewayError, PaymentRequiredError, RateLimitError } = await import("@lovable.dev/ai-gateway");
-  try {
-    const res = await generateResponse({
-      model: "openai/gpt-6-astra",
-      instructions,
-      input: [{ role: "user", content }],
-      text: { format: { type: "json_schema", name, schema, strict: false } },
-    });
-    const text = (res.output ?? [])
-      .flatMap((o) => (o.type === "message" ? o.content : []))
-      .map((c) => (c.type === "output_text" ? c.text : ""))
-      .join("");
-    if (!text) return { ok: false as const, error: "The model gave no answer. Try again or rephrase." };
-    return { ok: true as const, json: text };
-  } catch (e) {
-    if (e instanceof GatewayError) {
-      console.error(name, e.code, e.httpStatus, e.ids);
-      return {
-        ok: false as const,
-        error: e instanceof PaymentRequiredError ? "AI credits are used up for this workspace." : e instanceof RateLimitError ? "Too many requests right now. Wait a moment and try again." : "The AI request failed. Try again.",
-      };
-    }
-    throw e;
-  }
+type Part = { type: "text"; text: string } | { type: "image"; dataUrl: string };
+
+/** Sends one request through the app's AI provider (`provider.ts`); the tier comes from the task. */
+async function ask(task: "draft" | "reference", instructions: string, input: Part[], name: string, schema: Record<string, unknown>) {
+  const { generate } = await import("./provider");
+  return generate({ task, instructions, input, name, schema, check: (v) => (v && typeof v === "object" ? null : "not an object") });
 }
 
 /** A first animation for these layers from a description. */
 export const draftFromPrompt = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ prompt: z.string().min(1).max(2000), layers: z.array(Layer).max(60), comp: Composition }).parse(d))
   .handler(({ data }) =>
-    ask(MOTION_RULES, [{ type: "input_text", text: `Composition: ${JSON.stringify(data.comp)}\nLayers (back to front): ${JSON.stringify(data.layers)}\n\nDesired animation: ${data.prompt}` }], "draft", SPEC as unknown as Record<string, unknown>),
+    ask("draft", MOTION_RULES, [{ type: "text", text: `Composition: ${JSON.stringify(data.comp)}\nLayers (back to front): ${JSON.stringify(data.layers)}\n\nDesired animation: ${data.prompt}` }], "draft", SPEC as unknown as Record<string, unknown>),
   );
 
 const REFERENCE = {
@@ -139,11 +120,11 @@ Reference motion grammar: wave posters = tight condensed/slanted rows and contin
 ${data.design ? "A separate design is supplied. DO NOT REBUILD OR SUBSTITUTE ITS LAYOUT. Set pattern.kind=none, layers=[], photo=false. Read the reference's animation then return draft.byLayer for the supplied design's node ids and actual base params. Preserve its fonts, words, dimensions and assets. If the reference requires deformable 3D or a multi-scene construction unavailable on these layers, state that limitation in summary rather than claiming a faithful transfer." : ""}
 summary: describe the actual supported result and explicitly mention unreconstructed photos/artwork, approximate fonts, unsupported deformation or reduced showcases; don't claim exact fidelity.`;
     const content = [
-      { type: "input_text" as const, text: `${video ? "Video frames" : "Reference picture"}. Source duration: ${data.duration ?? "unknown"}s.${data.design ? ` Supplied design: ${JSON.stringify(data.design)}` : ""}${data.prompt ? ` The designer adds: ${data.prompt}` : ""}` },
+      { type: "text" as const, text: `${video ? "Video frames" : "Reference picture"}. Source duration: ${data.duration ?? "unknown"}s.${data.design ? ` Supplied design: ${JSON.stringify(data.design)}` : ""}${data.prompt ? ` The designer adds: ${data.prompt}` : ""}` },
       ...data.frames.flatMap((f) => [
-        ...(video ? [{ type: "input_text" as const, text: `t = ${f.t.toFixed(2)}s` }] : []),
-        { type: "input_image" as const, image_url: f.image, detail: "high" as const },
+        ...(video ? [{ type: "text" as const, text: `t = ${f.t.toFixed(2)}s` }] : []),
+        { type: "image" as const, dataUrl: f.image },
       ]),
     ];
-    return ask(instructions, content, "reference", REFERENCE as unknown as Record<string, unknown>);
+    return ask("reference", instructions, content, "reference", REFERENCE as unknown as Record<string, unknown>);
   });
