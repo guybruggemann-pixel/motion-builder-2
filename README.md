@@ -1,29 +1,43 @@
-# Welcome to your Lovable project
+# Motion Builder 2.0
 
-This project was built with [Lovable](https://lovable.dev).
+A browser motion-design app for a small team (2 motion designers, 2 designers): drop in a design,
+get it rebuilt as editable layers and node networks, refine with keyframes, cloners, fields and a
+Cinema 4D-style 3D layer, and deliver ProRes 4444 / MP4, batches from a Google Sheet, or After
+Effects passes with AOVs.
 
-## Build with Lovable
+Built in Claude Code and Lovable; this repo is the source of truth.
 
-Open your project in the [Lovable editor](https://lovable.dev) and keep building.
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: connect the project to GitHub and every change made in Lovable is committed straight to your repository.
-- **Full ownership**: this code is yours. Push to your repository and your changes sync back into Lovable, ready for your next prompt.
-
-## Development
-
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+## Run it (use bun)
 
 ```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
+bun install
+bun run dev          # http://localhost:8080
+bun run test         # app tests + the engine suite (vitest.mb.config.ts)
+bun run test:engine  # engine suite only
+bun run typecheck
+bun run build
 ```
 
-## Built with
+`npm install` fails on this tree (an npm bug with the `overrides` field), so there is no
+`package-lock.json`; `bun.lock` is the lockfile. Use Chrome or Edge: folder export, WebCodecs MP4
+and WebGL 3D rely on them.
 
-- TanStack Start
-- TypeScript
-- React
-- Tailwind CSS
+## Read first
+
+- `CLAUDE.md` (same content as `MOTION_BUILDER_RULES.md`): the project rules.
+- `docs/HANDOVER.md`: architecture, data model, UI, outputs, lessons, next steps.
+- `docs/plan.md`, `roadmap.md`, `docs/decisions.md`: roadmap and decision log.
+- `src/core/AGENTS.md`, `src/app/AGENTS.md`, `AGENTS.md`: folder rules.
+
+## Layout
+
+- `src/core`: the pure, deterministic engine (scene doc schema, evaluation, cloners, presets).
+  No UI, DOM or renderer imports; runs in Node for tests.
+- `src/app`: the editor UI (React, zustand), renderers (Canvas 2D, three.js), exporters.
+  Loaded browser-only through TanStack Start (`src/routes/index.tsx`).
+- `test/`: the engine suite. `src/**/*.test.*`: app tests.
+
+## Known limits
+
+The AI features ("Describe the motion", prompt drafts, picture and video rebuilds) call Lovable's
+AI gateway (`@lovable.dev/ai-gateway`, `LOVABLE_API_KEY`) and only work inside Lovable for now.
