@@ -40,6 +40,10 @@ export interface ClonerSpec {
   align: boolean;
   /** Grid: odd rows move +x, even rows −x by this much (rows sliding past each other). */
   rowSlide: number;
+  /** Grid: extra x per row, px. */
+  rowOffset?: number;
+  /** Grid: x scroll already multiplied by time, px; wraps within the row length. */
+  scroll?: number;
 }
 
 const n = (v: number) => Math.max(1, Math.round(v));
@@ -54,9 +58,14 @@ export function makeClones(c: ClonerSpec): Clone[] {
     for (let z = 0; z < cz; z++)
       for (let y = 0; y < cy; y++)
         for (let x = 0; x < cx; x++) {
-          const slide = (y % 2 ? 1 : -1) * c.rowSlide;
+          const slide = (y % 2 ? 1 : -1) * c.rowSlide + (c.rowOffset ?? 0) * (y - (cy - 1) / 2);
+          let px = (x - (cx - 1) / 2) * c.spacing[0] + slide;
+          if (c.scroll) {
+            const W = cx * c.spacing[0];
+            px = W > 0 ? ((((px + c.scroll + W / 2) % W) + W) % W) - W / 2 : px;
+          }
           // rows go down from the top (y up in the world)
-          out.push(base(i++, [(x - (cx - 1) / 2) * c.spacing[0] + slide, ((cy - 1) / 2 - y) * c.spacing[1], (z - (cz - 1) / 2) * c.spacing[2]]));
+          out.push(base(i++, [px, ((cy - 1) / 2 - y) * c.spacing[1], (z - (cz - 1) / 2) * c.spacing[2]]));
         }
   } else if (c.mode === "linear") {
     const cnt = n(c.count[0]);
@@ -81,6 +90,7 @@ export function makeClones(c: ClonerSpec): Clone[] {
 export type FieldSpec =
   | { kind: "linear"; position: [number, number, number]; axis: 0 | 1 | 2; sign: 1 | -1; length: number; invert: boolean }
   | { kind: "spherical"; position: [number, number, number]; radius: number; falloff: number; invert: boolean }
+  | { kind: "wave"; position: [number, number, number]; angle: number; wavelength: number; phase: number; invert: boolean }
   | { kind: "noise"; scale: number; speed: number; seed: number; t: number; invert: boolean };
 
 const clamp01 = (x: number) => (x < 0 ? 0 : x > 1 ? 1 : x);
@@ -107,6 +117,10 @@ export function fieldWeight(f: FieldSpec, p: readonly [number, number, number]):
     const d = Math.hypot(p[0] - f.position[0], p[1] - f.position[1], p[2] - f.position[2]);
     const inner = f.radius * (1 - clamp01(f.falloff));
     w = d <= inner ? 1 : d >= f.radius ? 0 : smooth(1 - (d - inner) / Math.max(1e-6, f.radius - inner));
+  } else if (f.kind === "wave") {
+    const a = (f.angle * Math.PI) / 180;
+    const u = (p[0] - f.position[0]) * Math.cos(a) + (p[1] - f.position[1]) * Math.sin(a);
+    w = 0.5 + 0.5 * Math.sin((2 * Math.PI * u) / Math.max(1, f.wavelength) + f.phase);
   } else {
     const k = 1 / Math.max(1, f.scale);
     w = noise3(p[0] * k, p[1] * k, p[2] * k + f.t * f.speed, f.seed);

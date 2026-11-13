@@ -9,6 +9,8 @@ export interface PassOptions {
   mattes: boolean;
   puzzle: boolean;
   depth: boolean;
+  /** Camera-space normals per 3D scene, for relighting in AE. */
+  normals?: boolean;
 }
 
 export interface PassElement {
@@ -26,7 +28,7 @@ export interface PassElement {
 
 export interface PassOutput {
   file: string;
-  kind: "beauty" | "matte" | "puzzle" | "depth";
+  kind: "beauty" | "matte" | "puzzle" | "depth" | "normal";
   name: string;
   /** beauty / matte: the element; depth: the scene layer. */
   element?: string;
@@ -88,6 +90,9 @@ export function planPasses(doc: SceneDoc, networkId: string, o: PassOptions): Pa
   if (o.depth)
     for (const e of elements.filter((x) => x.kind === "layer" && layers.find((n) => n.id === x.node)?.type === "Scene3D"))
       outputs.push({ file: file(`${prefix}_${safe(e.name)}_depth`), kind: "depth", name: `Depth · ${e.name}`, element: e.id, in: e.in, out: e.out });
+  if (o.normals)
+    for (const e of elements.filter((x) => x.kind === "layer" && layers.find((n) => n.id === x.node)?.type === "Scene3D"))
+      outputs.push({ file: file(`${prefix}_${safe(e.name)}_normals`), kind: "normal", name: `Normals · ${e.name}`, element: e.id, in: e.in, out: e.out });
 
   return { comp: { id: net.id, name: net.name, width: comp.width, height: comp.height, fps: comp.fps, duration, frames, background }, elements, outputs };
 }

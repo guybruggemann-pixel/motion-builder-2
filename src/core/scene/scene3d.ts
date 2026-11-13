@@ -8,6 +8,7 @@
  * - Extrusions span z from -depth/2 to +depth/2 in object space.
  * - The default camera (none in the scene) sits on +z and shows the z = 0 plane 1:1 at 50 mm.
  */
+import type { DeformSpec } from "./deform";
 import type { FontSpec, Run } from "./text";
 
 export type Mat4 = number[]; // 16, column-major
@@ -42,6 +43,8 @@ interface Object3DBase {
    * object at `matrix`. A clone's colour replaces the material's colour.
    */
   clones?: { matrix: Mat4; color?: string; opacity: number }[];
+  /** Shape deformers in scene space, applied after `matrix` / the clones (renderers deform vertices). */
+  deformers?: DeformSpec[];
   /** The Cloner that made the clones, and its matrix (so it can be picked and moved as a whole). */
   cloner?: { node: string; matrix: Mat4 };
 }
@@ -57,7 +60,7 @@ export interface Text3D extends Object3DBase {
 
 export interface Shape3D extends Object3DBase {
   kind: "shape";
-  shape: "rect" | "ellipse" | "path";
+  shape: "rect" | "ellipse" | "path" | "capsule";
   size: [number, number];
   radius: number;
   path: string;

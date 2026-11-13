@@ -24,11 +24,11 @@ import {
 import "@xyflow/react/dist/base.css";
 import { Layers } from "lucide-react";
 import { CATALOG, isNodeType, portsOf, type Category, type Node } from "@core/scene";
-import { NodeCard } from "@/design-system/motionbuilder---brandbook-c4b4eb";
-import { cn } from "@/design-system/motionbuilder---brandbook-c4b4eb/lib/utils";
-import { docStore, shownNetwork, useDocStore, useUi } from "@/store";
-import { openSubnet } from "@/store/navigation";
-import { connect, deleteNodes, disconnect, moveNodes } from "./edits";
+import { NodeCard } from "@/app/design-system/motionbuilder---brandbook-c4b4eb";
+import { cn } from "@/app/design-system/motionbuilder---brandbook-c4b4eb/lib/utils";
+import { docStore, shownNetwork, useDocStore, useUi } from "@/app/store";
+import { openSubnet } from "@/app/store/navigation";
+import { connect, deleteNodes, disconnect, moveNodes, reconnect } from "./edits";
 
 const CATEGORY: Record<Category, "generator" | "cloner" | "effector" | "field" | "math"> = {
   layer: "generator",
@@ -104,6 +104,9 @@ function Graph() {
   const net = shownNetwork(doc, path);
   const flow = useReactFlow();
   const dragKey = useRef<string | undefined>(undefined);
+  const reconnectDone = useRef(false);
+  const [selectedEdges, setSelectedEdges] = useState<string[]>([]);
+  useEffect(() => setSelectedEdges([]), [net.id]);
 
   // xyflow's controlled pattern: a local node list that takes xyflow's own changes (measured
   // sizes, drag positions) and is re-synced from the doc on every edit, keeping what xyflow measured.
@@ -128,12 +131,13 @@ function Graph() {
       net.wires.map((w, i) => ({
         id: `${w.from.node}>${w.to.node}#${i}`,
         source: w.from.node,
+        selected: selectedEdges.includes(`${w.from.node}>${w.to.node}#${i}`),
         target: w.to.node,
         targetHandle: w.to.port === "in" ? undefined : w.to.port,
         type: "default",
         className: w.to.port === "material" ? "[&_path]:!stroke-[var(--color-node-field)] [&_path]:[stroke-dasharray:5_4] [&.selected_path]:!stroke-ink" : "[&_path]:!stroke-wire [&.selected_path]:!stroke-ink",
       })),
-    [net],
+    [net, selectedEdges],
   );
 
   const onNodesChange = useCallback(
@@ -160,12 +164,20 @@ function Graph() {
 
   const onEdgesChange = useCallback(
     (changes: EdgeChange[]) => {
+      setSelectedEdges((previous) => {
+        const ids = new Set(previous);
+        for (const change of changes) {
+          if (change.type === "select") change.selected ? ids.add(change.id) : ids.delete(change.id);
+          if (change.type === "remove") ids.delete(change.id);
+        }
+        return [...ids];
+      });
       const gone = changes.flatMap((c) => (c.type === "remove" ? [c.id] : []));
       if (!gone.length) return;
-      const wires = gone.map((id) => ({ from: id.split(">")[0]!, to: id.split(">")[1]!.split("#")[0]! }));
+      const wires = edges.filter((edge) => gone.includes(edge.id)).map((edge) => ({ from: edge.source, to: edge.target, port: edge.targetHandle ?? "in" }));
       docStore.getState().edit(gone.length > 1 ? "Delete wires" : "Delete wire", (d) => disconnect(d, net.id, wires));
     },
-    [net.id],
+    [net.id, edges],
   );
 
   const onConnect = useCallback(
@@ -193,9 +205,22 @@ function Graph() {
       onNodesChange={onNodesChange}
       onEdgesChange={onEdgesChange}
       onConnect={onConnect}
+      onReconnectStart={() => { reconnectDone.current = false; }}
+      onReconnect={(edge, connection) => {
+        reconnectDone.current = true;
+        docStore.getState().edit("Reconnect wire", (d) => reconnect(d, net.id,
+          { from: edge.source, to: edge.target, port: edge.targetHandle ?? "in" },
+          { from: connection.source, to: connection.target, port: connection.targetHandle ?? "in" }));
+      }}
+      onReconnectEnd={(event, edge, _handle, state) => {
+        const target = event.target;
+        if (!reconnectDone.current && !state.toNode && target instanceof Element && target.closest(".react-flow__pane")) {
+          docStore.getState().edit("Detach wire", (d) => disconnect(d, net.id, [{ from: edge.source, to: edge.target, port: edge.targetHandle ?? "in" }]));
+        }
+      }}
       onNodesDelete={onNodesDelete}
       onNodeDoubleClick={(_, n) => n.data.node.subnet && openSubnet(n.data.node)}
-      onPaneClick={() => useUi.getState().selectNodes([])}
+      onPaneClick={() => { useUi.getState().selectNodes([]); setSelectedEdges([]); }}
       deleteKeyCode={["Delete", "Backspace"]}
       fitView
       fitViewOptions={{ padding: 0.25 }}

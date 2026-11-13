@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { evaluateFrame, lowerThird, type TextDrawable } from "@core/scene";
-import { createDocStore } from "@/store/docStore";
-import { addModifier, removeModifier, resetParam, setComp, setKeyEase, setNodeProps, setValue, toggleKey, updateModifier } from "@/inspector/edits";
+import { createDocStore } from "@/app/store/docStore";
+import { addModifier, removeModifier, resetParam, setComp, setKeyEase, setNodeProps, setValue, toggleKey, updateModifier } from "@/app/inspector/edits";
 
 const NET = "lower-third";
 const TOL = 0.02; // half a frame at 25 fps

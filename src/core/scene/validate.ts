@@ -81,6 +81,7 @@ export function validateDoc(input: unknown): ValidateResult {
         portCounts.set(key, (portCounts.get(key) ?? 0) + 1);
         const from = net.nodes.find((x) => x.id === w.from.node);
         if (w.to.port === "material" && from && from.type !== "Material") errors.push(`${net.id}/${w.to.node}: only a Material can feed the material input (got ${from.type})`);
+        if (w.to.port === "deformer" && from && from.type !== "Deformer") errors.push(`${net.id}/${w.to.node}: only a Deformer can feed the deformer input (got ${from.type})`);
         if (w.to.port === "field" && from && !(isNodeType(from.type) && CATALOG[from.type].category === "field")) errors.push(`${net.id}/${w.to.node}: only a field can feed the field input (got ${from.type})`);
         continue;
       }
@@ -92,6 +93,8 @@ export function validateDoc(input: unknown): ValidateResult {
       const to = net.nodes.find((x) => x.id === w.to.node);
       if (from?.type === "Material" && to && w.to.port !== "material")
         errors.push(`${net.id}/${w.from.node}: a Material only wires into a material input`);
+      if (from?.type === "Deformer" && to && w.to.port !== "deformer")
+        errors.push(`${net.id}/${w.from.node}: a Deformer only wires into a deformer input`);
       if (from && isNodeType(from.type) && CATALOG[from.type].category === "field" && to && w.to.port !== "field")
         errors.push(`${net.id}/${w.from.node}: a field only wires into a field input`);
     }

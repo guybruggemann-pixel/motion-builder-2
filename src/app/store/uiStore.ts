@@ -63,12 +63,18 @@ export interface UiState {
   theme: Theme;
   /** The Library card next to the viewer (opened from the rail). */
   libraryOpen: boolean;
+  libraryTab: "materials" | "presets" | "brand" | "comps" | "assets";
+  openLibrary(tab: "materials" | "presets" | "brand" | "comps" | "assets"): void;
+  setLibraryTab(tab: "materials" | "presets" | "brand" | "comps" | "assets"): void;
   /** Preview the comp's alpha on a checkerboard instead of its background colour. */
   transparency: boolean;
   panes: Panes;
   /** The bottom card's tab. The contextual toolbar and the inspector's ease cards open the Graph. */
   bottomTab: BottomTab;
   setBottomTab(tab: BottomTab): void;
+  /** The flow screen shown (Import, Draft, Refine). View state: never changes the doc by itself. */
+  screen: "import" | "draft" | "refine";
+  setScreen(screen: "import" | "draft" | "refine"): void;
   /** What dragging a selected object in the viewer does (Cinema 4D: E move, R turn). */
   tool: Tool;
   setTool(tool: Tool): void;
@@ -104,10 +110,15 @@ export const sameKey = (a: KeyRef, b: KeyRef) => a.node === b.node && a.param ==
 export const useUi = create<UiState>()((set) => ({
   theme: stored("mb.theme") === "dark" ? "dark" : "light",
   libraryOpen: stored("mb.library") !== "closed",
+  libraryTab: "materials",
+  openLibrary: (libraryTab) => { store("mb.library", "open"); set({ libraryOpen: true, libraryTab }); },
+  setLibraryTab: (libraryTab) => set({ libraryTab }),
   transparency: false,
   panes: storedPanes(),
   bottomTab: "network",
   setBottomTab: (bottomTab) => set({ bottomTab }),
+  screen: "refine",
+  setScreen: (screen) => set({ screen }),
   tool: "move",
   setTool: (tool) => set({ tool }),
   setPane: (key, px, save) =>

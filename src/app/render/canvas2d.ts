@@ -63,7 +63,30 @@ function perimeter(d: ShapeDrawable): number | undefined {
     const a = Math.abs(w) / 2, b = Math.abs(h) / 2; // Ramanujan
     return Math.PI * (3 * (a + b) - Math.sqrt((3 * a + b) * (a + 3 * b)));
   }
-  return undefined; // SVG paths: trim not drawn yet
+  // polyline paths (M/L only): sum the segments; other SVG paths aren't trimmed yet
+  if (/^[ML\d\s.,eE+-]+$/.test(d.path)) {
+    const n = d.path.match(/-?\d*\.?\d+(?:e[+-]?\d+)?/gi)?.map(Number) ?? [];
+    let len = 0;
+    for (let i = 2; i + 1 < n.length; i += 2) len += Math.hypot(n[i]! - n[i - 2]!, n[i + 1]! - n[i - 1]!);
+    return len || undefined;
+  }
+  return undefined;
+}
+
+/** The fill as a canvas paint: flat colour, or a gradient across the box [0, 0] to [w, h]. */
+function paint(ctx: Ctx2D, fill: string, g: { type: "linear" | "radial"; to: string; angle: number } | undefined, w: number, h: number): string | CanvasGradient {
+  if (!g) return fill;
+  const cx = w / 2, cy = h / 2;
+  let grad: CanvasGradient;
+  if (g.type === "radial") grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(1, Math.hypot(w, h) / 2));
+  else {
+    const a = (g.angle * Math.PI) / 180, dx = Math.cos(a), dy = Math.sin(a);
+    const half = (Math.abs(w * dx) + Math.abs(h * dy)) / 2 || 1;
+    grad = ctx.createLinearGradient(cx - dx * half, cy - dy * half, cx + dx * half, cy + dy * half);
+  }
+  grad.addColorStop(0, fill);
+  grad.addColorStop(1, g.to);
+  return grad;
 }
 
 function drawShape(ctx: Ctx2D, d: ShapeDrawable) {
@@ -76,7 +99,7 @@ function drawShape(ctx: Ctx2D, d: ShapeDrawable) {
     path.lineTo(w, h);
   }
   if (d.shape !== "line") {
-    ctx.fillStyle = d.fill;
+    ctx.fillStyle = paint(ctx, d.fill, d.gradient, w, h);
     ctx.fill(path);
   }
   if (d.strokeWidth > 0) {
@@ -118,8 +141,24 @@ export function drawFrame(ctx: Ctx2D, drawables: readonly Drawable[], view: Mat,
         ctx.letterSpacing = `${d.tracking}px`;
         ctx.textBaseline = "alphabetic";
         ctx.textAlign = "left";
-        ctx.fillStyle = d.fill;
-        ctx.fillText(d.text, 0, 0);
+        if (d.gradient) {
+          // box of the run: its measured width, cap height above the baseline
+          const m = ctx.measureText(d.text);
+          ctx.save();
+          ctx.translate(0, -m.actualBoundingBoxAscent);
+          ctx.fillStyle = paint(ctx, d.fill, d.gradient, m.width, m.actualBoundingBoxAscent + m.actualBoundingBoxDescent);
+          ctx.fillText(d.text, 0, m.actualBoundingBoxAscent);
+          ctx.restore();
+        } else {
+          ctx.fillStyle = d.fill;
+          ctx.fillText(d.text, 0, 0);
+        }
+        if (d.strokeWidth && d.stroke) {
+          ctx.strokeStyle = d.stroke;
+          ctx.lineWidth = d.strokeWidth;
+          ctx.lineJoin = "round";
+          ctx.strokeText(d.text, 0, 0);
+        }
         break;
       case "shape":
         drawShape(ctx, d);
@@ -132,6 +171,27 @@ export function drawFrame(ctx: Ctx2D, drawables: readonly Drawable[], view: Mat,
       case "scene3d":
         draw3D(ctx, d, opts.scene3d);
         break;
+      case "subnet": {
+        if (!d.children || !d.size || !d.alphaThreshold) break;
+        const pixelScale = k * Math.sqrt(Math.abs(d.matrix[0] * d.matrix[3] - d.matrix[1] * d.matrix[2]));
+        const w = Math.max(1, Math.round(d.size[0] * pixelScale));
+        const h = Math.max(1, Math.round(d.size[1] * pixelScale));
+        const source = new OffscreenCanvas(w, h);
+        const sourceCtx = source.getContext("2d");
+        const fused = new OffscreenCanvas(w, h);
+        const fusedCtx = fused.getContext("2d", { willReadFrequently: true });
+        if (!sourceCtx || !fusedCtx) break;
+        drawFrame(sourceCtx, d.children, [pixelScale, 0, 0, pixelScale, 0, 0], opts);
+        fusedCtx.filter = `blur(${d.blur * pixelScale}px)`;
+        fusedCtx.drawImage(source, 0, 0);
+        fusedCtx.filter = "none";
+        const pixels = fusedCtx.getImageData(0, 0, w, h);
+        for (let i = 3; i < pixels.data.length; i += 4) pixels.data[i] = (pixels.data[i] ?? 0) >= d.alphaThreshold * 255 ? 255 : 0;
+        fusedCtx.putImageData(pixels, 0, 0);
+        ctx.filter = "none";
+        ctx.drawImage(fused, 0, 0, d.size[0], d.size[1]);
+        break;
+      }
     }
     ctx.restore();
   }

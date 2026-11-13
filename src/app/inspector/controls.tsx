@@ -3,9 +3,9 @@
  * false while dragging or typing (the caller coalesces those into one undo step) and true on release.
  */
 import { useEffect, useRef, useState } from "react";
-import { AMOUNT_EASES, easeChoice, easeString, MENU_EASES, type EaseChoice, type MenuEase } from "@core/motion";
-import { Input, Switch } from "@/design-system/motionbuilder---brandbook-c4b4eb";
-import { cn } from "@/design-system/motionbuilder---brandbook-c4b4eb/lib/utils";
+import { AMOUNT_EASES, easeChoice, easeString, MENU_EASES, SPRING_FEELS, type EaseChoice, type MenuEase } from "@core/motion";
+import { Input, Switch } from "@/app/design-system/motionbuilder---brandbook-c4b4eb";
+import { cn } from "@/app/design-system/motionbuilder---brandbook-c4b4eb/lib/utils";
 
 export type Change<T> = (value: T, final: boolean) => void;
 
@@ -237,6 +237,30 @@ export function EaseField({ value, onChange, label, extra = [] }: { value: strin
           <span className="text-[11px] text-muted-foreground">Overshoot / bounce</span>
           <NumberField label={`${label} amount`} value={choice.amount ?? 40} min={0} max={100} step={1} onChange={(a, f) => set({ ...choice, amount: a }, f)} />
         </div>
+      )}
+      {choice?.ease === "spring" && (
+        <>
+          <div className="grid grid-cols-[1fr_64px] items-center gap-1">
+            <span className="text-[11px] text-muted-foreground">Speed (ms)</span>
+            <NumberField label={`${label} spring speed`} value={choice.duration ?? 628} min={150} max={2000} step={10} onChange={(d, f) => set({ ...choice, duration: d }, f)} />
+          </div>
+          <div className="flex flex-wrap gap-1" role="group" aria-label={`${label} spring feel`}>
+            {SPRING_FEELS.map((s) => {
+              const on = Math.round(choice.amount ?? 40) === s.amount && Math.round(choice.duration ?? 628) === s.duration;
+              return (
+                <button
+                  key={s.name}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => set({ ease: "spring", amount: s.amount, duration: s.duration }, true)}
+                  className={cn("h-6 rounded-full px-2 text-[11px]", on ? "bg-ink text-ink-foreground" : "bg-card text-muted-foreground hover:text-foreground")}
+                >
+                  {s.name}
+                </button>
+              );
+            })}
+          </div>
+        </>
       )}
       {choice?.ease === "custom" && (
         <div className="grid grid-cols-4 gap-1">

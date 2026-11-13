@@ -30,8 +30,9 @@ import { evaluateParam, type EvalContext } from "./evaluateParam";
 import { applyMat, layerMatrix, mul, rotate, scale, scaleOf, translate, type Mat } from "./matrix";
 import { applyPhase, phaseDelays, phaseProgress, REST, type PartAnim, type PhaseSpec } from "./phase";
 import type { Network, Node, Param, Role, SceneDoc, Value } from "./schema";
-import { applyEffector, applyReveal, cloneMatrix, clonePoint, fieldWeight, makeClones, type EffectorSpec, type FieldSpec } from "./clone";
-import { objectMatrix, verticalFov, zoomFor, type Camera3D, type Light3D, type Material3D, type Object3D, type Scene3D } from "./scene3d";
+import { wavePhase, type DeformSpec } from "./deform";
+import { applyEffector, applyReveal, cloneMatrix, fieldWeight, makeClones, type EffectorSpec, type FieldSpec } from "./clone";
+import { apply4, mul4, objectMatrix, verticalFov, zoomFor, type Camera3D, type Light3D, type Material3D, type Object3D, type Scene3D } from "./scene3d";
 import { approxMeasure, fitStyle, layoutLines, PIVOT_RISE, runsBox, splitRun, type FontSpec, type MeasureText, type Run, type TextStyle } from "./text";
 
 /* ---------- output ---------- */
@@ -71,6 +72,10 @@ export interface TextDrawable extends DrawableBase {
   /** px after every character (canvas letterSpacing). */
   tracking: number;
   fill: string;
+  gradient?: Gradient;
+  /** Outline (strokeText), drawn over the fill when strokeWidth > 0. */
+  stroke?: string;
+  strokeWidth?: number;
 }
 
 export interface ShapeDrawable extends DrawableBase {
@@ -84,6 +89,7 @@ export interface ShapeDrawable extends DrawableBase {
   strokeWidth: number;
   path: string;
   trimEnd: number;
+  gradient?: Gradient;
 }
 
 export interface ImageDrawable extends DrawableBase {
@@ -102,6 +108,10 @@ export interface SubnetDrawable extends DrawableBase {
   kind: "subnet";
   /** The network the instance opens into. */
   subnet: string;
+  /** Isolated contents for a grouped alpha-threshold effect, in subnet-local space. */
+  children?: Drawable[];
+  size?: [number, number];
+  alphaThreshold?: number;
 }
 
 /** A 3D scene drawn as one layer from [0, 0] to `size` (a renderer draws `scene` with three.js). */
@@ -235,10 +245,22 @@ function resolveLink(ctx: Ctx, m: { params: Record<string, Value> }): Value | un
   }
 }
 
+/** A counter value as text: fixed decimals (0-4), thousands left as is. */
+export const countText = (n: number, decimals: number) => n.toFixed(Math.max(0, Math.min(4, Math.round(decimals))));
+
+/** Fill gradient of a Text or Shape node, undefined when it has none. */
+export interface Gradient { type: "linear" | "radial"; to: string; angle: number }
+function gradientOf(v: (name: string) => unknown): Gradient | undefined {
+  const type = v("gradient");
+  if (type !== "linear" && type !== "radial") return undefined;
+  return { type, to: typeof v("fill2") === "string" ? (v("fill2") as string) : "#FFFFFF", angle: typeof v("gradientAngle") === "number" ? (v("gradientAngle") as number) : 0 };
+}
+
 /** Text style and lines of a Text node at the context's time, after overflow handling. */
 function textLayout(ctx: Ctx, node: Node): { runs: Run[]; style: TextStyle } {
   const v = (name: string) => paramValue(ctx, node, name);
-  const text = String(v("text"));
+  const raw = String(v("text"));
+  const text = raw.includes("{n}") ? raw.split("{n}").join(countText(num(v("count")), num(v("countDecimals")))) : raw;
   const style = fitStyle(
     text,
     {
@@ -592,12 +614,25 @@ function buildScene(ctx: Ctx, settings: Omit<Scene3D, "camera" | "lights" | "obj
         const { runs, style } = textLayout3D(ctx, node);
         const [x, y, w, h] = runsBox(runs, style.font.size);
         const ox = style.align === "left" ? x : style.align === "right" ? x + w : x + w / 2;
-        objects.push({ ...base, kind: "text", runs, font: style.font, tracking: style.tracking, origin: [ox, y + h / 2] });
+        const oy = y + h / 2;
+        const by = oneOf(v("split"), ["none", "characters", "words"] as const, "none");
+        if (by === "none") objects.push({ ...base, kind: "text", runs, font: style.font, tracking: style.tracking, origin: [ox, oy] });
+        else
+          runs
+            .flatMap((r) => splitRun(r, by, style, ctx.measure))
+            .filter((r) => r.text.trim())
+            .forEach((r, i) => {
+              // each unit is its own object, centred on itself, placed where it sat in the word
+              const [ux, uy, uw, uh] = runsBox([r], style.font.size);
+              const [cx, cy] = [ux + uw / 2, uy + uh / 2];
+              const m = mul4(matrix, objectMatrix([cx - ox, -(cy - oy), 0], [0, 0, 0], [100, 100, 100], [0, 0, 0]));
+              objects.push({ ...base, id: `${base.id}#${i}`, matrix: m, kind: "text", runs: [r], font: style.font, tracking: style.tracking, origin: [cx, cy] });
+            });
       } else {
         objects.push({
           ...base,
           kind: "shape",
-          shape: oneOf(v("shape"), ["rect", "ellipse", "path"] as const, "rect"),
+          shape: oneOf(v("shape"), ["rect", "ellipse", "path", "capsule"] as const, "rect"),
           size: vec2(v("size"), [400, 400]),
           radius: Math.max(0, num(v("radius"))),
           path: str(v("path")),
@@ -629,6 +664,7 @@ function buildScene(ctx: Ctx, settings: Omit<Scene3D, "camera" | "lights" | "obj
     }
   }
   attachClones(ctx, order.filter(visible), objects);
+  attachDeformers(ctx, objects);
   return { ...settings, camera: camera ?? defaultCamera(settings.size), lights, objects };
 }
 
@@ -643,6 +679,8 @@ function fieldSpec(ctx: Ctx, f: Node): FieldSpec | undefined {
     return { kind: "linear", position: vec3(v("position")), axis: ("xyz".indexOf(dir.slice(-1)) as 0 | 1 | 2), sign: dir.startsWith("-") ? -1 : 1, length: num(v("length"), 600), invert };
   }
   if (f.type === "SphericalField") return { kind: "spherical", position: vec3(v("position")), radius: num(v("radius"), 400), falloff: num(v("falloff"), 0.5), invert };
+  if (f.type === "WaveField")
+    return { kind: "wave", position: vec3(v("position")), angle: num(v("angle")), wavelength: num(v("wavelength"), 800), phase: wavePhase(num(v("speed"), 0.5), ctx.t, ctx.span, v("loop") !== false, num(v("offset"))), invert };
   if (f.type === "NoiseField") return { kind: "noise", scale: num(v("scale"), 400), speed: num(v("speed"), 0.5), seed: num(v("seed"), 1), t: ctx.t, invert };
   return undefined;
 }
@@ -670,11 +708,12 @@ function attachClones(ctx: Ctx, nodes: Node[], objects: Object3D[]) {
   const net = ctx.net;
   for (const cl of nodes.filter((n) => n.type === "Cloner")) {
     const src = net.wires.find((w) => w.to.node === cl.id && w.to.port === "in")?.from.node;
-    const obj = objects.find((o) => o.node === src);
-    if (!obj) continue;
+    // a split Text 3D is several objects (one per letter or word): each is cloned on its own
+    const objs = objects.filter((o) => o.node === src);
+    if (!objs.length) continue;
     const v = (name: string) => paramValue(ctx, cl, name);
     const clonerM = objectMatrix(vec3(v("position")), vec3(v("rotation")), vec3(v("scale"), [100, 100, 100]), vec3(v("anchor")));
-    let clones = makeClones({
+    const made = makeClones({
       mode: oneOf(v("mode"), ["grid", "linear", "radial"] as const, "grid"),
       count: vec3(v("count"), [3, 3, 1]),
       spacing: vec3(v("spacing"), [300, 200, 200]),
@@ -684,29 +723,59 @@ function attachClones(ctx: Ctx, nodes: Node[], objects: Object3D[]) {
       plane: oneOf(v("plane"), ["xy", "xz", "zy"] as const, "xy"),
       align: v("align") !== false,
       rowSlide: num(v("rowSlide")),
+      rowOffset: num(v("rowOffset")),
+      scroll: num(v("scroll")) * ctx.t,
     });
     // effectors downstream of the cloner, in wire order
+    const chain: Node[] = [];
     const seen = new Set<string>();
     for (let at = cl.id; ; ) {
       const next = net.wires.map((w) => (w.from.node === at && w.to.port === "in" ? net.nodes.find((n) => n.id === w.to.node) : undefined)).find((n) => n && EFFECTORS.has(n.type));
       if (!next || seen.has(next.id)) break;
       seen.add(next.id);
       at = next.id;
-      if (!next.enabled) continue;
-      if (next.type === "Reveal") {
-        const ps = phaseSpec(ctx, next);
-        const e = (name: string) => paramValue(ctx, next, name);
-        clones = applyReveal(clones, { phase: ps, delays: phaseDelays(ps, clones.length), position: vec3(e("offsetPosition"), [0, -300, 0]), rotation: vec3(e("offsetRotation"), [-90, 0, 0]), scale: num(e("offsetScale"), 100) }, ctx.t * 1000, 0, ctx.span * 1000);
-        continue;
-      }
-      const fw = net.wires.find((w) => w.to.node === next.id && w.to.port === "field");
-      const fnode = fw && net.nodes.find((n) => n.id === fw.from.node && n.enabled);
-      const field = fnode && fieldSpec(ctx, fnode);
-      clones = applyEffector(clones, effectorSpec(ctx, next), field ? (c) => fieldWeight(field, clonePoint(clonerM, c)) : () => 1);
+      if (next.enabled) chain.push(next);
     }
     const opacity = clamp01(num(v("opacity"), 100) / 100);
-    obj.cloner = { node: cl.id, matrix: clonerM };
-    obj.clones = clones.map((c) => ({ matrix: cloneMatrix(clonerM, c, obj.matrix), ...(c.color ? { color: c.color } : {}), opacity: c.opacity * opacity * obj.opacity }));
+    for (const obj of objs) {
+      let clones = made;
+      for (const next of chain) {
+        if (next.type === "Reveal") {
+          const ps = phaseSpec(ctx, next);
+          const e = (name: string) => paramValue(ctx, next, name);
+          clones = applyReveal(clones, { phase: ps, delays: phaseDelays(ps, clones.length), position: vec3(e("offsetPosition"), [0, -300, 0]), rotation: vec3(e("offsetRotation"), [-90, 0, 0]), scale: num(e("offsetScale"), 100) }, ctx.t * 1000, 0, ctx.span * 1000);
+          continue;
+        }
+        const fw = net.wires.find((w) => w.to.node === next.id && w.to.port === "field");
+        const fnode = fw && net.nodes.find((n) => n.id === fw.from.node && n.enabled);
+        const field = fnode && fieldSpec(ctx, fnode);
+        // weigh each clone where this object (letter) actually sits in the scene
+        clones = applyEffector(clones, effectorSpec(ctx, next), field ? (c) => fieldWeight(field, apply4(cloneMatrix(clonerM, c, obj.matrix), [0, 0, 0])) : () => 1);
+      }
+      obj.cloner = { node: cl.id, matrix: clonerM };
+      obj.clones = clones.map((c) => ({ matrix: cloneMatrix(clonerM, c, obj.matrix), ...(c.color ? { color: c.color } : {}), opacity: c.opacity * opacity * obj.opacity }));
+    }
+  }
+}
+
+/** Deformers wired into objects' `deformer` port, as scene-space specs at the context's time. */
+function attachDeformers(ctx: Ctx, objects: Object3D[]) {
+  for (const o of objects) {
+    const w = ctx.net.wires.find((x) => x.to.node === o.node && x.to.port === "deformer");
+    const d = w && ctx.net.nodes.find((n) => n.id === w.from.node && n.enabled && n.type === "Deformer");
+    if (!d) continue;
+    const v = (name: string) => paramValue(ctx, d, name);
+    const spec: DeformSpec = {
+      mode: oneOf(v("mode"), ["wave", "twist", "bend"] as const, "wave"),
+      position: vec3(v("position")),
+      angle: num(v("angle")),
+      amount: num(v("amount"), 60),
+      wavelength: Math.max(1, num(v("wavelength"), 900)),
+      phase: wavePhase(num(v("speed"), 0.25), ctx.t, ctx.span, v("loop") !== false, num(v("offset"))),
+      displace: oneOf(v("displace"), ["side", "depth"] as const, "side"),
+      strength: clamp01(num(v("strength"), 1)),
+    };
+    if (spec.strength > 0 && spec.amount !== 0) o.deformers = [spec];
   }
 }
 
@@ -788,6 +857,8 @@ function resolvePart(ctx: Ctx, p: Part): Drawable[] {
         font: content.style.font,
         tracking: content.style.tracking,
         fill,
+        ...(gradientOf(v) ? { gradient: gradientOf(v) } : {}),
+        ...(num(v("strokeWidth")) > 0 ? { stroke: str(v("stroke"), "#00000000"), strokeWidth: num(v("strokeWidth")) } : {}),
       }));
     }
     case "shape":
@@ -805,6 +876,7 @@ function resolvePart(ctx: Ctx, p: Part): Drawable[] {
           strokeWidth: num(v("strokeWidth")),
           path: str(v("path")),
           trimEnd: num(v("trimEnd"), 100),
+          ...(gradientOf(v) ? { gradient: gradientOf(v) } : {}),
         },
       ];
     case "image": {
@@ -813,10 +885,16 @@ function resolvePart(ctx: Ctx, p: Part): Drawable[] {
       return [{ ...base, kind: "image", id: idOf(), matrix: M, asset, ...(src === undefined ? {} : { src }) }];
     }
     case "subnet":
-      return [{ ...base, clips: [], kind: "subnet", id: idOf(), matrix: M, subnet: content.subnet }];
+      return [{ ...base, clips: [], kind: "subnet", id: idOf(), matrix: M, subnet: content.subnet, alphaThreshold: Math.max(0, Math.min(1, num(v("alphaThreshold")))) }];
     case "scene3d":
       return [{ ...base, kind: "scene3d", id: idOf(), matrix: M, size: content.scene.size, subnet: content.subnet, scene: content.scene }];
     case "container": {
+      const threshold = Math.max(0, Math.min(1, num(v("alphaThreshold"))));
+      const inner = layer.node.subnet ? ctx.doc.networks.find((n) => n.id === layer.node.subnet) : undefined;
+      if (threshold > 0 && inner?.comp) return [{
+        ...base, kind: "subnet", id: idOf(), matrix: M, subnet: inner.id,
+        children: content.children, size: [inner.comp.width, inner.comp.height], alphaThreshold: threshold,
+      }];
       const k = scaleOf(M);
       return content.children.map((d) => ({
         ...d,

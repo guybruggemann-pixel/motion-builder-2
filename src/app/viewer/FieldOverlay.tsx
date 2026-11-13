@@ -4,7 +4,7 @@
  * the network's px (y down). A noise field has no shape; it says so.
  */
 import { mul, type Drawable, type Mat, type Network, type Node, type SceneDoc } from "@core/scene";
-import { project3D } from "@/render/three/install";
+import { project3D } from "@/app/render/three/install";
 import { vecAt } from "./manipulate";
 
 const AXIS: Record<string, [number, number, number]> = { x: [1, 0, 0], "-x": [-1, 0, 0], y: [0, 1, 0], "-y": [0, -1, 0], z: [0, 0, 1], "-z": [0, 0, -1] };

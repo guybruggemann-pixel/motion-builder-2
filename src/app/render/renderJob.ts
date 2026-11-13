@@ -9,6 +9,7 @@ import { encodeMp4 } from "./mp4";
 import { prores, proresSource } from "./prores/prores";
 import { renderComp } from "./renderComp";
 import { load3D } from "./three/install";
+import { loadDocFonts } from "./fonts";
 
 /** Whether the doc has 3D scene layers (the 3D pass must be loaded before rendering). */
 export const has3D = (doc: SceneDoc) => doc.networks.some((n) => n.nodes.some((x) => x.type === "Scene3D"));
@@ -88,6 +89,7 @@ export async function renderToBlob(
   onProgress: (done: number, total: number) => void,
   cancelled: () => boolean,
 ): Promise<{ blob: Blob; ext: "mov" | "mp4"; frames: number } | undefined> {
+  await loadDocFonts(doc);
   const comp = doc.networks.find((n) => n.id === networkId)?.comp ?? doc.networks.find((n) => n.id === doc.root)!.comp!;
   if (has3D(doc)) await load3D(); // never render a 3D layer as its placeholder
   const to = o.frames;

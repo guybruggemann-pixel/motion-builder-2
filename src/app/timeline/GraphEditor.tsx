@@ -8,10 +8,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ease as easeFn, easeChoice } from "@core/motion";
 import { sampleKeys, type Key, type Network, type Node, type Value } from "@core/scene";
-import { Button, Tabs, TabsList, TabsTrigger } from "@/design-system/motionbuilder---brandbook-c4b4eb";
-import { cn } from "@/design-system/motionbuilder---brandbook-c4b4eb/lib/utils";
-import { setKeyEase } from "@/inspector/edits";
-import { docStore, shownNetwork, useDocStore, useUi, viewComp } from "@/store";
+import { Button, Tabs, TabsList, TabsTrigger } from "@/app/design-system/motionbuilder---brandbook-c4b4eb";
+import { cn } from "@/app/design-system/motionbuilder---brandbook-c4b4eb/lib/utils";
+import { setKeyEase } from "@/app/inspector/edits";
+import { EasePresets } from "./EasePresets";
+import { docStore, shownNetwork, useDocStore, useUi, viewComp } from "@/app/store";
 
 /** Closest cubic-bezier for each menu ease (standard approximations), used by "Make editable". */
 export const BEZIER_OF: Record<string, [number, number, number, number]> = {
@@ -146,6 +147,11 @@ export function GraphEditor() {
     docStore.getState().edit("Make curve editable", (d) => setKeyEase(d, target.net.id, target.node.id, target.param, a.t, tol, `cubicBezier(${bez.join(",")})`));
   };
 
+  const applyPreset = (e: string) => {
+    if (!target || !a) return;
+    docStore.getState().edit("Ease preset", (d) => setKeyEase(d, target.net.id, target.node.id, target.param, a.t, tol, e));
+  };
+
   const pick = (e: React.PointerEvent<SVGSVGElement>) => {
     const rect = box.current!.getBoundingClientRect();
     const t = span[0] + ((e.clientX - rect.left - PAD.l) / W) * (span[1] - span[0]);
@@ -183,7 +189,8 @@ export function GraphEditor() {
           <span className="font-mono text-xs text-muted-foreground">Select a key or a layer with keys</span>
         )}
       </div>
-      <div ref={box} className="relative min-h-0 flex-1 bg-background">
+      <div className="flex min-h-0 flex-1">
+      <div ref={box} className="relative min-w-0 flex-1 bg-background">
         {target && size.w > 0 && (
           <svg width={size.w} height={size.h} className="absolute inset-0" onPointerDown={pick} role="img" aria-label={`${mode} graph of ${target.param}`}>
             {Array.from({ length: yTicks + 1 }, (_, i) => {
@@ -226,6 +233,8 @@ export function GraphEditor() {
             <line x1={X(frame / fps)} x2={X(frame / fps)} y1={PAD.t} y2={PAD.t + H} stroke="var(--ink)" />
           </svg>
         )}
+      </div>
+      <EasePresets current={a && b ? a.ease : undefined} onPick={target && a && b ? applyPreset : undefined} />
       </div>
     </div>
   );

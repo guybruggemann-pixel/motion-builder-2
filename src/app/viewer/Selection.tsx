@@ -4,11 +4,11 @@
  * "key position at the playhead". Positions come from the evaluated drawables. Hidden while playing.
  */
 import { CATALOG, chainAfter, evaluateParam, isNodeType, type Drawable, type Mat, type MeasureText, type Network, type Node, type ParamSpec } from "@core/scene";
-import { boxOf, ownerIn, type Box } from "@/render/bounds";
-import { box3D } from "@/render/three/install";
+import { boxOf, ownerIn, type Box } from "@/app/render/bounds";
+import { box3D } from "@/app/render/three/install";
 import { mul } from "@core/scene";
 import { Move, Rotate3d } from "lucide-react";
-import { cn } from "@/design-system/motionbuilder---brandbook-c4b4eb/lib/utils";
+import { cn } from "@/app/design-system/motionbuilder---brandbook-c4b4eb/lib/utils";
 
 /** Move / Turn: what dragging the selection and the gizmo does (E / R). */
 function ToolSwitch() {
@@ -46,10 +46,10 @@ function objectBox(drawables: readonly Drawable[], netId: string, node: string, 
   const [x0, y0] = pt(uv[0], uv[1]), [x1, y1] = pt(uv[2], uv[3]);
   return { x: Math.min(x0, x1), y: Math.min(y0, y1), w: Math.abs(x1 - x0), h: Math.abs(y1 - y0) };
 }
-import { takesMaterial } from "@/panels/materials";
-import { layerFill, MiniCurve, Sphere } from "@/shell/look";
-import { docStore, useDocStore, useUi, viewComp } from "@/store";
-import { keyAt, toggleKey } from "@/inspector/edits";
+import { takesMaterial } from "@/app/panels/materials";
+import { layerFill, MiniCurve, Sphere } from "@/app/shell/look";
+import { docStore, useDocStore, useUi, viewComp } from "@/app/store";
+import { keyAt, toggleKey } from "@/app/inspector/edits";
 
 /** The layer's animate-in (first Phase "in" acting on it), if any. */
 export function phaseOf(net: Network, nodeId: string, mode: "in" | "out"): Node | undefined {

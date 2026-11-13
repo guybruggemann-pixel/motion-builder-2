@@ -1,6 +1,6 @@
 import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
-import { cn } from "@/design-system/motionbuilder---brandbook-c4b4eb/lib/utils";
+import { cn } from "@/app/design-system/motionbuilder---brandbook-c4b4eb/lib/utils";
 
 export const nodeCardVariants = cva(
   "relative w-56 rounded-md border bg-card text-foreground shadow-card transition-shadow focus-within:shadow-float",

@@ -3,7 +3,7 @@ import type { MeasureText, SceneDoc } from "@core/scene";
 import buildScript from "./ae-build.jsx?raw";
 import { buildAePlan, type AePlan } from "./aePlan";
 import passesBuild from "./ae-passes.jsx?raw";
-import type { PassPlan } from "@/render/passes/plan";
+import type { PassPlan } from "@/app/render/passes/plan";
 
 /** ExtendScript reads the file as Latin-1 unless told otherwise: escape everything outside ASCII. */
 const ascii = (s: string) => s.replace(/[\u0080-￿]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`);

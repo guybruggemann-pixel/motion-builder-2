@@ -12,6 +12,7 @@ import { encoderPool, has3D } from "../renderJob";
 import { depthRange3D, load3D } from "../three/install";
 import { alphaOf, idCoverage, matteFrame, puzzleFrame, uncovered, visibleCoverage } from "./coverage";
 import { planPasses, type PassOptions, type PassPlan } from "./plan";
+import { loadDocFonts } from "../fonts";
 
 const RGB: [number, number, number][] = [
   [1, 0, 0],
@@ -39,6 +40,7 @@ export async function exportPasses(
   onProgress: (done: number, total: number) => void,
   cancelled: () => boolean,
 ): Promise<PassPlan | undefined> {
+  await loadDocFonts(doc);
   if (has3D(doc)) await load3D();
   const plan = planPasses(doc, netId, o);
   const { width: w, height: h, fps, frames } = plan.comp;
@@ -66,6 +68,10 @@ export async function exportPasses(
     }),
   );
 
+  const normalRenders = new Map(
+    plan.outputs.filter((x) => x.kind === "normal").map((x) => [x.file, renderComp(doc, netId, { ...base, motionBlur: false, only: new Set([x.element!]), scene3d: { kind: "normal" } })]),
+  );
+
   const pool = encoderPool(w, h);
   try {
     for (let f = 0; f < frames; f++) {
@@ -85,6 +91,7 @@ export async function exportPasses(
         if (out.kind === "beauty") rgba = frame.get(out.element!)!;
         else if (out.kind === "matte") rgba = matteFrame(cov.get(out.element!)!);
         else if (out.kind === "puzzle") rgba = puzzleFrame(out.channels!.map((id) => cov.get(id)), px);
+        else if (out.kind === "normal") rgba = new Uint8ClampedArray(normalRenders.get(out.file)!.frame(f));
         else {
           const d = depthRenders.get(out.file)!.frame(f);
           rgba = new Uint8ClampedArray(d.length);

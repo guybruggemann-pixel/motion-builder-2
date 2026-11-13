@@ -48,6 +48,12 @@ export class OutlineFonts {
     return this.families.has(family);
   }
 
+  /** Raw TTF/OTF/WOFF or decoded WOFF2 supplied by the designer. */
+  register(family: string, bytes: Uint8Array[]) {
+    this.families.set(family, bytes.map((data) => fontkit.create(toBuffer(data)) as Font));
+    for (const key of this.varied.keys()) if (key.startsWith(`${family}|`)) this.varied.delete(key);
+  }
+
   /** The subset font at this weight (variation applied once and cached). */
   private at(family: string, subset: number, weight: number): Font | undefined {
     const base = this.families.get(family)?.[subset];
@@ -136,6 +142,7 @@ function toBuffer(bytes: Uint8Array): Buffer {
 /* ---------- loading in the app ---------- */
 
 let loading: Promise<OutlineFonts> | undefined;
+const loadedSources = new Map<string, string>();
 
 /**
  * wawoff2's WebAssembly decoder, in the page or a worker. Its own wrapper only exports under Node,
@@ -158,11 +165,22 @@ async function webDecompress(): Promise<(woff2: Uint8Array) => Promise<Uint8Arra
 
 /** Outline fonts for every bundled family (unpacked once, on first use). */
 export function loadOutlineFonts(): Promise<OutlineFonts> {
-  loading ??= (async () => {
+  const previous = loading ?? Promise.resolve(new OutlineFonts(new Map()));
+  loading = previous.then(async (fonts) => {
     const [{ fontFiles, knownFamilies }, decompress] = await Promise.all([import("./fonts"), webDecompress()]);
-    const files: Record<string, Uint8Array[]> = {};
-    for (const family of knownFamilies()) files[family] = await Promise.all(fontFiles(family).map(async (url) => new Uint8Array(await (await fetch(url)).arrayBuffer())));
-    return OutlineFonts.fromWoff2(files, decompress);
-  })();
+    for (const family of knownFamilies()) {
+      const urls = fontFiles(family);
+      const signature = urls.join("|");
+      if (loadedSources.get(family) === signature) continue;
+      const bytes = await Promise.all(urls.map(async (url) => {
+        const raw = new Uint8Array(await (await fetch(url)).arrayBuffer());
+        const isWoff2 = raw[0] === 0x77 && raw[1] === 0x4f && raw[2] === 0x46 && raw[3] === 0x32;
+        return isWoff2 ? decompress(raw) : raw;
+      }));
+      fonts.register(family, bytes);
+      loadedSources.set(family, signature);
+    }
+    return fonts;
+  });
   return loading;
 }

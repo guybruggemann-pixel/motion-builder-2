@@ -1,13 +1,15 @@
 /**
- * Transform gizmo on the selected object: X / Y (/ Z in 3D) handles at its origin.
+ * Transform gizmo on the selected object: X / Y (/ Z in 3D) handles at the centre of what it draws.
  * Move tool: drag an arrow to move along that axis. Turn tool: drag a ring to turn around it.
  * 3D axes are the scene's world axes as the camera sees them; 2D axes are the comp's x and y.
  * Every drag is one undo step and keys like the inspector.
  */
 import { CATALOG, isNodeType, mul, type Drawable, type Mat, type Network, type Node, type ParamSpec, type Scene3DDrawable } from "@core/scene";
-import { axes3D } from "@/render/three/install";
-import { docStore, useDocStore, useUi, viewComp } from "@/store";
-import { setValue } from "@/inspector/edits";
+import { axes3D } from "@/app/render/three/install";
+import { boxOf, ownerIn } from "@/app/render/bounds";
+import type { MeasureText } from "@core/scene";
+import { docStore, useDocStore, useUi, viewComp } from "@/app/store";
+import { setValue } from "@/app/inspector/edits";
 import { turnTarget, type TurnTarget } from "./turn3d";
 import { along, nudged, turnAround, vecAt } from "./manipulate";
 
@@ -32,7 +34,7 @@ export function sceneDrawableFor(drawables: readonly Drawable[], net: Network, n
 }
 
 /** Where the selected node's handles go on screen, or undefined if it has none. */
-export function handlesFor(doc: Parameters<typeof turnTarget>[0], net: Network, node: Node, t: number, drawables: readonly Drawable[], view: Mat, k: number, tool: "move" | "turn" = "move"): Handles | undefined {
+export function handlesFor(doc: Parameters<typeof turnTarget>[0], net: Network, node: Node, t: number, drawables: readonly Drawable[], view: Mat, k: number, tool: "move" | "turn" = "move", measure?: MeasureText): Handles | undefined {
   // a whole 3D scene layer moves in the comp (2D handles); it turns its object in 3D
   const t3 = node.type === "Scene3D" && tool === "move" ? undefined : turnTarget(doc, net, node, t);
   if (t3) {
@@ -48,7 +50,9 @@ export function handlesFor(doc: Parameters<typeof turnTarget>[0], net: Network, 
   const params = isNodeType(node.type) ? (CATALOG[node.type].params as Record<string, ParamSpec>) : {};
   if (!params.position || params.position.kind !== "vec2") return undefined;
   const pos = vecAt(doc, net.id, node.id, "position", t, 2);
-  const o: [number, number] = [view[0] * pos[0]! + view[4], view[3] * pos[1]! + view[5]];
+  // handles sit in the centre of what the layer draws (an anchor point control can come later)
+  const box = measure ? boxOf(drawables.filter((d) => ownerIn(net.id, d) === node.id), view, measure) : undefined;
+  const o: [number, number] = box ? [box.x + box.w / 2, box.y + box.h / 2] : [view[0] * pos[0]! + view[4], view[3] * pos[1]! + view[5]];
   return { target: { net: net.id, node: node.id, name: node.name, t }, dims: 2, origin: o, axes: [[100 * k, 0], [0, 100 * k]], unit: 100 };
 }
 

@@ -8,14 +8,19 @@
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { SVGLoader } from "three/examples/jsm/loaders/SVGLoader.js";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+import { GTAOPass } from "three/examples/jsm/postprocessing/GTAOPass.js";
+import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
+import { deformPoint } from "@core/scene";
 import type { Light3D, Material3D, Object3D, Scene3D, Shape3D, Text3D } from "@core/scene";
 import type { OutlineFonts } from "../outlines";
 
 /**
  * What a render draws. `beauty`: the look. `id`: unlit pure colours per object (others black,
- * still occluding) for puzzle mattes. `depth`: view depth as grey, white = `near`, black = `far`.
+ * still occluding) for puzzle mattes. `normal`: camera-space normals as RGB (x right, y up, z to camera). `depth`: view depth as grey, white = `near`, black = `far`.
  */
-export type PassMode = { kind: "beauty" } | { kind: "id"; colors: Record<string, [number, number, number]> } | { kind: "depth"; near: number; far: number };
+export type PassMode = { kind: "beauty" } | { kind: "id"; colors: Record<string, [number, number, number]> } | { kind: "depth"; near: number; far: number } | { kind: "normal" };
 
 const DEPTH_VERTEX = `varying float vDepth;
 void main() {
@@ -38,6 +43,7 @@ export class ScenePass {
   private envs = new Map<string, THREE.Texture>();
   private geometries = new Map<string, THREE.BufferGeometry>();
   private grain?: THREE.DataTexture;
+  private ao?: { composer: EffectComposer; render: RenderPass; gtao: GTAOPass; w: number; h: number };
 
   constructor(private fonts: OutlineFonts) {
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas as unknown as HTMLCanvasElement, alpha: true, antialias: true, premultipliedAlpha: true });
@@ -51,6 +57,9 @@ export class ScenePass {
     // Build the studio environments now: generating one mid-render changes the renderer's
     // target and viewport, and that frame comes out empty.
     for (const blur of [0, 0.04, 0.08]) this.envs.set(`room-${blur}`, this.pmrem.fromScene(new RoomEnvironment(), blur).texture);
+    // Reflection studio for metals and glass: dark room, bright softboxes, so chrome has
+    // contrast to reflect (a grey room makes metal read as dark plastic).
+    this.envs.set("reflect", this.pmrem.fromScene(reflectionStudio(), 0.02).texture);
   }
 
   /** Render the scene at `w` × `h` device px. Returns the canvas holding the pixels. */
@@ -61,6 +70,7 @@ export class ScenePass {
 
     const scene = new THREE.Scene();
     const disposable: THREE.Material[] = [];
+    const disposableGeo: THREE.BufferGeometry[] = [];
     if (beauty) this.environment(scene, data);
     for (const o of data.objects) {
       const geo = this.geometry(o);
@@ -68,13 +78,14 @@ export class ScenePass {
       const mat =
         mode.kind === "id"
           ? new THREE.MeshBasicMaterial({ color: new THREE.Color().setRGB(...(mode.colors[o.node] ?? [0, 0, 0]), THREE.LinearSRGBColorSpace), toneMapped: false })
-          : mode.kind === "depth"
+          : mode.kind === "normal"
+            ? new THREE.MeshNormalMaterial()
+            : mode.kind === "depth"
             ? new THREE.ShaderMaterial({ vertexShader: DEPTH_VERTEX, fragmentShader: DEPTH_FRAGMENT, uniforms: { near: { value: mode.near }, far: { value: mode.far } } })
             : this.material(o.material, o.opacity);
       disposable.push(mat);
-      const mesh = o.clones ? instanced(geo, mat, o.clones, beauty) : new THREE.Mesh(geo, mat);
-      mesh.matrixAutoUpdate = false;
-      if (!o.clones) mesh.matrix.fromArray(o.matrix);
+      const mesh = place(geo, mat, o, beauty);
+      if (o.deformers?.length) disposableGeo.push(mesh.geometry);
       mesh.castShadow = mesh.receiveShadow = beauty && data.shadows && o.material.kind !== "solid";
       scene.add(mesh);
     }
@@ -88,10 +99,45 @@ export class ScenePass {
     // mattes and depth are data: no colour conversion, no tone mapping
     this.renderer.outputColorSpace = beauty ? THREE.SRGBColorSpace : THREE.LinearSRGBColorSpace;
     this.renderer.toneMapping = beauty ? THREE.NeutralToneMapping : THREE.NoToneMapping;
-    this.renderer.render(scene, cam);
+    if (beauty && data.ambientOcclusion > 0.01 && mode.kind === "beauty") this.renderAO(scene, cam, pw, ph, data);
+    else this.renderer.render(scene, cam);
     for (const m of disposable) m.dispose();
+    for (const g of disposableGeo) g.dispose();
     scene.traverse((o) => (o as { shadow?: { dispose?: () => void } }).shadow?.dispose?.());
     return this.canvas;
+  }
+
+  /**
+   * Beauty with ambient occlusion (soft contact shadows in corners and creases): three's GTAO,
+   * multiplied over the lit render at the scene's strength. Radius scales with the scene size (px world).
+   */
+  private renderAO(scene: THREE.Scene, cam: THREE.Camera, pw: number, ph: number, data: Scene3D) {
+    if (!this.ao) {
+      const rt = new THREE.WebGLRenderTarget(pw, ph, { type: THREE.HalfFloatType, samples: 4 });
+      const composer = new EffectComposer(this.renderer, rt);
+      const render = new RenderPass(scene, cam);
+      render.clearAlpha = 0;
+      const gtao = new GTAOPass(scene, cam, pw, ph);
+      composer.addPass(render);
+      composer.addPass(gtao);
+      composer.addPass(new OutputPass());
+      this.ao = { composer, render, gtao, w: 0, h: 0 };
+    }
+    const { composer, render, gtao } = this.ao;
+    render.scene = gtao.scene = scene;
+    render.camera = gtao.camera = cam;
+    scene.updateMatrixWorld(true);
+    cam.updateMatrixWorld(true);
+    if (this.ao.w !== pw || this.ao.h !== ph) {
+      composer.setPixelRatio(1);
+      composer.setSize(pw, ph);
+      this.ao.w = pw;
+      this.ao.h = ph;
+    } else gtao.setSize(pw, ph); // refreshes the projection uniforms for this camera
+    const r = Math.max(data.size[0], data.size[1]) * 0.03;
+    gtao.updateGtaoMaterial({ radius: r, distanceExponent: 1, thickness: r, scale: 1, samples: 16 });
+    gtao.blendIntensity = data.ambientOcclusion;
+    composer.render();
   }
 
   /**
@@ -104,9 +150,7 @@ export class ScenePass {
     for (const o of data.objects) {
       const geo = this.geometry(o);
       if (!geo || o.opacity <= 0.01) continue;
-      const mesh = o.clones ? instanced(geo, mat, o.clones, false) : new THREE.Mesh(geo, mat);
-      mesh.matrixAutoUpdate = false;
-      if (!o.clones) mesh.matrix.fromArray(o.matrix);
+      const mesh = place(geo, mat, o, false);
       mesh.userData.node = o.node;
       scene.add(mesh);
     }
@@ -173,7 +217,12 @@ export class ScenePass {
     if (!o) return undefined;
     const cam = camera(data);
     cam.updateMatrixWorld(true);
-    const p0 = new THREE.Vector3(0, 0, 0).applyMatrix4(new THREE.Matrix4().fromArray(o.cloner?.node === node ? o.cloner.matrix : o.matrix));
+    // the gizmo sits at the centre of the object's geometry (not its anchor); a cloner keeps its own origin
+    const own = o.cloner?.node !== node;
+    const geo = own ? this.geometry(o) : undefined;
+    if (geo && !geo.boundingBox) geo.computeBoundingBox();
+    const c = geo?.boundingBox ? geo.boundingBox.getCenter(new THREE.Vector3()) : new THREE.Vector3();
+    const p0 = c.applyMatrix4(new THREE.Matrix4().fromArray(own ? o.matrix : o.cloner!.matrix));
     const uv = (p: THREE.Vector3): [number, number] => {
       const q = p.clone().project(cam);
       return [(q.x + 1) / 2, (1 - q.y) / 2];
@@ -272,6 +321,27 @@ export class ScenePass {
       transparent,
       opacity,
     });
+    // Metals, iridescent and glass reflect the softbox studio at full strength: they have no
+    // diffuse, so the dim fill environment alone leaves them dark.
+    const reflective = m.metalness > 0.5 || m.transmission > 0.5;
+    if (reflective && this.envs.has("reflect")) {
+      mat.envMap = this.envs.get("reflect")!;
+      mat.envMapIntensity = 1;
+    }
+    if (m.transmission > 0.5) {
+      // Glass: what it refracts that isn't in the 3D scene (the 2D layers behind, the comp
+      // background) shows through its alpha; reflections stay on top (premultiplied).
+      // Transmission alone samples an empty buffer here and comes out flat grey, so glass is a
+      // thin tinted body plus reflections.
+      mat.transmission = 0;
+      mat.transparent = true;
+      mat.premultipliedAlpha = true;
+      mat.opacity = opacity * (0.6 + m.roughness * 0.4);
+      mat.color = color.clone().multiplyScalar(0.08); // glass has almost no diffuse: the look is its reflections
+      mat.envMapIntensity = 2.4;
+      mat.clearcoat = 1;
+      mat.clearcoatRoughness = m.roughness;
+    }
     if (m.grain > 0) {
       mat.bumpMap = this.grainTexture();
       mat.bumpScale = m.grain * 2;
@@ -309,9 +379,12 @@ export class ScenePass {
     const key = JSON.stringify(o.kind === "text" ? [o.runs, o.font, o.tracking, o.origin, o.depth, o.bevel] : [o.shape, o.size, o.radius, o.path, o.depth, o.bevel]);
     let g = this.geometries.get(key);
     if (g) return g;
-    const shapes = o.kind === "text" ? textShapes(this.fonts, o) : shapeShapes(o);
-    if (!shapes.length) return undefined;
-    g = extrude(shapes, o.depth, o.bevel);
+    if (o.kind === "shape" && o.shape === "capsule") g = capsuleGeometry(o);
+    else {
+      const shapes = o.kind === "text" ? textShapes(this.fonts, o) : shapeShapes(o);
+      if (!shapes.length) return undefined;
+      g = extrude(shapes, o.depth, o.bevel);
+    }
     this.geometries.set(key, g);
     if (this.geometries.size > 300) {
       const [oldest] = this.geometries.keys();
@@ -321,6 +394,15 @@ export class ScenePass {
     return g;
   }
 
+}
+
+/** A horizontal capsule with hemispherical ends, scaled to the requested width/height/depth. */
+export function capsuleGeometry(o: Shape3D): THREE.BufferGeometry {
+  const radius = Math.max(0.01, o.size[1] / 2);
+  const g = new THREE.CapsuleGeometry(radius, Math.max(0, o.size[0] - radius * 2), 12, 32);
+  g.rotateZ(Math.PI / 2);
+  g.scale(1, 1, Math.max(0.01, o.depth) / (radius * 2));
+  return g;
 }
 
 /** Text 3D outlines as three.js shapes in object space (one ShapePath per glyph, so holes match within it). */
@@ -340,6 +422,47 @@ export function textShapes(fonts: OutlineFonts, o: Text3D): THREE.Shape[] {
         shapes.push(...sp.toShapes());
       }
     return shapes;
+}
+
+/**
+ * An object as a mesh: plain at its matrix, instanced for clones, or (with deformers) one merged
+ * geometry with every copy's vertices moved into the scene and deformed there, so a wave runs
+ * smoothly through all clones. The merged geometry is new each frame: the caller disposes it.
+ */
+function place(geo: THREE.BufferGeometry, mat: THREE.Material, o: Object3D, tint: boolean): THREE.Mesh {
+  let mesh: THREE.Mesh;
+  if (o.deformers?.length) {
+    const src = (geo.index ? geo.toNonIndexed() : geo).getAttribute("position") as THREE.BufferAttribute;
+    const mats = o.clones ? o.clones.map((c) => c.matrix) : [o.matrix];
+    const out = new Float32Array(src.count * 3 * mats.length);
+    const m = new THREE.Matrix4(), p = new THREE.Vector3();
+    let k = 0;
+    for (const arr of mats) {
+      m.fromArray(arr);
+      for (let i = 0; i < src.count; i++) {
+        p.fromBufferAttribute(src, i).applyMatrix4(m);
+        let q: [number, number, number] = [p.x, p.y, p.z];
+        for (const d of o.deformers) q = deformPoint(d, q);
+        out[k++] = q[0];
+        out[k++] = q[1];
+        out[k++] = q[2];
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.BufferAttribute(out, 3));
+    const uv = (geo.index ? geo.toNonIndexed() : geo).getAttribute("uv") as THREE.BufferAttribute | undefined;
+    if (uv) {
+      const u = new Float32Array(uv.count * 2 * mats.length);
+      for (let c = 0; c < mats.length; c++) u.set(uv.array as Float32Array, c * uv.count * 2);
+      g.setAttribute("uv", new THREE.BufferAttribute(u, 2));
+    }
+    g.computeVertexNormals();
+    mesh = new THREE.Mesh(g, mat);
+  } else mesh = o.clones ? instanced(geo, mat, o.clones, tint) : new THREE.Mesh(geo, mat);
+  mesh.matrixAutoUpdate = false;
+  // deformed vertices are already in the scene; instanced clones carry their own matrices
+  if (!o.clones && !o.deformers?.length) mesh.matrix.fromArray(o.matrix);
+  return mesh;
 }
 
 /**
@@ -420,4 +543,31 @@ export function extrude(shapes: THREE.Shape[], depth: number, bevel: number): TH
   });
   g.translate(0, 0, -body / 2);
   return g;
+}
+
+/** Softbox studio for reflections: a dark room with a big overhead box, two side strips and a warm kicker. */
+function reflectionStudio(): THREE.Scene {
+  const scene = new THREE.Scene();
+  const room = new THREE.Mesh(new THREE.BoxGeometry(20, 12, 20), new THREE.MeshBasicMaterial({ color: 0x2b2e34, side: THREE.BackSide }));
+  room.position.y = 3;
+  scene.add(room);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), new THREE.MeshBasicMaterial({ color: 0x2a2c31 }));
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = -2.9;
+  scene.add(floor);
+  const box = (w: number, h: number, pos: [number, number, number], rot: [number, number, number], c: number, k: number) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: new THREE.Color(c).multiplyScalar(k), side: THREE.DoubleSide }));
+    m.position.set(...pos);
+    m.rotation.set(...rot);
+    scene.add(m);
+  };
+  box(12, 6, [0, 8.9, 0], [Math.PI / 2, 0, 0], 0xffffff, 3); // overhead
+  // big boxes on all four walls, each split by a dark band: flat faces always see a light
+  // edge against dark, which is what makes chrome read as chrome
+  for (const [i, rot] of [[0, 0], [1, Math.PI / 2], [2, Math.PI], [3, -Math.PI / 2]] as const) {
+    const dir = new THREE.Vector3(Math.sin(rot), 0, -Math.cos(rot)).multiplyScalar(9.9);
+    box(14, 3.2, [dir.x, 5, dir.z], [0, -rot, 0], i % 2 ? 0xf2f5ff : 0xffffff, i === 0 ? 2.2 : 1.6);
+    box(14, 2, [dir.x, 0.6, dir.z], [0, -rot, 0], 0xfff1e0, i === 2 ? 1.2 : 0.7);
+  }
+  return scene;
 }

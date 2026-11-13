@@ -3,22 +3,26 @@
  * Library (collapsible), viewer with floating transport, inspector, and the timeline card with
  * Timeline / Graph / Network tabs below.
  */
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/design-system/motionbuilder---brandbook-c4b4eb";
-import { Library } from "@/panels/Library";
-import { fullPath, useDocStore, useUi } from "@/store";
-import { openDepth } from "@/store/navigation";
-import { Timeline } from "@/timeline/Timeline";
-import { Inspector } from "@/inspector/Inspector";
-import { NetworkView } from "@/network/NetworkView";
-import { GraphEditor } from "@/timeline/GraphEditor";
-import { useShortcuts } from "@/useShortcuts";
-import { Viewer } from "@/viewer/Viewer";
-import { Rail } from "@/shell/Rail";
-import { TopBar } from "@/shell/TopBar";
-import { Splitter } from "@/shell/Splitter";
-import { AddMenu } from "@/panels/AddMenu";
-import { ScrubBar } from "@/timeline/ScrubBar";
-import type { BottomTab } from "@/store/uiStore";
+import { startAutosave } from "@/app/file/persist";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/design-system/motionbuilder---brandbook-c4b4eb";
+import { Library } from "@/app/panels/Library";
+import { fullPath, useDocStore, useUi } from "@/app/store";
+import { openDepth } from "@/app/store/navigation";
+import { Timeline } from "@/app/timeline/Timeline";
+import { Inspector } from "@/app/inspector/Inspector";
+import { NetworkView } from "@/app/network/NetworkView";
+import { GraphEditor } from "@/app/timeline/GraphEditor";
+import { useShortcuts } from "@/app/useShortcuts";
+import { Transport } from "@/app/viewer/Transport";
+import { Viewer } from "@/app/viewer/Viewer";
+import { Rail } from "@/app/shell/Rail";
+import { TopBar } from "@/app/shell/TopBar";
+import { ImportScreen } from "@/app/import/ImportScreen";
+import { DraftScreen } from "@/app/import/DraftScreen";
+import { Splitter } from "@/app/shell/Splitter";
+import { AddMenu } from "@/app/panels/AddMenu";
+import { ScrubBar } from "@/app/timeline/ScrubBar";
+import type { BottomTab } from "@/app/store/uiStore";
 import { useEffect, useState } from "react";
 
 /** Why the last edit was refused (it failed validateDoc), until the next edit goes through. */
@@ -65,6 +69,9 @@ const card = "flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl bg-card s
 
 export function App() {
   useShortcuts();
+  useEffect(() => {
+    void startAutosave();
+  }, []);
   const libraryOpen = useUi((s) => s.libraryOpen);
   const panes = useUi((s) => s.panes);
   const bottomTab = useUi((s) => s.bottomTab);
@@ -77,6 +84,15 @@ export function App() {
     return () => window.removeEventListener("resize", on);
   }, []);
   const maxTimeline = Math.max(120, vh - 48 - 48 - 120);
+  const screen = useUi((s) => s.screen);
+
+  if (screen !== "refine")
+    return (
+      <div className="flex h-screen flex-col overflow-hidden bg-canvas p-3 text-[13px] text-foreground">
+        <TopBar />
+        <div className="min-h-0 flex-1 overflow-y-auto">{screen === "import" ? <ImportScreen /> : <DraftScreen />}</div>
+      </div>
+    );
 
   return (
     <div
@@ -116,6 +132,9 @@ export function App() {
               <TabsTrigger value="network">Network</TabsTrigger>
             </TabsList>
             <Breadcrumb />
+            <div className="mx-auto">
+              <Transport />
+            </div>
             <AddMenu />
           </div>
           <TabsContent value="timeline" className="min-h-0 flex-1">

@@ -3,8 +3,9 @@
  * Every button has an aria-label and a tooltip on hover and focus.
  */
 import { Layers3, Moon, Search, Sun } from "lucide-react";
-import { cn } from "@/design-system/motionbuilder---brandbook-c4b4eb/lib/utils";
-import { useUi } from "@/store";
+import { cn } from "@/app/design-system/motionbuilder---brandbook-c4b4eb/lib/utils";
+import { useUi } from "@/app/store";
+import { Button } from "@/app/design-system/motionbuilder---brandbook-c4b4eb";
 
 function LibraryIcon() {
   return (
@@ -20,7 +21,7 @@ function LibraryIcon() {
 
 function RailButton({ label, tip, on, soon, onClick, children }: { label: string; tip: string; on?: boolean; soon?: boolean; onClick?: () => void; children: React.ReactNode }) {
   return (
-    <button
+    <Button variant="ghost" size="icon"
       type="button"
       aria-label={label}
       aria-pressed={on}
@@ -39,19 +40,19 @@ function RailButton({ label, tip, on, soon, onClick, children }: { label: string
       >
         {tip}
       </span>
-    </button>
+    </Button>
   );
 }
 
 export function Rail() {
-  const { libraryOpen, setLibraryOpen, theme, setTheme } = useUi();
+  const { libraryOpen, setLibraryOpen, libraryTab, openLibrary, theme, setTheme } = useUi();
   const dark = theme === "dark";
   return (
     <nav aria-label="Panels" className="flex flex-col items-center gap-1.5 rounded-xl bg-card py-2.5 shadow-card [grid-area:rail] max-[900px]:flex-row max-[900px]:px-2.5">
       <RailButton label="Library" tip="Library · nodes and assets" on={libraryOpen} onClick={() => setLibraryOpen(!libraryOpen)}>
         <LibraryIcon />
       </RailButton>
-      <RailButton label="Comps" tip="Comps and versions · coming later" soon>
+      <RailButton label="Comps" tip="Compositions and versions" on={libraryOpen && libraryTab === "comps"} onClick={() => openLibrary("comps")}>
         <Layers3 strokeWidth={1.5} />
       </RailButton>
       <RailButton label="Search and commands" tip="Search and commands · ⌘K · coming later" soon>

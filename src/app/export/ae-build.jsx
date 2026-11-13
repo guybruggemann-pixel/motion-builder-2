@@ -80,6 +80,12 @@
     td.fontSize = t.size; td.applyFill = true; td.fillColor = t.fill; td.applyStroke = false; td.tracking = t.tracking;
     td.justification = ParagraphJustification.LEFT_JUSTIFY;
     prop.setValue(td);
+    if (t.changes) {
+      // counters / text keys: Source Text keys hold until the next one
+      for (var c = 0; c < t.changes.length; c++) {
+        try { var tk = prop.value; tk.text = t.changes[c][1]; prop.setValueAtTime(t.changes[c][0], tk); } catch (e2) {}
+      }
+    }
     return L;
   }
 
@@ -138,6 +144,18 @@
     for (j = 0; j < c.layers.length; j++) {
       l = c.layers[j];
       var L = l.kind === "text" ? textLayer(C, l.text) : l.kind === "precomp" ? C.layers.add(made[l.precomp]) : l.kind === "footage" ? footageLayer(C, l) : shapeLayer(C, l.shape, l);
+    if (l.ramp) {
+      // gradient fills: a Gradient Ramp effect on the layer (shape gradients aren't scriptable)
+      try {
+        var fx = L.property("ADBE Effect Parade").addProperty("ADBE Ramp");
+        fx.property("ADBE Ramp-0001").setValue(l.ramp.start); fx.property("ADBE Ramp-0002").setValue(l.ramp.from);
+        fx.property("ADBE Ramp-0003").setValue(l.ramp.end); fx.property("ADBE Ramp-0004").setValue(l.ramp.to);
+        fx.property("ADBE Ramp-0005").setValue(l.ramp.shape);
+        // keep it inside the type / shape: matte the ramp by the layer's own alpha
+        var mt = L.property("ADBE Effect Parade").addProperty("ADBE Set Matte3");
+        mt.property("ADBE Set Matte3-0001").setValue(L.index);
+      } catch (e3) {}
+    }
       L.name = l.name;
       if (l.kind === "precomp" || l.kind === "footage") L.startTime = l.start || 0;
       var tr = L.property("ADBE Transform Group");

@@ -8,8 +8,8 @@ import * as THREE from "three";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { approxMeasure, evaluateFrame, title3d, type Scene3DDrawable, type Text3D } from "@core/scene";
-import { OutlineFonts } from "@/render/outlines";
-import { extrude, shapeShapes, textShapes } from "@/render/three/pass";
+import { OutlineFonts } from "@/app/render/outlines";
+import { extrude, shapeShapes, textShapes } from "@/app/render/three/pass";
 
 const require = createRequire(import.meta.url);
 const decompress = require("wawoff2/decompress") as (b: Uint8Array) => Promise<Uint8Array>;

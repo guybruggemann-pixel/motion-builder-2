@@ -1,8 +1,8 @@
 /** AE passes: visible-coverage mattes, puzzle packing, 3D ID coverage, and what an export writes. */
 import { describe, expect, it } from "vitest";
 import { lowerThird, title3d } from "@core/scene";
-import { alphaOf, idCoverage, matteFrame, puzzleFrame, puzzleGroups, uncovered, visibleCoverage } from "@/render/passes/coverage";
-import { planPasses } from "@/render/passes/plan";
+import { alphaOf, idCoverage, matteFrame, puzzleFrame, puzzleGroups, uncovered, visibleCoverage } from "@/app/render/passes/coverage";
+import { planPasses } from "@/app/render/passes/plan";
 
 const A = (...v: number[]) => new Uint8Array(v);
 
@@ -58,5 +58,10 @@ describe("what a passes export writes", () => {
   it("keeps layer timing and skips what's off", () => {
     const p = planPasses(lowerThird, "main", { mattes: false, puzzle: false, depth: true });
     expect(p.outputs).toEqual([{ file: "Main_v01_Lower_third.mov", kind: "beauty", name: "Lower third", element: "lt", in: 0.5, out: 5.5 }]);
+  });
+  it("normals: one per 3D scene, only when asked", () => {
+    const on = planPasses(title3d, "main", { mattes: false, puzzle: false, depth: false, normals: true });
+    expect(on.outputs.filter((o) => o.kind === "normal").map((o) => o.file)).toEqual(["Main_v01_Title_scene_normals.mov"]);
+    expect(planPasses(lowerThird, "main", { mattes: false, puzzle: false, depth: false, normals: true }).outputs.some((o) => o.kind === "normal")).toBe(false);
   });
 });

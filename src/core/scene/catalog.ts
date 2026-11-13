@@ -77,6 +77,16 @@ export const CATALOG = {
       /** Past maxWidth: leave it, shrink the type to fit, or wrap onto more lines. */
       overflow: { kind: "choice", default: "none", options: ["none", "shrink", "wrap"] },
       fill: { kind: "color", default: "#FFFFFF", animatable: true },
+      /** Gradient over the fill: none, linear (at gradientAngle) or radial, from fill to fill2. */
+      gradient: { kind: "choice", default: "none", options: ["none", "linear", "radial"] },
+      fill2: { kind: "color", default: "#FFFFFF", animatable: true },
+      gradientAngle: { kind: "number", default: 0, animatable: true },
+      /** Counter: "{n}" in the text shows this number (key it to count), with countDecimals places. */
+      count: { kind: "number", default: 0, animatable: true },
+      countDecimals: { kind: "number", default: 0, min: 0, max: 4 },
+      /** Outline around the letters (0 = none). A transparent fill gives outlined type. */
+      stroke: { kind: "color", default: "#00000000", animatable: true },
+      strokeWidth: { kind: "number", default: 0, min: 0, animatable: true },
       ...transform,
     },
   },
@@ -89,6 +99,10 @@ export const CATALOG = {
       size: { kind: "vec2", default: [400, 120], animatable: true },
       radius: { kind: "number", default: 0, min: 0, animatable: true },
       fill: { kind: "color", default: "#000000", animatable: true },
+      /** Gradient over the fill: none, linear (at gradientAngle) or radial, from fill to fill2. */
+      gradient: { kind: "choice", default: "none", options: ["none", "linear", "radial"] },
+      fill2: { kind: "color", default: "#FFFFFF", animatable: true },
+      gradientAngle: { kind: "number", default: 0, animatable: true },
       stroke: { kind: "color", default: "#00000000", animatable: true },
       strokeWidth: { kind: "number", default: 0, min: 0, animatable: true },
       path: { kind: "text", default: "" },
@@ -113,7 +127,7 @@ export const CATALOG = {
     category: "layer",
     label: "Subnet",
     inputs: Infinity,
-    params: { ...transform },
+    params: { ...transform, alphaThreshold: { kind: "number", default: 0, min: 0, max: 1, animatable: true } },
   },
   /**
    * A 3D scene drawn into the comp as one layer, from [0, 0] to `size`. Its contents live in the
@@ -139,9 +153,11 @@ export const CATALOG = {
     category: "3d",
     label: "Text 3D",
     inputs: 0,
-    ports: ["material"],
+    ports: ["material", "deformer"],
     params: {
       text: { kind: "text", default: "Text", animatable: true },
+      /** Letters or words become separate objects, so cloners, effectors and fields treat each on its own. */
+      split: { kind: "choice", default: "none", options: ["none", "characters", "words"] },
       font: { kind: "font", default: "Inter" },
       weight: { kind: "number", default: 700, min: 100, max: 900 },
       size: { kind: "number", default: 200, min: 1, animatable: true },
@@ -162,9 +178,9 @@ export const CATALOG = {
     category: "3d",
     label: "Shape 3D",
     inputs: 0,
-    ports: ["material"],
+    ports: ["material", "deformer"],
     params: {
-      shape: { kind: "choice", default: "rect", options: ["rect", "ellipse", "path"] },
+      shape: { kind: "choice", default: "rect", options: ["rect", "ellipse", "path", "capsule"] },
       size: { kind: "vec2", default: [400, 400], animatable: true },
       radius: { kind: "number", default: 0, min: 0, animatable: true },
       path: { kind: "text", default: "" },
@@ -225,6 +241,10 @@ export const CATALOG = {
       align: { kind: "toggle", default: true },
       /** Grid: odd rows slide +x, even rows −x by this many px. Key it to make rows run past each other. */
       rowSlide: { kind: "number", default: 0, animatable: true },
+      /** Grid: each row moves this many px further along x than the one above (a brick or slanted wall). */
+      rowOffset: { kind: "number", default: 0, animatable: true },
+      /** Grid: rows scroll along x at this many px per second, wrapping around so the wall never runs out. */
+      scroll: { kind: "number", default: 0, animatable: true },
       ...transform3d,
     },
   },
@@ -317,6 +337,39 @@ export const CATALOG = {
       invert: { kind: "toggle", default: false },
     },
   },
+  /** A travelling sine wave: weight 0..1 along a direction, moving over time. Loop = whole cycles per comp. */
+  WaveField: {
+    category: "field",
+    label: "Wave field",
+    inputs: 0,
+    params: {
+      position: { kind: "vec3", default: [0, 0, 0], animatable: true },
+      angle: { kind: "number", default: 0, animatable: true },
+      wavelength: { kind: "number", default: 800, min: 1, animatable: true },
+      speed: { kind: "number", default: 0.5, animatable: true },
+      offset: { kind: "number", default: 0, animatable: true },
+      loop: { kind: "toggle", default: true },
+      invert: { kind: "toggle", default: false },
+    },
+  },
+  /** Bends, twists or waves an object's shape. Wire it into a Text 3D or Shape 3D's deformer input; it acts in scene space, after clones. */
+  Deformer: {
+    category: "3d",
+    label: "Deformer",
+    inputs: 0,
+    params: {
+      mode: { kind: "choice", default: "wave", options: ["wave", "twist", "bend"] },
+      strength: { kind: "number", default: 1, min: 0, max: 1, animatable: true },
+      amount: { kind: "number", default: 60, animatable: true },
+      wavelength: { kind: "number", default: 900, min: 1, animatable: true },
+      angle: { kind: "number", default: 0, animatable: true },
+      displace: { kind: "choice", default: "side", options: ["side", "depth"] },
+      speed: { kind: "number", default: 0.25, animatable: true },
+      offset: { kind: "number", default: 0, animatable: true },
+      loop: { kind: "toggle", default: true },
+      position: { kind: "vec3", default: [0, 0, 0], animatable: true },
+    },
+  },
   /** Smooth 3D noise, moving over time. */
   NoiseField: {
     category: "field",
@@ -335,7 +388,7 @@ export const CATALOG = {
     label: "Material",
     inputs: 0,
     params: {
-      kind: { kind: "choice", default: "plastic", options: MATERIAL_KINDS },
+      kind: { kind: "choice", default: "plastic", options: MATERIAL_KINDS, animatable: true },
       color: { kind: "color", default: "#FFFFFF", animatable: true },
       roughness: { kind: "number", default: 0.45, min: 0, max: 1, animatable: true },
       metalness: { kind: "number", default: 0, min: 0, max: 1, animatable: true },

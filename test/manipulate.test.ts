@@ -1,7 +1,7 @@
 /** Gizmo and drag maths: moving along a screen-projected axis, turning across it, values with keys. */
 import { describe, expect, it } from "vitest";
 import { lowerThird, title3d } from "@core/scene";
-import { along, nudged, plus, turnAround, vecAt } from "@/viewer/manipulate";
+import { along, nudged, plus, turnAround, vecAt } from "@/app/viewer/manipulate";
 
 describe("moving along an axis", () => {
   it("projects the drag onto the axis as it appears on screen", () => {

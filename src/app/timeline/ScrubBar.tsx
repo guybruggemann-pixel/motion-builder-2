@@ -3,8 +3,8 @@
  * time pill) and drag anywhere to scrub, so time is in reach whichever tab is open.
  */
 import { useRef } from "react";
-import { useDocStore, useUi, viewComp } from "@/store";
-import { frameCount } from "@/viewer/Transport";
+import { useDocStore, useUi, viewComp } from "@/app/store";
+import { frameCount } from "@/app/viewer/Transport";
 
 export function ScrubBar() {
   const doc = useDocStore((s) => s.doc);

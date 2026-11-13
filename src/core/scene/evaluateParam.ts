@@ -128,8 +128,12 @@ function staggerOffset(m: Modifier, part: number, parts: number): number {
 export function evaluateParam(p: Param, t: number, ctx: EvalContext = {}): Value {
   const part = ctx.part ?? 0;
   let offset = ctx.timeOffset ?? 0;
-  if (ctx.parts && ctx.parts > 1)
-    for (const m of p.modifiers ?? []) if (m.enabled && m.type === "stagger") offset += staggerOffset(m, part, ctx.parts);
+  for (const m of p.modifiers ?? []) if (m.enabled && m.type === "stagger") {
+    // Separate artwork nodes can opt into one shared sequence without changing split indices.
+    const count = Math.max(1, Math.floor(nParam(m, "parts", ctx.parts ?? 1)));
+    const index = Math.min(count - 1, Math.max(0, Math.floor(nParam(m, "index", part))));
+    if (count > 1) offset += staggerOffset(m, index, count);
+  }
   const lt = t - offset;
   let v = p.keys && p.keys.length ? sampleKeys(p.keys, lt) : p.value;
   for (const m of p.modifiers ?? []) {

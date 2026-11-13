@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Check } from "lucide-react";
-import { cn } from "@/design-system/motionbuilder---brandbook-c4b4eb/lib/utils";
+import { cn } from "@/app/design-system/motionbuilder---brandbook-c4b4eb/lib/utils";
 
 type TabsCtx = { value: string; setValue: (v: string) => void; baseId: string };
 const TabsContext = React.createContext<TabsCtx | null>(null);

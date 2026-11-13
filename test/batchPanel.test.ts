@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { lowerThirdFit, validateDoc } from "@core/scene";
-import { autoMap, newBatch } from "@/batch/BatchPanel";
+import { autoMap, newBatch } from "@/app/batch/BatchPanel";
 
 describe("batch setup", () => {
   it("matches Dutch and English column names to the lower third's controls", () => {

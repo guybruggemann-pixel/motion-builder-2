@@ -4,7 +4,7 @@
  */
 import { evaluateParam, type Node, type Role, type SceneDoc } from "@core/scene";
 import { ease } from "@core/motion";
-import { cn } from "@/design-system/motionbuilder---brandbook-c4b4eb/lib/utils";
+import { cn } from "@/app/design-system/motionbuilder---brandbook-c4b4eb/lib/utils";
 
 /** Generic names for roles in the UI (the schema enum stays as it is). */
 export const ROLE_LABEL: Partial<Record<Role, string>> = {

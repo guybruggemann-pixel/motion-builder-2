@@ -9,11 +9,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, Layers } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { CATALOG, chainAfter, isNodeType, layerOrder, phaseRanges, type Network, type Node, type PhaseRange, type SceneDoc } from "@core/scene";
-import { layerFill, roleLabel, Sphere } from "@/shell/look";
-import { applyDropped, SOLID_MIME, takesMaterial } from "@/panels/materials";
-import { cn } from "@/design-system/motionbuilder---brandbook-c4b4eb/lib/utils";
-import { docStore, sameKey, shownNetwork, useDocStore, useUi, viewComp, type KeyRef } from "@/store";
-import { openSubnet } from "@/store/navigation";
+import { layerFill, roleLabel, Sphere } from "@/app/shell/look";
+import { applyDropped, SOLID_MIME, takesMaterial } from "@/app/panels/materials";
+import { cn } from "@/app/design-system/motionbuilder---brandbook-c4b4eb/lib/utils";
+import { docStore, sameKey, shownNetwork, useDocStore, useUi, viewComp, type KeyRef } from "@/app/store";
+import { openSubnet } from "@/app/store/navigation";
 import { dragLayer, moveKeys, type BarDrag } from "./edits";
 
 const NAME_W = 236;
