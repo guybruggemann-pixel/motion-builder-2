@@ -37,6 +37,14 @@ and WebGL 3D rely on them.
   Loaded browser-only through TanStack Start (`src/routes/index.tsx`).
 - `test/`: the engine suite. `src/**/*.test.*`: app tests.
 
+## Render from the command line
+
+`bun run render <doc.json>` renders a scene doc with the app's own renderer in a background
+browser: MP4 by default, `--format prores` for ProRes 4444 with alpha, `--frame 30` for one PNG,
+`--instance main/lt --set name="Ada Lovelace"` to fill promoted controls. `bun run render --help`
+lists everything. `bun run render:check` compares background renders with a real browser window.
+Needs Google Chrome. Rules: `tools/render/AGENTS.md`.
+
 ## Known limits
 
 The AI features ("Describe the motion", prompt drafts, picture and video rebuilds) go through one

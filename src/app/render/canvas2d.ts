@@ -55,6 +55,23 @@ function image(src: string): HTMLImageElement | undefined {
   return img.complete && img.naturalWidth ? img : undefined;
 }
 
+/**
+ * Load images before a final render, so no frame draws without them (the viewer just redraws
+ * when one arrives; a render can't). Resolves when each has loaded or failed.
+ */
+export function preloadImages(srcs: Iterable<string>): Promise<void> {
+  return Promise.all(
+    [...new Set(srcs)].map((src) => {
+      const img = image(src) ?? images.get(src)!;
+      if (img.complete) return undefined;
+      return new Promise<void>((done) => {
+        img.addEventListener("load", () => done(), { once: true });
+        img.addEventListener("error", () => done(), { once: true });
+      });
+    }),
+  ).then(() => undefined);
+}
+
 function perimeter(d: ShapeDrawable): number | undefined {
   const [w, h] = d.size;
   if (d.shape === "rect") return 2 * (Math.abs(w) + Math.abs(h));
