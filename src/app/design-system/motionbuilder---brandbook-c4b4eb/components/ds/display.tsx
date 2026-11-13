@@ -1,6 +1,6 @@
 import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
-import { cn } from "@/design-system/motionbuilder---brandbook-c4b4eb/lib/utils";
+import { cn } from "@/app/design-system/motionbuilder---brandbook-c4b4eb/lib/utils";
 
 export const badgeVariants = cva(
   "inline-flex items-center gap-1 rounded-xs px-1.5 py-0.5 text-[11px] font-semibold",

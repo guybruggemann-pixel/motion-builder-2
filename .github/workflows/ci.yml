@@ -1,0 +1,24 @@
+# Tests and typecheck on every push and pull request.
+# Two suites: the app tests (vitest.config.ts) and the engine suite (vitest.mb.config.ts).
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - name: Install
+        run: bun install --frozen-lockfile
+      - name: App tests
+        run: bunx vitest run
+      - name: Engine tests
+        run: bunx vitest run -c vitest.mb.config.ts
+      - name: Typecheck
+        run: bun run typecheck

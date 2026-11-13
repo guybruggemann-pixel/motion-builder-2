@@ -10,7 +10,12 @@ export const useDocStore = <T,>(pick: (s: DocState) => T): T => useStore(docStor
 /** Full path including the root comp, with crumbs whose network no longer exists dropped. */
 export function fullPath(doc: SceneDoc, path: readonly Crumb[]): Crumb[] {
   const out: Crumb[] = [{ network: doc.root }];
-  for (const c of path) if (doc.networks.some((n) => n.id === c.network)) out.push(c);
+  for (const c of path) {
+    const parent = doc.networks.find((n) => n.id === out.at(-1)?.network);
+    const instance = parent?.nodes.find((n) => n.id === c.node && n.subnet === c.network);
+    if (!instance || !doc.networks.some((n) => n.id === c.network)) break;
+    out.push(c);
+  }
   return out;
 }
 

@@ -30,7 +30,8 @@ Motion design app for a team of 2 motion designers and 2 designers. Drop in a de
 
 ## Working rules
 
-- Run `npm test` and `npm run typecheck` before calling anything done.
+- **Use bun, not npm.** `bun install`, `bun run dev` (http://localhost:8080), `bun run test` (app tests and the engine suite in `vitest.mb.config.ts`; `bun run test:engine` for the engine alone), `bun run typecheck`, `bun run build`. `npm install` fails on this tree (an npm bug with the `overrides` field), so there's no `package-lock.json`; `bun.lock` is the lockfile.
+- Run `bun run test` and `bun run typecheck` before calling anything done.
 - Keep `docs/plan.md` and the roadmap checkboxes current when a phase item lands.
 - Each folder with non-obvious rules gets an `AGENTS.md`; read it before editing that folder.
 - Prefer small, verifiable steps; show a running result in the browser for any UI change.

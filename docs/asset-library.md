@@ -1,0 +1,121 @@
+# Asset library: format, import and learning loop
+
+The library is what the AI builds from and what it learns from. It lives in the repo
+(`library/`) so the app, Lovable and Claude Code all see the same assets.
+
+## 1. Package format
+
+```
+library/
+  motion-skills.md            rules learned from edits and ratings (read by the model on every call)
+  index.json                  generated: id, name, category, tags, grammar summary, rating per package
+  <slug>/
+    asset.json                metadata + motion grammar (below)
+    doc.json                  a valid scene doc; must pass validateDoc
+    preview.mp4               rendered by the engine (headless job) from doc.json, never imported
+    poster.png                frame at the asset's "hero" time
+    source/                   raw export it came from (ae.json, c4d.json, reference.mp4), for re-import
+```
+
+### asset.json
+
+```jsonc
+{
+  "id": "lt-bar-slide",                 // = folder slug
+  "name": "Bar slide lower third",
+  "category": "lower-third",            // title | lower-third | icon-pop | transition | loop | counter
+                                        // | logo-sting | kinetic-type | 3d-type | background | other
+  "dimension": "2d",                    // 2d | 3d | mixed
+  "tags": ["bar", "mask", "editorial"],
+  "description": "Bar wipes in left to right, name rises out of a mask, title fades up.",
+  "grammar": {
+    "character": "smooth",              // smooth | punchy | playful (CHARACTERS in core/motion)
+    "structure": ["enter", "hold", "exit"],   // or ["loop"], ["already-composed", "continuous"]
+    "timing": { "enter": 0.8, "hold": 3.0, "exit": 0.5 },  // seconds
+    "eases": ["outExpo", "inCubic"],
+    "stagger": { "by": "words", "each": 0.06, "from": "first" },
+    "techniques": ["mask-reveal", "bar-wipe", "split-words"]
+  },
+  "controls": ["name", "title", "accent"],     // promoted control ids in doc.json
+  "source": { "tool": "ae", "file": "Techonomy_LT_v03.aep", "comp": "LT_bar", "author": "Guy", "license": "Techonomy internal" },
+  "quality": { "rating": 4, "approvedBy": "Guy", "approvedAt": "2026-11-20" },
+  "status": "approved"                  // inbox | approved | rejected (rejected stays as a negative example)
+}
+```
+
+Rules:
+- `doc.json` holds one comp whose output is a single Subnet: the asset itself, with promoted controls.
+  That way inserting an asset is always "add one Subnet node", never a merge of loose layers.
+- Colours use `brand:` tokens where the asset should follow the brand kit.
+- `source.license` is required. No package without a known licence.
+- Previews are always rendered by the engine, so what the library shows is what the asset does.
+
+## 2. Getting assets in
+
+### From After Effects
+1. Run `tools/ae/mb-export.jsx` on the comp (File > Scripts > Run Script File, or through the AE
+   MCP, see `prompts/2-mcp-asset-export.md`). It writes `source/ae.json`: every layer, its
+   transform, text, shape paths and **every keyframe with its temporal ease (speed + influence)**,
+   plus precomps. It also renders `source/reference.mp4` when asked.
+2. The app's importer (`src/core/library/importAe.ts`, pure and tested; to build in step B) turns
+   `ae.json` into `doc.json`. It is deterministic: the model never converts keyframes by hand.
+3. The importer render is compared with `reference.mp4` (frame diff). Gate for step B: they match.
+
+AE ease to anime-ae bezier, per segment from key A to key B (duration `dt`, value change `dv`,
+average speed `s = dv / dt`; for spatial properties use distance along the path):
+
+```
+x1 = A.outEase.influence / 100
+y1 = x1 * A.outEase.speed / s
+x2 = 1 - B.inEase.influence / 100
+y2 = 1 - (B.inEase.influence / 100) * B.inEase.speed / s
+ease = "cubicBezier(x1,y1,x2,y2)"   // then snap to a menu ease if one is within tolerance
+```
+Hold interpolation → `"hold"`; linear → `"linear"`; `s = 0` (no change) → `"hold"` or `"linear"`.
+Multi-dimensional keys with separate dimensions: one track per dimension.
+
+What maps cleanly: transform, opacity, text (source text, font, size, tracking, fill), rectangle and
+ellipse shapes, paths, trim paths, masks as reveals, precomps → Subnets, parenting.
+What becomes a pass instead: effects without an engine equivalent, expressions, 3D layers with
+AE lights. The importer lists what it skipped in `asset.json.importNotes`.
+
+### From Cinema 4D
+1. Run `tools/c4d/mb_export.py` in C4D (Extensions > Script Manager, or through the C4D MCP). It
+   writes `source/c4d.json`: objects with transforms, primitive/text/extrude parameters, MoGraph
+   cloner settings, camera and lights, material assignments with base colour, roughness,
+   metalness, transmission and emission, and every animation track with keys and tangents.
+2. The importer (`src/core/library/importC4d.ts`) maps it to a Scene3D subnet: Text3D, Shape3D,
+   Cloner, Camera, Light and Material nodes. Rotation HPB (radians) → degrees XYZ. C4D's Y-up,
+   left-handed space → three.js right-handed (flip Z). Tangents → cubicBezier like above.
+3. Same render comparison as AE, against a C4D render in `source/reference.mp4`.
+
+### From the app (taste memory, no extra step)
+Starred and exported results are proposed as packages automatically, with `status: "inbox"`.
+Only the owner (Guy) approves into the shared library; the rest of the team feeds it by working.
+
+### From licensed packs
+Icons, textures and similar as now (MIT, CC0, own work), with the licence in `asset.json`.
+
+## 3. The learning loop (no model training)
+
+- **Retrieval.** Before every generation, search `index.json` (category, tags, grammar) plus an
+  embedding of `description` and the prompt. The best 3 to 5 approved packages go to the model as
+  worked examples (`asset.json` + a compact form of `doc.json`). One or two rejected packages with
+  the reason can go in as "don't do this".
+- **Edit memory.** When a user changes an AI draft, log the difference per edit operation:
+  `{ asked: "punchy title", ai: { ease: "outBack(1.6)", duration: 0.6 }, final: { ease: "outExpo", duration: 0.35 } }`.
+  A periodic summariser (or a motion designer) turns repeated patterns into short rules in
+  `library/motion-skills.md` (for example "Techonomy titles: no overshoot; outExpo 0.3–0.4 s").
+- **Taste signals.** Recorded automatically, no button: every dropped reference with its analysis
+  (`library/references/`), which of the 3 options was picked, steers, hand edits, exports
+  (= approval) and stars (= love it), logged per project in `library/taste/`. Unpicked options
+  count as "not this". A periodic summary turns repeated patterns into rules in `motion-skills.md`
+  and proposes starred and exported work to the inbox.
+
+Everything here is a file you can read and edit, so the "learning" can be checked and undone.
+
+## 4. Public references
+
+Public motion work (Giphy, Dribbble, Behance, Vimeo…) can be analysed as reference: timing,
+structure and technique notes go into `docs/references/`. The artwork itself is not copied into
+the library unless its licence allows reuse.

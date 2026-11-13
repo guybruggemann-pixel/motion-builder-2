@@ -1,14 +1,14 @@
 /**
- * Floating transport over the viewer: previous key (J), play / pause (Space), next key (K),
+ * Transport in the timeline header: previous key (J), play / pause (Space), next key (K),
  * timecode, loop. Frame stepping stays on ←/→ and scrubbing on the timeline ruler.
  * Playback picks the frame from elapsed wall time, but every frame shown is evaluated at its
  * exact frame time, so preview stays frame-accurate (and drops frames rather than drifting).
  */
 import { useEffect } from "react";
 import { Pause, Play, Repeat } from "lucide-react";
-import { cn } from "@/design-system/motionbuilder---brandbook-c4b4eb/lib/utils";
-import { useDocStore, useUi, viewComp } from "@/store";
-import { jumpToKey } from "@/useShortcuts";
+import { cn } from "@/app/design-system/motionbuilder---brandbook-c4b4eb/lib/utils";
+import { useDocStore, useUi, viewComp } from "@/app/store";
+import { jumpToKey } from "@/app/useShortcuts";
 
 export const timecode = (frame: number, fps: number) => {
   const f = Math.round(fps);
@@ -84,9 +84,9 @@ export function Transport() {
     <div
       role="toolbar"
       aria-label="Transport"
-      className="absolute bottom-3.5 left-1/2 z-20 flex -translate-x-1/2 items-center gap-0.5 rounded-full bg-card p-[5px] shadow-float"
+      className="flex items-center gap-0.5 rounded-full bg-field p-[3px]"
     >
-      <button type="button" aria-label="Previous key (J)" title="Previous key (J)" onClick={() => jumpToKey(-1)} className={cn(round, "size-[34px] text-muted-foreground hover:bg-field hover:text-foreground")}>
+      <button type="button" aria-label="Previous key (J)" title="Previous key (J)" onClick={() => jumpToKey(-1)} className={cn(round, "size-7 text-muted-foreground hover:bg-card hover:text-foreground")}>
         <KeyIcon dir={-1} />
       </button>
       <button
@@ -94,14 +94,14 @@ export function Transport() {
         aria-label={ui.playing ? "Pause (Space)" : "Play (Space)"}
         title="Play / pause (Space)"
         onClick={() => ui.setPlaying(!ui.playing)}
-        className={cn(round, "size-10 bg-ink text-ink-foreground hover:bg-ink/85 [&_svg]:size-[15px]")}
+        className={cn(round, "size-8 bg-ink text-ink-foreground hover:bg-ink/85 [&_svg]:size-[15px]")}
       >
         {ui.playing ? <Pause fill="currentColor" strokeWidth={0} /> : <Play fill="currentColor" strokeWidth={0} />}
       </button>
-      <button type="button" aria-label="Next key (K)" title="Next key (K)" onClick={() => jumpToKey(1)} className={cn(round, "size-[34px] text-muted-foreground hover:bg-field hover:text-foreground")}>
+      <button type="button" aria-label="Next key (K)" title="Next key (K)" onClick={() => jumpToKey(1)} className={cn(round, "size-7 text-muted-foreground hover:bg-card hover:text-foreground")}>
         <KeyIcon dir={1} />
       </button>
-      <output aria-label="Timecode" title={`Frame ${frame} · ${timecode(frame, comp.fps)}`} className="whitespace-nowrap pl-1.5 pr-2 font-mono text-[13px] tabular-nums">
+      <output aria-label="Timecode" title={`Frame ${frame} · ${timecode(frame, comp.fps)}`} className="whitespace-nowrap pl-1.5 pr-2 font-mono text-[12px] tabular-nums">
         {shortTimecode(frame, comp.fps)} <span className="text-faint">/ {shortTimecode(frames, comp.fps)}</span>
       </output>
       <button
@@ -110,7 +110,7 @@ export function Transport() {
         aria-pressed={ui.loop}
         title="Loop"
         onClick={() => ui.toggle("loop")}
-        className={cn(round, "mr-0.5 size-[30px] [&_svg]:size-3.5", ui.loop ? "bg-field text-foreground" : "text-muted-foreground hover:bg-field")}
+        className={cn(round, "size-7 [&_svg]:size-3.5", ui.loop ? "bg-card text-foreground shadow-card" : "text-muted-foreground hover:bg-card")}
       >
         <Repeat />
       </button>

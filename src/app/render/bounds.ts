@@ -13,6 +13,7 @@ export interface Box {
 
 /** The drawable's box in its own space, or undefined when it has no known size. */
 export function localBox(d: Drawable, measure: MeasureText): [number, number, number, number] | undefined {
+  if (d.kind === "subnet" && d.size) return [0, 0, d.size[0], d.size[1]];
   if (d.kind === "shape" || d.kind === "scene3d") return [0, 0, d.size[0], d.size[1]];
   if (d.kind === "text") {
     const s = d.font.size;

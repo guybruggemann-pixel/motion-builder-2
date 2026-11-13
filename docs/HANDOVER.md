@@ -175,9 +175,9 @@ Bundled variable fonts (Inter, Inter Tight, JetBrains Mono via fontsource), regi
 Done: phase 0 (foundation), 1 (comp editor a–f), 2 output (ProRes, MP4; native AE frozen), 2b (batch from a sheet), UI redesign A and B, 3D-a (scene layer, outlines, three.js pass, renders, materials), AE passes and AOVs (built; real-AE check open), 3D-b (cloners, effectors, fields, Reveal, 2D cloners, field overlay).
 
 **Recommended next, in order:**
-1. **Save / load** (highest value, nothing is persisted yet): save the doc as JSON (File System Access or download) + open (through `validateDoc` and `migrate`), autosave to IndexedDB, version duplicates (`_v02`, `versionOf`). The status pill in the top bar already counts edits.
+1. **Save / load** (DONE in Lovable 2026-11-12: save/open file, autosave + restore, unsaved warning; version duplicates DONE via the version menu) (highest value, nothing is persisted yet): save the doc as JSON (File System Access or download) + open (through `validateDoc` and `migrate`), autosave to IndexedDB, version duplicates (`_v02`, `versionOf`). The status pill in the top bar already counts edits.
 2. **Real After Effects check** of the passes export (gate) and fix the Camera Lens Blur map wiring if needed. Later: contact-sheet comp of all passes (Guy asked for it as a nice-to-have).
-3. **3D-d look**: metals are dark (raise environment for metals or add a reflection environment), glass doesn't refract layers behind it, ambient occlusion (GTAO) is missing, maybe a path-traced final render.
+3. **3D-d look** (metals + glass improved in Lovable 2026-11-12; AO and real refraction still open): metals are dark (raise environment for metals or add a reflection environment), glass doesn't refract layers behind it, ambient occlusion (GTAO) is missing, maybe a path-traced final render.
 4. **3D-c**: splines/helix, cloner along a spline, text on path, twist/bend deformers (gate: the helix type reference).
 5. **UI phase C** (Graph: ease preset grid, overshoot slider, motion preview from core eases) and **phase E** (Import, Draft, Edit mode for designers, Deliver screen, Materials editor screens from `docs/ui-reference`).
 6. Phases 3–7: exact import (Figma plugin, SVG/PDF), AI first draft (three choreographies), assets + subtitles, more procedural nodes (data → cloner), reference video input.

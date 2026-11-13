@@ -1,14 +1,13 @@
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
-import tailwindcss from "@tailwindcss/vite";
+// @lovable.dev/vite-tanstack-config already includes tanstackStart, viteReact, tailwindcss,
+// tsConfigPaths, nitro, the @ path alias etc. — do NOT add them manually.
+import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 import { fileURLToPath } from "node:url";
 
-const dir = (p: string) => fileURLToPath(new URL(p, import.meta.url));
-
 export default defineConfig({
-  root: dir("./src/app"),
-  plugins: [react(), tailwindcss()],
-  resolve: { alias: { "@core": dir("./src/core"), "@": dir("./src/app") } },
-  server: { port: 5173, strictPort: true },
-  build: { outDir: dir("./dist"), emptyOutDir: true },
+  tanstackStart: {
+    server: { entry: "server" },
+  },
+  vite: {
+    resolve: { alias: { "@core": fileURLToPath(new URL("./src/core", import.meta.url)) } },
+  },
 });

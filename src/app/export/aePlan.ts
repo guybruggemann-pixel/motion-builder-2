@@ -50,7 +50,9 @@ export interface AeLayer {
   out: number;
   /** For precomps: where the precomp's time 0 sits. */
   start?: number;
-  text?: { str: string; font: string; size: number; fill: [number, number, number]; tracking: number };
+  text?: { str: string; font: string; size: number; fill: [number, number, number]; tracking: number; changes?: [number, string][] };
+  /** Gradient Ramp effect: layer-space start/end points, colours, 1 = linear, 2 = radial. */
+  ramp?: { start: [number, number]; end: [number, number]; from: [number, number, number]; to: [number, number, number]; shape: 1 | 2 };
   shape?: { type: "rect" | "ellipse"; radius: number; fill?: [number, number, number]; fillOpacity: number; stroke?: [number, number, number]; strokeWidth: number };
   precomp?: string;
   /** For footage: the pass file (in the script's folder). */
@@ -64,6 +66,14 @@ export type Channel = "x" | "y" | "sx" | "sy" | "rot" | "op" | "blur" | "w" | "h
 
 const hex = (c: string): [number, number, number] => [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16) / 255) as [number, number, number];
 const alpha = (c: string) => (c.length === 9 ? (parseInt(c.slice(7, 9), 16) / 255) * 100 : 100);
+
+/** A fill gradient over a w x h box (top at y0) as Gradient Ramp settings. */
+function rampOf(g: { type: "linear" | "radial"; to: string; angle: number }, fill: string, w: number, h: number, y0: number): AeLayer["ramp"] {
+  const cx = w / 2, cy = y0 + h / 2;
+  if (g.type === "radial") return { start: [cx, cy], end: [cx + Math.hypot(w, h) / 2, cy], from: hex(fill), to: hex(g.to), shape: 2 };
+  const a = (g.angle * Math.PI) / 180, dx = Math.cos(a), dy = Math.sin(a), half = (Math.abs(w * dx) + Math.abs(h * dy)) / 2 || 1;
+  return { start: [cx - dx * half, cy - dy * half], end: [cx + dx * half, cy + dy * half], from: hex(fill), to: hex(g.to), shape: 1 };
+}
 
 /** "Inter" 700 -> "Inter-Bold": AE wants PostScript names. */
 const WEIGHT: Record<number, string> = { 100: "Thin", 200: "ExtraLight", 300: "Light", 400: "Regular", 500: "Medium", 600: "SemiBold", 700: "Bold", 800: "ExtraBold", 900: "Black" };
@@ -142,6 +152,15 @@ function buildComp(ctx: Ctx, networkId: string, id: string, name: string, durati
     if (d0.kind === "text") {
       layer.name = `${layer.name} · ${d0.text}`;
       layer.text = { str: d0.text, font: postScriptName(d0.font.family, d0.font.weight), size: d0.font.size, fill: hex(d0.fill), tracking: d0.font.size ? (d0.tracking / d0.font.size) * 1000 : 0 };
+      // counters and text keys: a Source Text key wherever the shown text changes
+      const changes: [number, string][] = [];
+      let last = d0.text;
+      for (let f = f0 + 1; f <= f1; f++) {
+        const d = get(f / fps);
+        if (d.kind === "text" && d.text !== last) changes.push([f / fps, (last = d.text)]);
+      }
+      if (changes.length) layer.text.changes = [[t0, d0.text], ...changes];
+      if (d0.gradient) layer.ramp = rampOf(d0.gradient, d0.fill, d0.text.length * d0.font.size * 0.55, d0.font.size * 0.72, -d0.font.size * 0.72);
     } else if (d0.kind === "shape") {
       layer.shape = {
         type: d0.shape === "ellipse" ? "ellipse" : "rect",
@@ -151,6 +170,7 @@ function buildComp(ctx: Ctx, networkId: string, id: string, name: string, durati
         stroke: d0.strokeWidth > 0 ? hex(d0.stroke) : undefined,
         strokeWidth: d0.strokeWidth,
       };
+      if (d0.gradient) layer.ramp = rampOf(d0.gradient, d0.fill, d0.size[0], d0.size[1], 0);
       layer.ch.w = chan((d) => (d.kind === "shape" ? d.size[0] : 0), "w");
       layer.ch.h = chan((d) => (d.kind === "shape" ? d.size[1] : 0), "h");
     } else if (d0.kind === "scene3d") {

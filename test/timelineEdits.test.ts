@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { lowerThird, type Param } from "@core/scene";
-import { createDocStore } from "@/store/docStore";
-import { deleteKeys, dragLayer, moveKeys } from "@/timeline/edits";
+import { createDocStore } from "@/app/store/docStore";
+import { deleteKeys, dragLayer, moveKeys } from "@/app/timeline/edits";
 
 const NET = "lower-third";
 const store = () => createDocStore(lowerThird);

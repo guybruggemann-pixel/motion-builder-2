@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { lowerThird } from "@core/scene";
-import { createDocStore } from "@/store/docStore";
+import { createDocStore } from "@/app/store/docStore";
 
 const panelFill = (s: ReturnType<typeof createDocStore>) =>
   s.getState().doc.networks[1]!.nodes.find((n) => n.id === "panel")!.params.fill!.value;

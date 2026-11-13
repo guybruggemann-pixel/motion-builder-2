@@ -1,6 +1,6 @@
 /** The frame-diff helper used for preview-vs-render checks. */
 import { describe, expect, it } from "vitest";
-import { downscale, frameDiff } from "@/render/frameDiff";
+import { downscale, frameDiff } from "@/app/render/frameDiff";
 
 const frame = (w: number, h: number, f: (x: number, y: number) => [number, number, number, number]) => {
   const d = new Uint8ClampedArray(w * h * 4);

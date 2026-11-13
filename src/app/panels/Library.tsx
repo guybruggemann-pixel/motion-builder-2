@@ -4,14 +4,16 @@
  * the selection, drag drops onto a layer in the viewer or the timeline. 2D layers take the colour.
  * The node catalog moved to "+ Add" in the timeline card.
  */
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { Search } from "lucide-react";
-import { lowerThird, lowerThirdFit, MATERIAL_PRESETS, sceneOwner, title3d, uniqueGrid, type SceneDoc } from "@core/scene";
-import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from "@/design-system/motionbuilder---brandbook-c4b4eb";
-import { docStore, shownNetwork, useDocStore, useUi } from "@/store";
-import { cssColor, Sphere } from "@/shell/look";
+import { lowerThird, lowerThirdFit, MATERIAL_GROUPS, MATERIAL_PRESETS, sceneOwner, title3d, uniqueGrid, type SceneDoc } from "@core/scene";
+import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/design-system/motionbuilder---brandbook-c4b4eb";
+import { docStore, shownNetwork, useDocStore, useUi } from "@/app/store";
+import { cssColor, Sphere } from "@/app/shell/look";
 import { applyItem, libraryTarget, SOLID_MIME, type LibraryItem } from "./materials";
 import { insertPreset } from "./insertPreset";
+import { Compositions } from "./Compositions";
+import { AssetLibrary } from "@/app/assets/AssetLibrary";
 
 function Tile({ label, item, sphere, onApply }: { label: string; item: LibraryItem; sphere: React.ReactNode; onApply: () => void }) {
   return (
@@ -73,10 +75,18 @@ function Materials() {
             onApply={() => apply({ kind: "node", network: net.id, node: m.id, name: m.name })}
           />
         ))}
-        {presets.length > 0 && heading("Materials", presets.length)}
-        {presets.map((p) => (
-          <Tile key={p.id} label={p.name} item={{ kind: "preset", preset: p }} sphere={<Sphere color={p.color} kind={p.kind} size={44} />} onApply={() => apply({ kind: "preset", preset: p })} />
-        ))}
+        {MATERIAL_GROUPS.map((g) => {
+          const list = presets.filter((p) => p.group === g.id);
+          if (!list.length) return null;
+          return (
+            <Fragment key={g.id}>
+              {heading(g.name, list.length)}
+              {list.map((p) => (
+                <Tile key={p.id} label={p.name} item={{ kind: "preset", preset: p }} sphere={<Sphere color={p.color} kind={p.kind} size={44} />} onApply={() => apply({ kind: "preset", preset: p })} />
+              ))}
+            </Fragment>
+          );
+        })}
         {colours.length > 0 && heading("Colours", colours.length)}
         {colours.map((c) => (
           <Tile key={c.value} label={c.name} item={{ kind: "colour", value: c.value, name: c.name }} sphere={<Sphere color={c.css} kind="solid" size={44} />} onApply={() => apply({ kind: "colour", value: c.value, name: c.name })} />
@@ -141,7 +151,7 @@ function Presets() {
           {asking === label && (
             // in-app confirm: the browser's confirm() is blocked in some embedded views
             <div role="alertdialog" aria-label={`Open ${label} on its own?`} className="mx-1 mb-2 rounded-md bg-field p-2.5 text-xs">
-              <p className="mb-2">Open {label} as its own document? Your current comp and its {edits} {edits === 1 ? "edit" : "edits"} are closed (there's no save yet).</p>
+              <p className="mb-2">Open {label} as its own document? Your current comp and its {edits} {edits === 1 ? "edit" : "edits"} are closed. Save first if you want to keep them.</p>
               <div className="flex gap-1.5">
                 <Button size="sm" onClick={() => open(ex)}>
                   Open alone
@@ -200,13 +210,16 @@ function Brand() {
 }
 
 export function Library() {
+  const tab = useUi((s) => s.libraryTab);
   return (
-    <Tabs defaultValue="materials" className="flex min-h-0 flex-1 flex-col gap-0">
+    <Tabs defaultValue="materials" value={tab} onValueChange={(value) => { if (value === "materials" || value === "presets" || value === "brand" || value === "comps" || value === "assets") useUi.getState().setLibraryTab(value); }} className="flex min-h-0 flex-1 flex-col gap-0">
       <div className="p-3 pb-2">
-        <TabsList aria-label="Library" className="grid w-full grid-cols-3">
+        <TabsList aria-label="Library" className="grid h-auto w-full grid-cols-2 gap-1">
           <TabsTrigger value="materials">Materials</TabsTrigger>
           <TabsTrigger value="presets">Presets</TabsTrigger>
           <TabsTrigger value="brand">Brand</TabsTrigger>
+          <TabsTrigger value="comps">Comps</TabsTrigger>
+          <TabsTrigger value="assets">Assets</TabsTrigger>
         </TabsList>
       </div>
       <TabsContent value="materials" className="flex min-h-0 flex-1 flex-col">
@@ -218,6 +231,8 @@ export function Library() {
       <TabsContent value="brand" className="flex min-h-0 flex-1 flex-col">
         <Brand />
       </TabsContent>
+      <TabsContent value="comps" className="flex min-h-0 flex-1 flex-col"><Compositions /></TabsContent>
+      <TabsContent value="assets" className="flex min-h-0 flex-1 flex-col"><AssetLibrary /></TabsContent>
     </Tabs>
   );
 }

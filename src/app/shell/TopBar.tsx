@@ -3,13 +3,15 @@
  * stepper, Animate / Edit mode and the Deliver pill. Deliver and Batch open their popovers.
  */
 import { useState } from "react";
-import { Redo2, Rows3, Settings2, Undo2 } from "lucide-react";
+import { Check, ChevronDown, CopyPlus, FolderOpen, Redo2, Rows3, Save, Settings2, Undo2 } from "lucide-react";
+import { openDoc, saveDoc, useFile } from "@/app/file/persist";
 import { useShallow } from "zustand/react/shallow";
-import { Button, PhaseStepper } from "@/design-system/motionbuilder---brandbook-c4b4eb";
-import { cn } from "@/design-system/motionbuilder---brandbook-c4b4eb/lib/utils";
-import { BatchPanel } from "@/batch/BatchPanel";
-import { RenderPanel } from "@/render/RenderPanel";
-import { useDocStore, useUi } from "@/store";
+import { Button, PhaseStepper } from "@/app/design-system/motionbuilder---brandbook-c4b4eb";
+import { cn } from "@/app/design-system/motionbuilder---brandbook-c4b4eb/lib/utils";
+import { BatchPanel } from "@/app/batch/BatchPanel";
+import { RenderPanel } from "@/app/render/RenderPanel";
+import { docStore, useDocStore, useUi } from "@/app/store";
+import { nextVersionName, saveAsNewVersion, switchVersion, versionsOf } from "@/app/file/versions";
 
 const STEPS = ["Import", "Draft", "Refine", "Deliver"];
 
@@ -27,6 +29,61 @@ export function Logo() {
   );
 }
 
+function VersionMenu({ label }: { label: string }) {
+  const doc = useDocStore((s) => s.doc);
+  const [open, setOpen] = useState(false);
+  const list = versionsOf(doc, doc.root);
+  const go = (fn: () => void) => {
+    fn();
+    useUi.getState().setPlaying(false);
+    useUi.getState().setPath([], 0);
+    useUi.getState().selectNodes([]);
+    setOpen(false);
+  };
+  return (
+    <div className="relative -ml-1.5" onBlur={(e) => !e.currentTarget.contains(e.relatedTarget) && setOpen(false)} onKeyDown={(e) => e.key === "Escape" && setOpen(false)}>
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title="Versions"
+        aria-label={`Versions, ${label}`}
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-0.5 rounded-full bg-card px-[7px] py-0.5 font-mono text-[11px] font-medium text-muted-foreground hover:text-foreground"
+      >
+        {label}
+        <ChevronDown aria-hidden className="size-3" />
+      </button>
+      {open && (
+        <div role="menu" className="absolute left-0 top-8 z-50 w-56 rounded-xl bg-card p-1.5 shadow-float">
+          {list.map((n) => (
+            <button
+              key={n.id}
+              type="button"
+              role="menuitemradio"
+              aria-checked={n.id === doc.root}
+              onClick={() => go(() => docStore.getState().edit(`Open ${n.name}`, (d) => switchVersion(d, n.id)))}
+              className={cn("flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left hover:bg-field", n.id === doc.root && "font-semibold")}
+            >
+              {n.name}
+              {n.id === doc.root && <Check aria-hidden className="size-3.5" />}
+            </button>
+          ))}
+          <div className="my-1 h-px bg-line" />
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => go(() => docStore.getState().edit(`Save as ${nextVersionName(doc, doc.root)}`, saveAsNewVersion))}
+            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left hover:bg-field"
+          >
+            <CopyPlus aria-hidden className="size-3.5" /> Save as {nextVersionName(doc, doc.root).split("_").pop()}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function TopBar() {
   const { doc, edits, canRedo, undo, redo, undoLabel, redoLabel } = useDocStore(
     useShallow((s) => ({
@@ -39,10 +96,15 @@ export function TopBar() {
       redoLabel: s.future[0]?.label,
     })),
   );
+  const savedDoc = useFile((s) => s.savedDoc);
+  const message = useFile((s) => s.message);
+  const dirty = doc !== savedDoc;
   const comp = doc.networks.find((n) => n.id === doc.root)!;
   const [name, version] = splitVersion(comp.name);
   const [panel, setPanel] = useState<"render" | "batch">();
   const flip = (p: "render" | "batch") => setPanel((q) => (q === p ? undefined : p));
+  const screen = useUi((s) => s.screen);
+  const setScreen = useUi((s) => s.setScreen);
 
   return (
     <header className="relative flex h-12 items-center gap-3 px-1 [grid-area:top] max-[900px]:h-auto max-[900px]:flex-wrap">
@@ -62,12 +124,20 @@ export function TopBar() {
           className="flex items-center gap-1.5 rounded-full px-2 py-1 font-semibold hover:bg-card"
         >
           {name}
-          {version && <span className="rounded-full bg-card px-[7px] py-0.5 font-mono text-[11px] font-medium text-muted-foreground">{version}</span>}
           <Settings2 aria-hidden className="size-3.5 text-muted-foreground" />
         </button>
+        <VersionMenu label={version ?? "v—"} />
         <span role="status" className="flex h-7 items-center gap-1.5 whitespace-nowrap rounded-full bg-card px-2.5 text-xs text-muted-foreground">
-          <span aria-hidden className={cn("size-[7px] rounded-full", edits ? "bg-faint" : "bg-ok-dot")} />
-          {edits ? `${edits} ${edits === 1 ? "edit" : "edits"} · not saved` : "No changes"}
+          <span aria-hidden className={cn("size-[7px] rounded-full", dirty ? "bg-faint" : "bg-ok-dot")} />
+          {dirty ? "Unsaved changes" : "Saved"}
+        </span>
+        <span className="flex">
+          <Button variant="ghost" size="icon" aria-label="Open scene" title="Open scene (⌘O)" onClick={() => void openDoc()}>
+            <FolderOpen />
+          </Button>
+          <Button variant="ghost" size="icon" aria-label="Save scene" title="Save (⌘S) · Save as (⇧⌘S)" onClick={(e) => void saveDoc(e.shiftKey)}>
+            <Save />
+          </Button>
         </span>
         <span className="flex">
           <Button variant="ghost" size="icon" aria-label={edits ? `Undo ${undoLabel}` : "Undo"} title="Undo (⌘Z)" disabled={!edits} onClick={undo}>
@@ -82,9 +152,8 @@ export function TopBar() {
       <PhaseStepper
         className="mx-auto"
         phases={STEPS}
-        current={2}
-        enabled={[false, false, false, true]}
-        onPhaseSelect={(i) => i === 3 && flip("render")}
+        current={screen === "import" ? 0 : screen === "draft" ? 1 : 2}
+        onPhaseSelect={(i) => (i === 3 ? (setScreen("refine"), flip("render")) : setScreen((["import", "draft", "refine"] as const)[i]!))}
       />
 
       <div className="flex items-center gap-2">
@@ -92,8 +161,8 @@ export function TopBar() {
           <span aria-current="page" className="flex h-[30px] items-center rounded-full bg-field px-3 font-semibold">
             Animate
           </span>
-          <button type="button" disabled title="Edit mode for designers comes later (docs/ui-handover.md, phase E)" className="flex h-[30px] items-center rounded-full px-3 text-muted-foreground disabled:cursor-not-allowed">
-            Edit
+          <button type="button" disabled title="Edit mode for designers comes later (docs/ui-handover.md, phase E)" className="flex h-[30px] items-center gap-1.5 rounded-full px-3 text-muted-foreground disabled:cursor-not-allowed">
+            Edit <span className="text-[10px] uppercase tracking-wide">soon</span>
           </button>
         </div>
         <Button variant="secondary" size="lg" aria-expanded={panel === "batch"} onClick={() => flip("batch")}>
@@ -107,6 +176,11 @@ export function TopBar() {
           </svg>
         </Button>
       </div>
+      {message && (
+        <p role={message.kind === "error" ? "alert" : "status"} className={cn("absolute left-1/2 top-14 z-50 -translate-x-1/2 rounded-full px-3 py-1.5 text-xs shadow-card", message.kind === "error" ? "bg-destructive text-destructive-foreground" : "bg-card")}>
+          {message.text}
+        </p>
+      )}
       {panel === "render" && <RenderPanel onClose={() => setPanel(undefined)} />}
       {panel === "batch" && <BatchPanel onClose={() => setPanel(undefined)} />}
     </header>

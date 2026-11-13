@@ -6,7 +6,7 @@
  */
 import type { Draft } from "immer";
 import type { SceneDoc } from "@core/scene";
-import { wireToOutput } from "@/network/edits";
+import { wireToOutput } from "@/app/network/edits";
 
 /** A valid id: lowercase, dashes, starting with a letter ("3D title" -> "p-3d-title"). */
 const slug = (s: string) => {
@@ -16,16 +16,20 @@ const slug = (s: string) => {
 
 export function insertPreset(d: Draft<SceneDoc>, intoNet: string, preset: SceneDoc): string {
   const taken = (id: string) => d.networks.some((n) => n.id === id);
-  const base = slug(preset.name);
+  const base = slug(preset.name).slice(0, 40);
   const map = new Map<string, string>();
   for (const n of preset.networks) {
-    let id = `${base}-${n.id}`.slice(0, 60), i = 2;
-    while (taken(id) || [...map.values()].includes(id)) id = `${base}-${n.id}-${i++}`.slice(0, 64);
+    const stem = `${base}-${n.id}`.slice(0, 54);
+    let id = stem, i = 2;
+    while (taken(id) || [...map.values()].includes(id)) id = `${stem}-${i++}`;
     map.set(n.id, id);
   }
   for (const n of preset.networks) {
     const copy = structuredClone(n) as Draft<SceneDoc>["networks"][number];
-    copy.id = map.get(n.id)!;
+    const mapped = map.get(n.id);
+    if (!mapped) continue;
+    copy.id = mapped;
+    delete copy.versionOf;
     for (const node of copy.nodes) if (node.subnet) node.subnet = map.get(node.subnet) ?? node.subnet;
     if (n.id === preset.root) copy.name = preset.name.replace(/\s*\(test\)\s*$/, "");
     d.networks.push(copy);
@@ -41,8 +45,9 @@ export function insertPreset(d: Draft<SceneDoc>, intoNet: string, preset: SceneD
   // the instance: a precomp of the preset's main comp, on top, for its own length
   const net = d.networks.find((n) => n.id === intoNet)!;
   const root = preset.networks.find((n) => n.id === preset.root)!;
-  let id = slug(root.name === "Main_v01" ? preset.name : root.name).slice(0, 50), i = 2;
-  while (net.nodes.some((n) => n.id === id)) id = `${slug(preset.name)}-${i++}`;
+  const nodeBase = slug(root.name === "Main_v01" ? preset.name : root.name).slice(0, 50);
+  let id = nodeBase, i = 2;
+  while (net.nodes.some((n) => n.id === id)) id = `${nodeBase}-${i++}`;
   const x = net.nodes.length ? Math.max(...net.nodes.map((n) => n.ui.x)) + 240 : 0;
   net.nodes.push({
     id,

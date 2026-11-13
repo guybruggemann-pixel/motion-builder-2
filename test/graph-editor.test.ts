@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ease, MENU_EASES } from "@core/motion";
-import { BEZIER_OF, bezierOf } from "@/timeline/GraphEditor";
+import { BEZIER_OF, bezierOf } from "@/app/timeline/GraphEditor";
 
 describe("graph editor bezier stand-ins", () => {
   it.each(MENU_EASES.filter((e) => BEZIER_OF[e] && !["outBack", "inBack", "inOutBack", "outCirc", "inCirc"].includes(e)))(

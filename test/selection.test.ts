@@ -5,8 +5,8 @@
 import { describe, expect, it } from "vitest";
 import { produce } from "immer";
 import { approxMeasure, evaluateFrame, lowerThird, validateDoc, type Mat } from "@core/scene";
-import { boxOf, hitTest, ownerIn } from "@/render/bounds";
-import { isDesignerEditable, setDesignerEditable } from "@/inspector/edits";
+import { boxOf, hitTest, ownerIn } from "@/app/render/bounds";
+import { isDesignerEditable, setDesignerEditable } from "@/app/inspector/edits";
 
 const view: Mat = [0.5, 0, 0, 0.5, 10, 20];
 

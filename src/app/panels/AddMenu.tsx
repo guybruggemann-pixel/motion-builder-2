@@ -2,9 +2,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Plus } from "lucide-react";
 import { CATALOG, portsOf, sceneOwner, type NodeType } from "@core/scene";
-import { Button } from "@/design-system/motionbuilder---brandbook-c4b4eb";
-import { docStore, shownNetwork, useDocStore, useUi } from "@/store";
-import { addNode, insertAfter, wireToOutput } from "@/network/edits";
+import { Button } from "@/app/design-system/motionbuilder---brandbook-c4b4eb";
+import { docStore, shownNetwork, useDocStore, useUi } from "@/app/store";
+import { addNode, insertAfter, wireToOutput } from "@/app/network/edits";
 
 /**
  * Add a node to the open network, right of everything already there, and select it. Layers and 3D

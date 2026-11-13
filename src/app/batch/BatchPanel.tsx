@@ -5,15 +5,16 @@
  * Rendering writes into a folder you pick and keeps a manifest there, so a re-run only renders
  * rows whose output would change.
  */
+import { fileAccessProblem } from "@/app/file/docFile";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FolderOutput, RefreshCw, X } from "lucide-react";
 import { applyRow, fileName, hash, parseCsv, qcRows, sheetCsvUrl, type QcIssue, type Row } from "@core/batch";
 import { FrameCache, type Batch, type SceneDoc } from "@core/scene";
-import { Button, Input, Label } from "@/design-system/motionbuilder---brandbook-c4b4eb";
-import { canvasMeasure, drawFrame } from "@/render/canvas2d";
-import { loadFonts } from "@/render/fonts";
-import { renderToBlob } from "@/render/renderJob";
-import { docStore, useDocStore } from "@/store";
+import { Button, Input, Label } from "@/app/design-system/motionbuilder---brandbook-c4b4eb";
+import { canvasMeasure, drawFrame } from "@/app/render/canvas2d";
+import { loadFonts } from "@/app/render/fonts";
+import { renderToBlob } from "@/app/render/renderJob";
+import { docStore, useDocStore } from "@/app/store";
 
 const POLL_MS = 30_000;
 const MANIFEST = ".motionbuilder-batch.json";
@@ -164,7 +165,8 @@ export function BatchPanel({ onClose }: { onClose: () => void }) {
 
   const renderAll = async () => {
     const pick = (window as unknown as { showDirectoryPicker?: (o?: object) => Promise<FileSystemDirectoryHandle> }).showDirectoryPicker;
-    if (!pick) return setRun({ kind: "error", message: "Rendering to a folder needs Chrome or Edge (File System Access)." });
+    const problem = fileAccessProblem(window as never);
+    if (problem || !pick) return setRun({ kind: "error", message: problem ?? "Rendering to a folder needs Chrome or Edge." });
     cancel.current = false;
     let dir: FileSystemDirectoryHandle;
     try {

@@ -7,8 +7,8 @@
  */
 import type { Draft } from "immer";
 import { CATALOG, isNodeType, KIND_DEFAULTS, presetParams, type MaterialKind, type MaterialPreset, type Network, type Node, type SceneDoc } from "@core/scene";
-import { docStore, shownNetwork, useUi, viewComp } from "@/store";
-import { setValue } from "@/inspector/edits";
+import { docStore, shownNetwork, useUi, viewComp } from "@/app/store";
+import { setValue } from "@/app/inspector/edits";
 
 /** Drag-and-drop type for Library tiles (a JSON `LibraryItem`). */
 export const SOLID_MIME = "application/x-motionbuilder-solid";
@@ -50,14 +50,16 @@ function wireMaterial(net: DNet, matId: string, objId: string) {
 }
 
 /** Give a 3D object a preset's look. Returns the Material node id it ends up with. */
-export function applyPresetTo(d: Draft<SceneDoc>, netId: string, objId: string, preset: MaterialPreset): string {
+export function applyPresetTo(d: Draft<SceneDoc>, netId: string, objId: string, preset: MaterialPreset, t = 0, tol = 0.02): string {
   const net = netOf(d, netId);
-  const obj = net.nodes.find((n) => n.id === objId)!;
+  const obj = net.nodes.find((n) => n.id === objId);
+  if (!obj) return "";
   const params = Object.fromEntries(Object.entries(presetParams(preset)).map(([k, v]) => [k, { value: v }]));
   const mine = materialOf(net, objId);
   if (mine && usersOf(net, mine.id) === 1) {
-    const m = net.nodes.find((n) => n.id === mine.id)!;
-    m.params = params;
+    const m = net.nodes.find((n) => n.id === mine.id);
+    if (!m) return "";
+    for (const [key, param] of Object.entries(params)) setValue(d, netId, m.id, key, param.value, t, tol);
     m.name = preset.name;
     return m.id;
   }
@@ -73,16 +75,17 @@ export function useMaterialNode(d: Draft<SceneDoc>, netId: string, objId: string
 }
 
 /** Change a material's kind and take that kind's defaults (its colour stays). */
-export function setMaterialKind(d: Draft<SceneDoc>, netId: string, matId: string, kind: MaterialKind) {
+export function setMaterialKind(d: Draft<SceneDoc>, netId: string, matId: string, kind: MaterialKind, t = 0, tol = 0.02) {
   const m = netOf(d, netId).nodes.find((n) => n.id === matId);
   if (!m) return;
-  m.params.kind = { value: kind };
-  for (const [k, v] of Object.entries(KIND_DEFAULTS[kind])) m.params[k] = { value: v };
+  setValue(d, netId, matId, "kind", kind, t, tol);
+  for (const [k, v] of Object.entries(KIND_DEFAULTS[kind])) setValue(d, netId, matId, k, v, t, tol);
 }
 
 /** Where a Library item lands for a node of the shown network: a 3D object (maybe inside a scene layer) or a 2D fill. */
 export function libraryTarget(doc: SceneDoc, net: Network, node: Node, t: number): { net: string; node: string; t: number; is3D: boolean } | undefined {
   if (is3DObject(node)) return { net: net.id, node: node.id, t, is3D: true };
+  if (node.type === "Material") return { net: net.id, node: node.id, t, is3D: true };
   if (node.type === "Scene3D" && node.subnet) {
     const inner = doc.networks.find((n) => n.id === node.subnet);
     const obj = inner?.nodes.find((n) => is3DObject(n) && n.enabled);
@@ -96,7 +99,15 @@ export function applyItemRecipe(target: NonNullable<ReturnType<typeof libraryTar
   return (d: Draft<SceneDoc>) => {
     const { net, node, t } = target;
     if (target.is3D) {
-      if (item.kind === "preset") return void applyPresetTo(d, net, node, item.preset);
+      const selected = netOf(d, net).nodes.find((n) => n.id === node);
+      if (selected?.type === "Material") {
+        if (item.kind === "preset") {
+          for (const [key, value] of Object.entries(presetParams(item.preset))) setValue(d, net, node, key, value, t, tol);
+          selected.name = item.preset.name;
+        } else if (item.kind === "colour") setValue(d, net, node, "color", item.value, t, tol);
+        return;
+      }
+      if (item.kind === "preset") return void applyPresetTo(d, net, node, item.preset, t, tol);
       if (item.kind === "node") return void (item.network === net && useMaterialNode(d, net, node, item.node));
       const mat = materialOf(netOf(d, net) as Network, node);
       return void (mat ? setValue(d, net, mat.id, "color", item.value, t, tol) : setValue(d, net, node, "fill", item.value, t, tol));

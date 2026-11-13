@@ -6,7 +6,8 @@
 import { describe, expect, it } from "vitest";
 import { produce } from "immer";
 import { approxMeasure, evaluateFrame, lowerThird, MATERIAL_PRESETS, presetParams, title3d, validateDoc, type Scene3DDrawable, type SceneDoc } from "@core/scene";
-import { applyItemRecipe, applyPresetTo, libraryTarget, materialOf, setMaterialKind, useMaterialNode, usersOf } from "@/panels/materials";
+import { applyItemRecipe, applyPresetTo, libraryTarget, materialOf, setMaterialKind, useMaterialNode, usersOf } from "@/app/panels/materials";
+import { toggleKey } from "@/app/inspector/edits";
 
 const preset = (id: string) => MATERIAL_PRESETS.find((p) => p.id === id)!;
 const inner = (d: SceneDoc) => d.networks.find((n) => n.id === "title-3d")!;
@@ -20,6 +21,24 @@ const shared = produce(title3d, (d) => {
 });
 
 describe("material presets", () => {
+  it("applying a look at the playhead preserves earlier material keys", () => {
+    const d = produce(title3d, (x) => {
+      toggleKey(x, "title-3d", "plaster", "roughness", 0, 0.02, 0.45);
+      applyPresetTo(x, "title-3d", "word", preset("chrome"), 2, 0.02);
+    });
+    expect(inner(d).nodes.find((n) => n.id === "plaster")?.params.roughness?.keys?.map((k) => [k.t, k.v])).toEqual([[0, 0.45], [2, 0.04]]);
+    expect(validateDoc(d).ok).toBe(true);
+  });
+  it("material kind can be keyframed and is evaluated as a held choice", () => {
+    const d = produce(title3d, (x) => {
+      toggleKey(x, "title-3d", "plaster", "kind", 0, 0.02, "plaster");
+      setMaterialKind(x, "title-3d", "plaster", "glass", 2);
+    });
+    expect(sceneAt(d).objects[0]?.material.kind).toBe("plaster");
+    expect(validateDoc(d).ok).toBe(true);
+    const frame = evaluateFrame(d, "main", 2, { measure: approxMeasure }).find((x) => x.kind === "scene3d") as Scene3DDrawable;
+    expect(frame.scene.objects[0]?.material.kind).toBe("glass");
+  });
   it("every preset is a valid material", () => {
     for (const p of MATERIAL_PRESETS) {
       const d = produce(title3d, (x) => void applyPresetTo(x, "title-3d", "word", p));
@@ -33,7 +52,7 @@ describe("material presets", () => {
     const net = inner(d);
     expect(materialOf(net, "word")!.id).toBe("plaster"); // same node, new look
     expect(materialOf(net, "word")!.name).toBe("Chrome");
-    expect(sceneAt(d).objects[0]!.material).toMatchObject({ kind: "metal", metalness: 1, roughness: 0.05, color: "#E8EAEE" });
+    expect(sceneAt(d).objects[0]!.material).toMatchObject({ kind: "metal", metalness: 1, roughness: 0.04, color: "#D3D8DA" });
   });
 
   it("leaves a shared material alone and gives the object a new one", () => {
@@ -82,6 +101,6 @@ describe("where Library items land", () => {
     const t2 = libraryTarget(lowerThird, lt, lt.nodes.find((n) => n.id === "panel")!, 1)!;
     const d2 = produce(lowerThird, applyItemRecipe(t2, { kind: "preset", preset: preset("gold") }, 0.02));
     const panel = d2.networks.find((n) => n.id === "lower-third")!.nodes.find((n) => n.id === "panel")!;
-    expect(JSON.stringify(panel.params.fill)).toContain("#E5B65A");
+    expect(JSON.stringify(panel.params.fill)).toContain("#FFE496");
   });
 });

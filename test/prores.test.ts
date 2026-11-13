@@ -4,7 +4,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { prores } from "@/render/prores/prores";
+import { prores } from "@/app/render/prores/prores";
 
 const hasFfprobe = spawnSync("ffprobe", ["-version"]).status === 0;
 

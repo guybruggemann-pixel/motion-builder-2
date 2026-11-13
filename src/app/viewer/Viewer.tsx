@@ -6,24 +6,24 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Grid2x2, ScanLine, Wind } from "lucide-react";
-import { cn } from "@/design-system/motionbuilder---brandbook-c4b4eb/lib/utils";
-import { Transport } from "./Transport";
+import { cn } from "@/app/design-system/motionbuilder---brandbook-c4b4eb/lib/utils";
 import { FrameCache, type Mat, type MeasureText } from "@core/scene";
-import { hitTestAll, ownerIn } from "@/render/bounds";
-import { pick3D } from "@/render/three/install";
-import { docStore } from "@/store";
-import { setValue } from "@/inspector/edits";
+import { boxOf, hitTestAll, ownerIn } from "@/app/render/bounds";
+import { pick3D } from "@/app/render/three/install";
+import { docStore } from "@/app/store";
+import { setValue } from "@/app/inspector/edits";
 import { rotationAt, turned, turnTarget } from "./turn3d";
 import { Gizmo, handlesFor, sceneDrawableFor } from "./Gizmo";
 import { FieldOverlay } from "./FieldOverlay";
 import { plus, vecAt } from "./manipulate";
-import { planeDelta3D } from "@/render/three/install";
-import { applyDropped, SOLID_MIME } from "@/panels/materials";
-import { openSubnet } from "@/store/navigation";
+import { planeDelta3D } from "@/app/render/three/install";
+import { applyDropped, SOLID_MIME } from "@/app/panels/materials";
+import { openSubnet } from "@/app/store/navigation";
 import { SelectionOverlay } from "./Selection";
-import { canvasMeasure, drawCompFrame, setImageListener } from "@/render/canvas2d";
-import { loadFonts } from "@/render/fonts";
-import { shownNetwork, useDocStore, useUi, viewComp } from "@/store";
+import { CameraMenu } from "./CameraMenu";
+import { canvasMeasure, drawCompFrame, setImageListener } from "@/app/render/canvas2d";
+import { loadDocFonts } from "@/app/render/fonts";
+import { shownNetwork, useDocStore, useUi, viewComp } from "@/app/store";
 
 /** SMPTE ST 2046-1: action safe 93 %, title safe 90 %. */
 const SAFE = { action: 0.93, title: 0.9 };
@@ -82,18 +82,18 @@ export function Viewer() {
   // Measure text only once the real fonts are in, or layouts would use fallback metrics.
   useEffect(() => {
     let alive = true;
-    loadFonts().then(() => {
+    loadDocFonts(doc).then(() => {
       if (!alive) return;
       const m = canvasMeasure();
       setMeasure(() => m);
       setCache(new FrameCache({ measure: m }));
-    });
+    }).catch((error: unknown) => console.error("Couldn't load project fonts", error));
     setImageListener(() => setImageTick((n) => n + 1)); // drawables don't change, only pixels
     return () => {
       alive = false;
       setImageListener(undefined);
     };
-  }, []);
+  }, [doc.assets]);
 
   useEffect(() => {
     const el = wrap.current!;
@@ -105,14 +105,35 @@ export function Viewer() {
     return () => ro.disconnect();
   }, []);
 
+  /**
+   * Inside an opened asset its content sits in the asset's own space (often near 0,0), so the
+   * viewer shifts it to frame centre. Measured over a few frames so animation doesn't make it jump.
+   * View only: nothing in the doc changes.
+   */
+  // Measured once per opened asset: re-measuring on every edit would re-centre while you drag,
+  // so the moved layer would look still and everything else would slide the other way.
+  const centreFor = useRef<{ net: string; c: readonly [number, number] } | undefined>(undefined);
+  const centre = useMemo(() => {
+    if (!path.length || !cache || !measure) return [0, 0] as const;
+    if (centreFor.current?.net === net.id) return centreFor.current.c;
+    const last = Math.max(0, Math.round(comp.duration * comp.fps) - 1);
+    const all = [0, 0.25, 0.5, 0.75, 1].flatMap((f) => cache.frame(doc, net.id, Math.round(last * f)));
+    const b = boxOf(all, [1, 0, 0, 1, 0, 0], measure);
+    if (!b) return [0, 0] as const;
+    const c = [comp.width / 2 - (b.x + b.w / 2), comp.height / 2 - (b.y + b.h / 2)] as const;
+    centreFor.current = { net: net.id, c };
+    return c;
+  }, [path.length, cache, measure, doc, net.id, comp]);
+
   /** Where the comp sits, in CSS px: scale and top-left. Shared by drawing, hit testing and overlays. */
   const layout = useMemo(() => {
     const k = Math.min((size.w - 2 * PAD.x) / comp.width, (size.h - PAD.top - PAD.bottom) / comp.height);
     if (!(k > 0)) return undefined;
     const ox = Math.round(((size.w - comp.width * k) / 2) * size.dpr) / size.dpr;
     const oy = Math.round((PAD.top + (size.h - PAD.top - PAD.bottom - comp.height * k) / 2) * size.dpr) / size.dpr;
-    return { k, ox, oy, view: [k, 0, 0, k, ox, oy] as Mat };
-  }, [size, comp.width, comp.height]);
+    const cx = Math.round(centre[0] * k * size.dpr) / size.dpr, cy = Math.round(centre[1] * k * size.dpr) / size.dpr;
+    return { k, ox, oy, cx, cy, view: [k, 0, 0, k, ox + cx, oy + cy] as Mat };
+  }, [size, comp.width, comp.height, centre]);
 
   /** The shown network's drawables now (flattened subnets), for selection and hit testing. */
   const drawables = useMemo(() => (cache ? cache.frame(doc, net.id, Math.min(frame, Math.round(comp.duration * comp.fps) - 1)) : []), [cache, doc, net.id, frame, comp]);
@@ -172,7 +193,7 @@ export function Viewer() {
   const selected = useUi((s) => s.selectedNodes[0]);
   const tool = useUi((s) => s.tool);
   const selNode = net.nodes.find((n) => n.id === selected);
-  const handles = layout && selNode && cache ? handlesFor(doc, net, selNode, frame / comp.fps, drawables, layout.view, layout.k, tool) : undefined;
+  const handles = layout && selNode && cache ? handlesFor(doc, net, selNode, frame / comp.fps, drawables, layout.view, layout.k, tool, measure) : undefined;
   void tool; // re-render the handles when the tool changes
 
   /**
@@ -249,7 +270,6 @@ export function Viewer() {
     const k = layout.k * d;
     const cw = comp.width * k, ch = comp.height * k;
     const ox = Math.round(layout.ox * d), oy = Math.round(layout.oy * d);
-    const view: Mat = [k, 0, 0, k, ox, oy];
 
     // the comp frame sits on the stage with a soft shadow and rounded corners (view only)
     ctx.save();
@@ -274,7 +294,7 @@ export function Viewer() {
       ctx.fillRect(ox, oy, cw, ch);
     } else drawChecker(ctx, ox, oy, cw, ch, 12 * size.dpr);
 
-    if (cache) drawCompFrame(ctx, scratch, cache, doc, net.id, frame, view, motionBlur ? comp.motionBlur : undefined);
+    if (cache) drawCompFrame(ctx, scratch, cache, doc, net.id, frame, [k, 0, 0, k, ox + Math.round(layout.cx * d), oy + Math.round(layout.cy * d)], motionBlur ? comp.motionBlur : undefined);
     ctx.restore();
     if (safeAreas) drawSafeAreas(ctx, ox, oy, cw, ch, size.dpr);
   }, [doc, net.id, comp, frame, size, layout, cache, safeAreas, motionBlur, transparency, theme, scratch, imageTick]);
@@ -317,6 +337,7 @@ export function Viewer() {
         <span className={cn(pill, "text-muted-foreground")}>
           {comp.width}×{comp.height} · {comp.fps} fps
         </span>
+        <CameraMenu net={net} t={frame / comp.fps} tol={0.5 / comp.fps} />
       </div>
       <div role="group" aria-label="View options" className="absolute right-3 top-3 flex gap-0.5 rounded-full bg-card p-[3px] shadow-card">
         <button type="button" aria-label="Safe areas" title="Safe areas" aria-pressed={safeAreas} onClick={() => toggle("safeAreas")} className={opt(safeAreas)}>
@@ -329,7 +350,6 @@ export function Viewer() {
           <Grid2x2 />
         </button>
       </div>
-      <Transport />
     </div>
   );
 }

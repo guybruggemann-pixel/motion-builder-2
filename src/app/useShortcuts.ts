@@ -3,9 +3,10 @@
  * E / R move / turn tool (Cinema 4D), Delete removes selected keys, ⌘Z / ⇧⌘Z (Ctrl on Windows). Ignored while typing.
  */
 import { useEffect } from "react";
-import { docStore, shownNetwork, useUi, viewComp } from "@/store";
-import { deleteKeys } from "@/timeline/edits";
-import { frameCount } from "@/viewer/Transport";
+import { openDoc, saveDoc } from "@/app/file/persist";
+import { docStore, shownNetwork, useUi, viewComp } from "@/app/store";
+import { deleteKeys } from "@/app/timeline/edits";
+import { frameCount } from "@/app/viewer/Transport";
 
 const typing = (t: EventTarget | null) =>
   t instanceof HTMLElement && (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName) && (t as HTMLInputElement).type !== "range");
@@ -34,6 +35,16 @@ export function useShortcuts() {
         ui.setFrame(Math.min(last, Math.max(0, f)));
       };
       const mod = e.metaKey || e.ctrlKey;
+      if (mod && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        void saveDoc(e.shiftKey);
+        return;
+      }
+      if (mod && e.key.toLowerCase() === "o") {
+        e.preventDefault();
+        void openDoc();
+        return;
+      }
       if (mod && e.key.toLowerCase() === "z") {
         e.preventDefault();
         if (e.shiftKey) docStore.getState().redo();

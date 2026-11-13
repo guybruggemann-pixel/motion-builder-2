@@ -4,9 +4,9 @@
  */
 import { describe, expect, it } from "vitest";
 import { title3d } from "@core/scene";
-import { createDocStore } from "@/store/docStore";
-import { setValue } from "@/inspector/edits";
-import { rotationAt, turned, turnTarget, TURN_DEG_PER_PX } from "@/viewer/turn3d";
+import { createDocStore } from "@/app/store/docStore";
+import { setValue } from "@/app/inspector/edits";
+import { rotationAt, turned, turnTarget, TURN_DEG_PER_PX } from "@/app/viewer/turn3d";
 
 const main = title3d.networks.find((n) => n.id === "main")!;
 const inner = title3d.networks.find((n) => n.id === "title-3d")!;

@@ -1,3 +1,7 @@
+> **Historical.** This is the kickoff prompt from 11 Nov 2026 that started phase 0 and phase 1 in
+> Claude Code. The project has moved on (see `docs/HANDOVER.md`, `docs/plan.md` and `roadmap.md`);
+> kept for the record, don't run it again.
+
 # Kickoff prompt for Claude Code
 
 Paste everything below the line into Claude Code, opened in this folder.

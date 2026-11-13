@@ -21,6 +21,8 @@ export interface EaseChoice {
   amount?: number;
   /** Only used by "custom". */
   bezier?: [number, number, number, number];
+  /** Spring only: perceived duration in ms (anime.js), default 628. Shorter = snappier. */
+  duration?: number;
 }
 
 /** Motion Builder v1 `easeString`: turns a menu choice into an anime-ae ease string. */
@@ -29,7 +31,7 @@ export function easeString(c: EaseChoice): string {
   const name = c.ease;
   if (name === "outBack" || name === "inBack" || name === "inOutBack") return `${name}(${(a / 25).toFixed(3)})`;
   if (name === "outElastic") return `outElastic(1,${(0.6 - (0.45 * a) / 100).toFixed(3)})`;
-  if (name === "spring") return `spring(${(a / 100).toFixed(3)},628)`;
+  if (name === "spring") return `spring(${(a / 100).toFixed(3)},${Math.round(c.duration ?? 628)})`;
   if (name === "custom") {
     const b = c.bezier ?? [0.2, 0, 0, 1];
     return `cubicBezier(${b.join(",")})`;
@@ -66,9 +68,55 @@ export function easeChoice(s: string): EaseChoice | undefined {
   if (m) return { ease: m[1] as MenuEase, amount: round2(+m[2]! * 25) };
   m = /^outElastic\(1,([-\d.]+)\)$/.exec(str);
   if (m) return { ease: "outElastic", amount: round2(((0.6 - +m[1]!) / 0.45) * 100) };
-  m = /^spring\(([-\d.]+),628\)$/.exec(str);
-  if (m) return { ease: "spring", amount: round2(+m[1]! * 100) };
+  m = /^spring\(([-\d.]+),([\d.]+)\)$/.exec(str);
+  if (m) return +m[2]! === 628 ? { ease: "spring", amount: round2(+m[1]! * 100) } : { ease: "spring", amount: round2(+m[1]! * 100), duration: +m[2]! };
   m = /^cubicBezier\(([-\d.]+),([-\d.]+),([-\d.]+),([-\d.]+)\)$/.exec(str);
   if (m) return { ease: "custom", bezier: [+m[1]!, +m[2]!, +m[3]!, +m[4]!] };
   return undefined;
 }
+
+/** Named spring feels for the ease picker: bounce amount (0-100) and perceived duration (ms). */
+export const SPRING_FEELS = [
+  { name: "Gentle", amount: 15, duration: 900 },
+  { name: "Smooth", amount: 30, duration: 628 },
+  { name: "Snappy", amount: 25, duration: 350 },
+  { name: "Bouncy", amount: 60, duration: 628 },
+  { name: "Wobbly", amount: 80, duration: 1000 },
+] as const;
+
+/**
+ * The Graph tab's preset grid, in groups. Every entry is a plain ease string the engine (and the AE
+ * baker) already understands; the spring entries are exactly the SPRING_FEELS, so a tile and the
+ * inspector's feel buttons produce the same curve.
+ */
+export const GRAPH_PRESETS: readonly { group: string; items: readonly { name: string; ease: string }[] }[] = [
+  {
+    group: "Ease out",
+    items: [
+      { name: "Soft", ease: "outSine" },
+      { name: "Smooth", ease: "outCubic" },
+      { name: "Strong", ease: "outQuart" },
+      { name: "Sharp", ease: "outExpo" },
+    ],
+  },
+  {
+    group: "Ease in / out",
+    items: [
+      { name: "Gentle", ease: "inOutSine" },
+      { name: "Even", ease: "inOutCubic" },
+      { name: "Firm", ease: "inOutQuart" },
+      { name: "Hard", ease: "inOutExpo" },
+    ],
+  },
+  { group: "Springs", items: SPRING_FEELS.map((s) => ({ name: s.name, ease: easeString({ ease: "spring", amount: s.amount, duration: s.duration }) })) },
+  {
+    group: "Character",
+    items: [
+      { name: "Overshoot", ease: easeString({ ease: "outBack" }) },
+      { name: "Elastic", ease: easeString({ ease: "outElastic" }) },
+      { name: "Bounce", ease: "outBounce" },
+      { name: "Linear", ease: "linear" },
+      { name: "Anticipate", ease: easeString({ ease: "inBack" }) },
+    ],
+  },
+];

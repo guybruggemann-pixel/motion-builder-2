@@ -2,15 +2,16 @@
  * Render the shown comp to ProRes 4444 with alpha (.mov). Frames are drawn on the page (it has the
  * fonts) one at a time, frame-stepped, and encoded in parallel workers running v1's encoder.
  */
+import { fileAccessProblem } from "@/app/file/docFile";
 import { useRef, useState } from "react";
 import { Clapperboard, X } from "lucide-react";
-import { Button, Label, Switch } from "@/design-system/motionbuilder---brandbook-c4b4eb";
-import { docStore, shownNetwork, useUi, viewComp } from "@/store";
-import { loadFonts } from "./fonts";
+import { Button, Label, Switch } from "@/app/design-system/motionbuilder---brandbook-c4b4eb";
+import { docStore, shownNetwork, useUi, viewComp } from "@/app/store";
+import { loadDocFonts } from "./fonts";
 import { mp4Supported } from "./mp4";
 import { renderToBlob } from "./renderJob";
 import { canvasMeasure } from "./canvas2d";
-import { exportAe, passesScript } from "@/export/exportAe";
+import { exportAe, passesScript } from "@/app/export/exportAe";
 import { exportPasses } from "./passes/export";
 import type { PassOptions } from "./passes/plan";
 
@@ -24,7 +25,7 @@ export function RenderPanel({ onClose }: { onClose: () => void }) {
   const [scale, setScale] = useState(1);
   const [format, setFormat] = useState<"prores" | "mp4">("prores");
   const [blur, setBlur] = useState(true);
-  const [aov, setAov] = useState<PassOptions>({ mattes: true, puzzle: true, depth: true });
+  const [aov, setAov] = useState<PassOptions>({ mattes: true, puzzle: true, depth: true, normals: false });
   const [state, setState] = useState<State>({ kind: "idle" });
   const cancel = useRef(false);
   const doc = docStore.getState().doc;
@@ -37,8 +38,8 @@ export function RenderPanel({ onClose }: { onClose: () => void }) {
     cancel.current = false;
     useUi.getState().setPlaying(false);
     try {
-      await loadFonts();
       const doc = docStore.getState().doc; // render exactly what the doc is now
+      await loadDocFonts(doc);
       const started = performance.now();
       const out = await renderToBlob(doc, net.id, { format, width: w, height: h, motionBlur: blur }, (done, total) => setState({ kind: "busy", done, total, started }), () => cancel.current);
       if (!out) return setState({ kind: "idle" });
@@ -57,10 +58,11 @@ export function RenderPanel({ onClose }: { onClose: () => void }) {
     try {
       cancel.current = false;
       const pick = (window as unknown as { showDirectoryPicker?: (o?: object) => Promise<FileSystemDirectoryHandle> }).showDirectoryPicker;
-      if (!pick) throw new Error("Pick-a-folder isn't available in this browser; use Chrome or Edge");
+      const problem = fileAccessProblem(window as never);
+      if (problem || !pick) throw new Error(problem ?? "Exporting to a folder needs Chrome or Edge.");
       const dir = await pick({ mode: "readwrite", id: "ae-passes" });
-      await loadFonts();
       const doc = docStore.getState().doc;
+      await loadDocFonts(doc);
       const started = performance.now();
       const save = async (name: string, blob: Blob) => {
         const w = await (await dir.getFileHandle(name, { create: true })).createWritable();
@@ -81,8 +83,8 @@ export function RenderPanel({ onClose }: { onClose: () => void }) {
   const exportForAe = async () => {
     try {
       cancel.current = false;
-      await loadFonts();
       const doc = docStore.getState().doc;
+      await loadDocFonts(doc);
       const { jsx, plan } = exportAe(doc, net.id, canvasMeasure());
       const scriptName = `${net.name.replace(/[^\w.-]+/g, "_")}.jsx`;
       const layers = plan.comps.reduce((n, c) => n + c.layers.length, 0);
@@ -91,7 +93,7 @@ export function RenderPanel({ onClose }: { onClose: () => void }) {
       if (!plan.passes.length) return setState({ kind: "done", url: URL.createObjectURL(script), name: scriptName, seconds: 0, frames: 0, note });
 
       const pick = (window as unknown as { showDirectoryPicker?: (o?: object) => Promise<FileSystemDirectoryHandle> }).showDirectoryPicker;
-      const dir = pick ? await pick({ mode: "readwrite", id: "ae-export" }) : undefined;
+      const dir = pick && !fileAccessProblem(window as never) ? await pick({ mode: "readwrite", id: "ae-export" }) : undefined;
       const save = async (name: string, blob: Blob) => {
         if (dir) {
           const w = await (await dir.getFileHandle(name, { create: true })).createWritable();
@@ -191,10 +193,11 @@ export function RenderPanel({ onClose }: { onClose: () => void }) {
                   ["mattes", "Alpha mattes", "per layer and 3D object, what's covered cut out"],
                   ["puzzle", "Puzzle mattes", "three elements per file in R, G, B"],
                   ["depth", "Depth", "per 3D scene, ready for Camera Lens Blur"],
+                  ["normals", "Normals", "per 3D scene, for relighting in AE"],
                 ] as [keyof PassOptions, string, string][]
               ).map(([k, label, hint]) => (
                 <label key={k} className="flex items-start gap-2 py-1 text-xs">
-                  <input type="checkbox" checked={aov[k]} onChange={(e) => setAov({ ...aov, [k]: e.target.checked })} className="mt-0.5 accent-[var(--ink)]" />
+                  <input type="checkbox" checked={!!aov[k]} onChange={(e) => setAov({ ...aov, [k]: e.target.checked })} className="mt-0.5 accent-[var(--ink)]" />
                   <span>
                     {label} <span className="text-muted-foreground">· {hint}</span>
                   </span>

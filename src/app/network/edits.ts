@@ -131,15 +131,21 @@ export function connect(d: Draft<SceneDoc>, netId: string, from: string, to: str
     net.wires.push({ from: { node: from, port: "out" }, to: { node: to, port } });
     return;
   }
-  if (from === to || net.wires.some((w) => w.from.node === from && w.to.node === to)) return;
+  if (from === to || net.wires.some((w) => w.from.node === from && w.to.node === to && w.to.port === port)) return;
   const target = net.nodes.find((n) => n.id === to);
-  if (target && isNodeType(target.type) && CATALOG[target.type].inputs === 1) net.wires = net.wires.filter((w) => w.to.node !== to);
+  if (target && isNodeType(target.type) && CATALOG[target.type].inputs === 1) net.wires = net.wires.filter((w) => w.to.node !== to || w.to.port !== "in");
   net.wires.push({ from: { node: from, port: "out" }, to: { node: to, port: "in" } });
 }
 
-export function disconnect(d: Draft<SceneDoc>, netId: string, wires: { from: string; to: string }[]) {
+export function disconnect(d: Draft<SceneDoc>, netId: string, wires: { from: string; to: string; port?: string }[]) {
   const net = netOf(d, netId);
-  net.wires = net.wires.filter((w) => !wires.some((x) => x.from === w.from.node && x.to === w.to.node));
+  net.wires = net.wires.filter((w) => !wires.some((x) => x.from === w.from.node && x.to === w.to.node && (x.port === undefined || x.port === w.to.port)));
+}
+
+/** A reconnect is one validated edit: invalid targets restore the original wire automatically. */
+export function reconnect(d: Draft<SceneDoc>, netId: string, old: { from: string; to: string; port: string }, next: { from: string; to: string; port: string }) {
+  disconnect(d, netId, [old]);
+  connect(d, netId, next.from, next.to, next.port);
 }
 
 /**

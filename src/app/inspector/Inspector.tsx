@@ -24,10 +24,10 @@ import {
   type SceneDoc,
   type Value,
 } from "@core/scene";
-import { Button, Label, Switch } from "@/design-system/motionbuilder---brandbook-c4b4eb";
-import { cn } from "@/design-system/motionbuilder---brandbook-c4b4eb/lib/utils";
-import { knownFamilies } from "@/render/fonts";
-import { docStore, shownNetwork, useDocStore, useUi, viewComp } from "@/store";
+import { Button, Label, Switch } from "@/app/design-system/motionbuilder---brandbook-c4b4eb";
+import { cn } from "@/app/design-system/motionbuilder---brandbook-c4b4eb/lib/utils";
+import { knownFamilies } from "@/app/render/fonts";
+import { docStore, shownNetwork, useDocStore, useUi, viewComp } from "@/app/store";
 import { ChoiceField, ColorField, EaseField, NumberField, TextField, ToggleField, Vec2Field, Vec3Field, type Change } from "./controls";
 import {
   addModifier,
@@ -46,11 +46,12 @@ import {
   type ModifierKind,
 } from "./edits";
 import type { Draft } from "immer";
-import { cssColor, layerFill, MiniCurve, roleLabel, Sphere } from "@/shell/look";
-import { phaseOf } from "@/viewer/Selection";
-import { setMaterialKind } from "@/panels/materials";
-import { openSubnet } from "@/store/navigation";
-import { takesMaterial } from "@/panels/materials";
+import { cssColor, layerFill, MiniCurve, roleLabel, Sphere } from "@/app/shell/look";
+import { phaseOf } from "@/app/viewer/Selection";
+import { setMaterialKind } from "@/app/panels/materials";
+import { openSubnet } from "@/app/store/navigation";
+import { takesMaterial } from "@/app/panels/materials";
+import { DescribeMotion } from "@/app/ai/DescribeMotion";
 
 /* ---------- helpers ---------- */
 
@@ -391,6 +392,7 @@ function valueNow(node: Node, name: string, spec: ParamSpec | undefined, t: numb
 
 /** Motion: the layer's in / hold / out as a proportion bar, ease cards and one sentence. */
 function MotionSection({ doc, net, node, span }: { doc: SceneDoc; net: Network; node: Node; span: [number, number] }) {
+  const fps = viewComp(doc, useUi((s) => s.path)).fps;
   const inP = phaseOf(net, node.id, "in"), outP = phaseOf(net, node.id, "out");
   const range = (p?: Node): [number, number] | undefined => {
     if (!p) return undefined;
@@ -427,7 +429,8 @@ function MotionSection({ doc, net, node, span }: { doc: SceneDoc; net: Network; 
   if (node.subnet)
     return (
       <Section title="Motion" aside={`${r2(a)}–${r2(b)}s`}>
-        <p className="text-xs text-muted-foreground">The motion lives inside {doc.networks.find((n) => n.id === node.subnet)?.name ?? "the asset"}. Double-click the layer to open it.</p>
+        <p className="text-xs text-muted-foreground">The motion lives inside {doc.networks.find((n) => n.id === node.subnet)?.name ?? "the asset"}. Double-click the layer to open it, or describe how the whole asset should move.</p>
+        <DescribeMotion key={node.id} net={net} node={node} fps={fps} span={span} />
       </Section>
     );
   return (
@@ -450,18 +453,22 @@ function MotionSection({ doc, net, node, span }: { doc: SceneDoc; net: Network; 
             ? `Animated with keys on ${keyed.join(", ")}.`
             : "No motion yet. Add Animate in / out from + Add, or key a value."}
       </p>
+      <DescribeMotion key={node.id} net={net} node={node} fps={fps} span={span} />
     </Section>
   );
 }
 
 /** A Material node: preview, kind (with that kind's defaults) and which objects use it. */
 function MaterialHeader({ doc, net, node }: { doc: SceneDoc; net: Network; node: Node }) {
-  const kind = String(node.params.kind?.value ?? "plastic");
+  const frame = useUi((s) => s.frame);
+  const path = useUi((s) => s.path);
+  const fps = viewComp(doc, path).fps;
+  const kind = String(valueNow(node, "kind", CATALOG.Material.params.kind, frame / fps));
   const users = net.wires.filter((w) => w.from.node === node.id && w.to.port === "material").map((w) => net.nodes.find((n) => n.id === w.to.node)).filter(Boolean) as Node[];
   return (
     <Section title="Material">
       <div className="flex items-center gap-3">
-        <Sphere color={cssColor(doc, node.params.color?.value) ?? "#ffffff"} kind={kind} size={44} />
+        <Sphere color={cssColor(doc, valueNow(node, "color", CATALOG.Material.params.color, frame / fps))} kind={kind} size={44} />
         <div role="radiogroup" aria-label="Material kind" className="grid flex-1 grid-cols-4 gap-1">
           {MATERIAL_KINDS.map((k) => (
             <button
@@ -469,7 +476,7 @@ function MaterialHeader({ doc, net, node }: { doc: SceneDoc; net: Network; node:
               type="button"
               role="radio"
               aria-checked={k === kind}
-              onClick={() => k !== kind && apply(`Material: ${k}`, (d) => setMaterialKind(d, net.id, node.id, k), true, `kind-${node.id}`)}
+              onClick={() => k !== kind && apply(`Material: ${k}`, (d) => setMaterialKind(d, net.id, node.id, k, frame / fps, 0.5 / fps), true, `kind-${node.id}`)}
               className={cn("rounded-full px-1.5 py-1 text-[11px] capitalize", k === kind ? "bg-raised font-semibold shadow-card" : "text-muted-foreground hover:text-foreground")}
             >
               {k}
@@ -550,7 +557,7 @@ function NodePanel({ doc, net, node }: { doc: SceneDoc; net: Network; node: Node
   const material = matWire ? net.nodes.find((n) => n.id === matWire.from.node && n.type === "Material" && n.enabled) : undefined;
   const matColor = material ? cssColor(doc, valueNow(material, "color", CATALOG.Material.params.color, t)) : undefined;
   const matKind = material ? String(valueNow(material, "kind", CATALOG.Material.params.kind, t)) : undefined;
-  const own = params.filter(([n]) => !TRANSFORM.has(n) && n !== "fill" && !(node.type === "Material" && n === "kind"));
+  const own = params.filter(([n]) => !TRANSFORM.has(n) && n !== "fill");
   const xf = params.filter(([n]) => TRANSFORM.has(n) && n !== "opacity");
   const opacity = params.find(([n]) => n === "opacity");
   const modded = params.filter(([n]) => node.params[n]?.modifiers?.length);
@@ -642,9 +649,10 @@ function NodePanel({ doc, net, node }: { doc: SceneDoc; net: Network; node: Node
                 <span className="truncate text-[13px] font-semibold">{material.name}</span>
                 <span className="text-[11px] capitalize text-muted-foreground">{matKind} material</span>
               </span>
-              <button type="button" onClick={() => useUi.getState().selectNodes([material.id])} className="ml-auto rounded-full px-2.5 py-1 text-xs hover:bg-field">
+              <Button variant="ghost" size="sm" onClick={() => useUi.getState().selectNodes([material.id])} className="ml-auto">
                 Edit
-              </button>
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => useUi.getState().openLibrary("materials")}>Library</Button>
             </div>
           )}
           {hasFill && !material && (
@@ -654,12 +662,13 @@ function NodePanel({ doc, net, node }: { doc: SceneDoc; net: Network; node: Node
                 <span className="text-[13px] font-semibold">Solid</span>
                 <span className="truncate font-mono text-[11px] text-muted-foreground">{fillRaw.replace(/^brand:/, "brand · ")}</span>
               </span>
-              <button type="button" onClick={() => useUi.getState().setLibraryOpen(true)} className="ml-auto rounded-full px-2.5 py-1 text-xs hover:bg-field">
+              <Button variant="ghost" size="sm" onClick={() => useUi.getState().openLibrary("materials")} className="ml-auto">
                 Library
-              </button>
+              </Button>
             </div>
           )}
           {hasFill && !material && <ParamRow net={net} node={node} name="fill" label="Colour" spec={params.find(([n]) => n === "fill")![1]} showMods={false} />}
+          {material && Object.entries(CATALOG.Material.params).map(([name, materialSpec]) => <ParamRow key={name} net={net} node={material} name={name} label={name === "color" ? "Material colour" : human(name)} spec={materialSpec} showMods={false} />)}
           {opacity && <ParamRow net={net} node={node} name="opacity" spec={opacity[1]} showMods={false} />}
         </Section>
       )}

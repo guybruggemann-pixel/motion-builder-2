@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { evaluateFrame, lowerThird } from "@core/scene";
-import { createDocStore } from "@/store/docStore";
-import { addNode, connect, deleteNodes, disconnect, insertAfter, moveNodes, wireToOutput } from "@/network/edits";
+import { createDocStore } from "@/app/store/docStore";
+import { addNode, connect, deleteNodes, disconnect, insertAfter, moveNodes, reconnect, wireToOutput } from "@/app/network/edits";
 import { approxMeasure, title3d, validateDoc } from "@core/scene";
 
 const NET = "lower-third";
@@ -10,6 +10,26 @@ const net = (s: ReturnType<typeof store>, i = 1) => s.getState().doc.networks[i]
 const wires = (s: ReturnType<typeof store>) => net(s).wires.map((w) => `${w.from.node}>${w.to.node}`);
 
 describe("network edits", () => {
+  it("detaches a wire without deleting nodes and undo restores it", () => {
+    const s = store();
+    const before = s.getState().doc;
+    expect(s.getState().edit("Detach wire", (d) => disconnect(d, NET, [{ from: "panel", to: "merge", port: "in" }]))).toBe(true);
+    expect(wires(s)).not.toContain("panel>merge");
+    expect(net(s).nodes).toEqual(before.networks[1]?.nodes);
+    s.getState().undo();
+    expect(s.getState().doc).toEqual(before);
+  });
+  it("reconnects in one undo step and retains the original on invalid loops", () => {
+    const s = store();
+    const before = s.getState().doc;
+    expect(s.getState().edit("Reconnect wire", (d) => reconnect(d, NET, { from: "name", to: "split", port: "in" }, { from: "name-in", to: "split", port: "in" }))).toBe(false);
+    expect(s.getState().doc).toEqual(before);
+    expect(s.getState().edit("Reconnect wire", (d) => reconnect(d, NET, { from: "name", to: "split", port: "in" }, { from: "title", to: "split", port: "in" }))).toBe(true);
+    expect(wires(s)).toContain("title>split");
+    expect(wires(s)).not.toContain("name>split");
+    s.getState().undo();
+    expect(s.getState().doc).toEqual(before);
+  });
   it("adds nodes with free ids, and a Subnet with its own network", () => {
     const s = store();
     let a = "", b = "", sub = "";

@@ -2,8 +2,8 @@
  * Drag handle in the gap between two cards. Drag to resize, arrow keys step 16px, double-click
  * resets. Sizes are view state (`uiStore.panes`), remembered per browser on release.
  */
-import { cn } from "@/design-system/motionbuilder---brandbook-c4b4eb/lib/utils";
-import { PANE_DEFAULTS, PANE_LIMITS, useUi, type Panes } from "@/store/uiStore";
+import { cn } from "@/app/design-system/motionbuilder---brandbook-c4b4eb/lib/utils";
+import { PANE_DEFAULTS, PANE_LIMITS, useUi, type Panes } from "@/app/store/uiStore";
 
 /** Which pane it sizes, and which way the pointer grows it. */
 const SPEC: Record<keyof Panes, { axis: "x" | "y"; sign: 1 | -1; label: string; place: string }> = {

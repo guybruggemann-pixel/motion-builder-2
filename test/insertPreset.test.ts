@@ -2,10 +2,17 @@
 import { describe, expect, it } from "vitest";
 import { produce } from "immer";
 import { approxMeasure, evaluateFrame, lowerThird, title3d, uniqueGrid, validateDoc } from "@core/scene";
-import { insertPreset } from "@/panels/insertPreset";
-import { turnTarget } from "@/viewer/turn3d";
+import { insertPreset } from "@/app/panels/insertPreset";
+import { turnTarget } from "@/app/viewer/turn3d";
 
 describe("adding a preset to a comp", () => {
+  it("long preset names allocate distinct bounded ids without colliding", () => {
+    const preset = { ...uniqueGrid, name: "Long preset ".repeat(30) };
+    const doc = produce(lowerThird, (d) => { insertPreset(d, "main", preset); insertPreset(d, "main", preset); });
+    expect(new Set(doc.networks.map((n) => n.id)).size).toBe(doc.networks.length);
+    expect(doc.networks.every((n) => n.id.length <= 64)).toBe(true);
+    expect(validateDoc(doc).ok).toBe(true);
+  });
   it("adds the 3D title as a precomp next to the lower third, both drawing", () => {
     let id = "";
     const d = produce(lowerThird, (x) => void (id = insertPreset(x, "main", title3d)));

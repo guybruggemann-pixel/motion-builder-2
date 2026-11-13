@@ -5,10 +5,10 @@
  */
 import { describe, expect, it } from "vitest";
 import { approxMeasure, evaluateFrame, lowerThird, lowerThirdFit, title3d, type Drawable } from "@core/scene";
-import { bake, type Baked } from "@/export/bake";
-import { buildAePlan, postScriptName, type AePlan } from "@/export/aePlan";
-import { aeScript, passesScript } from "@/export/exportAe";
-import { planPasses } from "@/render/passes/plan";
+import { bake, type Baked } from "@/app/export/bake";
+import { buildAePlan, postScriptName, type AePlan } from "@/app/export/aePlan";
+import { aeScript, passesScript } from "@/app/export/exportAe";
+import { planPasses } from "@/app/render/passes/plan";
 
 /* ---------- a recording mock of the bits of AE's DOM the script uses ---------- */
 

@@ -4,7 +4,7 @@
  */
 import type { Draft } from "immer";
 import type { Key, Network, Node, SceneDoc } from "@core/scene";
-import type { KeyRef } from "@/store/uiStore";
+import type { KeyRef } from "@/app/store/uiStore";
 
 const EPS = 1e-6;
 

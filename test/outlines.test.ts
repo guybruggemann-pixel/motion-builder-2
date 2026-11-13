@@ -6,7 +6,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { OutlineFonts, type GlyphOutline } from "@/render/outlines";
+import { OutlineFonts, type GlyphOutline } from "@/app/render/outlines";
 
 const require = createRequire(import.meta.url);
 const decompress = require("wawoff2/decompress") as (b: Uint8Array) => Promise<Uint8Array>;
@@ -27,6 +27,14 @@ const font = (weight: number, size = 300) => ({ family: "Inter Tight", weight, s
 const contours = (g: GlyphOutline) => g.cmds.filter((c) => c.op === "M").length;
 
 describe("glyph outlines", () => {
+  it("registers an imported raw font for 3D lettering with the same glyph widths", async () => {
+    const bytes = await decompress(file("inter-tight/files/inter-tight-latin-wght-normal.woff2"));
+    const custom = new OutlineFonts(new Map());
+    custom.register("User font", [bytes]);
+    expect(custom.has("User font")).toBe(true);
+    expect(custom.width("techonomy", { family: "User font", weight: 700, size: 100 })).toBeCloseTo(fonts.width("techonomy", { family: "Inter Tight", weight: 700, size: 100 }), 6);
+    expect(custom.runOutlines({ text: "is awesome", x: 0, y: 0 }, { family: "User font", weight: 700, size: 100 })).toHaveLength(10);
+  });
   it("gives one closed outline per glyph; O and other counters keep their holes", () => {
     const gs = fonts.runOutlines({ text: "MOTION", x: 0, y: 0 }, font(800));
     expect(gs.map((g) => g.text).join("")).toBe("MOTION");
