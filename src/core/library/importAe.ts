@@ -120,7 +120,7 @@ function track(prop: AeProp | undefined, fallback: number[], spatial: boolean, w
   const value = prop.value === undefined || prop.value === null ? fallback : vec(prop.value);
   const ks = prop.keys;
   if (!ks?.length) return { value };
-  let curved = false, perDim = false, early = false;
+  let curved = false, perDim = false, early = false, swing = false;
   const keys = ks.map((k, i) => {
     const v = vec(k.v), next = ks[i + 1];
     if (k.t < 0) early = true;
@@ -139,6 +139,8 @@ function track(prop: AeProp | undefined, fallback: number[], spatial: boolean, w
         // one curve per dimension that changes; our key takes the first and reports a mismatch
         const curves = v.map((x, d) => {
           const dv = (nv[d] ?? x) - x;
+          // equal values but a speed on either side: AE swings away and back, we hold still
+          if (dv === 0 && [k.outInterp === "bezier" && (k.easeOut?.[d] ?? k.easeOut?.[0]), next.inInterp === "bezier" && (next.easeIn?.[d] ?? next.easeIn?.[0])].some((e) => e && Math.abs(e.speed) > 0.01)) swing = true;
           const out = k.outInterp === "linear" ? linearSide(dt, dv) : k.easeOut?.[d] ?? k.easeOut?.[0], inn = next.inInterp === "linear" ? linearSide(dt, dv) : next.easeIn?.[d] ?? next.easeIn?.[0];
           return out && inn ? segmentBezier(dt, dv, out, inn) : undefined;
         }).filter((b) => !!b);
@@ -151,6 +153,7 @@ function track(prop: AeProp | undefined, fallback: number[], spatial: boolean, w
   if (curved) notes.push(`${where}: the motion path is curved in After Effects; it's imported as straight moves between keys.`);
   if (perDim) notes.push(`${where}: X and Y ease differently in After Effects; both use the first dimension's ease here.`);
   if (early) notes.push(`${where}: keys before the start of the comp were moved to 0 s.`);
+  if (swing) notes.push(`${where}: between two keys with the same value, After Effects swings away and back (the keys have speed); here it holds still. Add a key in between to keep the swing.`);
   return { value, keys };
 }
 

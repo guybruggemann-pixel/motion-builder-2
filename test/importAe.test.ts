@@ -90,6 +90,16 @@ describe("importing an After Effects dump", () => {
     expect(node("lt-bar", "bg").params).toMatchObject({ opacity: { value: 50 }, fill: { value: "#0A0A0F" }, size: { value: [1920, 1080] } });
   });
 
+  it("reports a swing between equal keys (seen in real After Effects: one speed set on both dimensions)", () => {
+    const d = structuredClone(aeLowerThird);
+    const size = d.comps[1]!.layers[2]!.properties[0]!.children![0]!.children![0]!.children![0]!.children![0]!;
+    expect(size.matchName).toBe("ADBE Vector Rect Size");
+    size.keys![0]!.easeOut![1] = { speed: 8000, influence: 16 }; // height stays 120 but leaves at 8000 px/s
+    const n = importAe(d);
+    expect(n.notes.some((x) => /"Bar \[ctl\]" › Rectangle 1 size: between two keys with the same value, After Effects swings/.test(x)), n.notes.join("\n")).toBe(true);
+    expect(r.notes.some((x) => /swings away/.test(x))).toBe(false);
+  });
+
   it("is deterministic and rejects other JSON", () => {
     expect(importAe(structuredClone(aeLowerThird))).toEqual(r);
     expect(() => importAe({ comps: [] } as unknown as AeDump)).toThrow(/isn't an After Effects dump/);

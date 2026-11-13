@@ -38,3 +38,6 @@ dist-ssr
 
 # AI bridge requests and answers (local only)
 .ai-bridge/
+
+# Local After Effects test renders and dumps
+reference/ae-test/
