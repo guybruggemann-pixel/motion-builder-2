@@ -85,7 +85,8 @@ AE lights. The importer lists what it skipped in `asset.json.importNotes`.
    writes `source/c4d.json`: objects with transforms, primitive/text/extrude parameters, MoGraph
    cloner settings, camera and lights, material assignments with base colour, roughness,
    metalness, transmission and emission, and every animation track with keys and tangents.
-2. The importer (`src/core/library/importC4d.ts`) maps it to a Scene3D subnet: Text3D, Shape3D,
+2. The importer (`src/core/library/importC4d.ts`; run it with
+   `bun run library:import-c4d library/_inbox/<slug>`) maps it to a Scene3D subnet: Text3D, Shape3D,
    Cloner, Camera, Light and Material nodes. Rotation HPB (radians) → degrees XYZ. C4D's Y-up,
    left-handed space → three.js right-handed (flip Z). Tangents → cubicBezier like above.
 3. Same render comparison as AE, against a C4D render in `source/reference.mp4`.

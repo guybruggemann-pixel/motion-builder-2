@@ -12,6 +12,16 @@ The asset library's pure half: package format, checks, index, importers. Spec: `
   - Precomp: `timing.in` is the AE start time (a Subnet plays from its in point). A trimmed start is reported.
   - `[ctl]` in a layer name promotes its text (Text) or fill (Shape, solid); controls are listed top layer first.
   - Not imported, reported instead: effects, masks, expressions, blend modes, track mattes, 3D, time remap/stretch, text animators, cameras, lights, footage, animated paths, curved motion paths (flattened), per-dimension eases (first dimension wins).
+- `importC4d.ts`: `tools/c4d/mb_export.py` dump → doc, same contract as `importAe` (deterministic, everything not carried over goes into `notes`).
+  - Result shape: `main` comp → Subnet `asset` → a network with one Scene3D layer → the 3D network. No promoted controls yet (they'd have to reach through the Scene3D layer).
+  - Space: C4D is y up, left-handed; ours is y up, right-handed. Every point and direction flips z (`ours()` mirrors a matrix on both sides). C4D cm are used as px.
+  - Static transforms come from the dumped matrices (`ml`, `mg`), so no rotation convention is involved. Keyed rotation must use the HPB angles; **which way each angle counts is fitted from the dump** (`fitSigns`: the sign choice that reproduces the objects' own matrices), because it couldn't be checked in Cinema 4D. If nothing fits, a note says so. A single turning axis maps straight onto ours (keeps turns over 180°); several axes go through the matrix and are exact only at keys.
+  - There are no 3D groups: a null's transform is folded into its children (`mg`). An animated parent, or an animated child of a rotated/scaled parent, can't be carried and is reported.
+  - Per-axis tracks become one vector track (a key wherever any axis has one); tangents become a cubic bezier, snapped like AE's.
+  - Maps: MoText and Extrude(text spline) → Text3D; cube and Extrude(rectangle/circle spline) → Shape3D; Cloner (linear, radial, grid) → Cloner with the first child as its object; camera (active one), lights, standard materials (colour, glass, emissive, a glossy flag). A linear cloner is moved half its length, because C4D's line starts at the cloner and ours is centred.
+  - Reported, not imported: spheres and other primitives, generators, effectors and fields, node/Redshift material looks, material animation, camera rotation keys, light animation, non-transform parameter tracks.
+  - The dumper resolves object kinds, the few parameters needed (`known`) and track channels through C4D's own constants since `mb-c4d-dump/0.2`, so the importer never guesses type or parameter ids. 0.1 dumps are refused.
+- `test/fixtures/c4dTitle.ts` is hand-made for the same reason as the AE one. Its `matrix()` helper assumes Ry(h)·Rx(p)·Rz(b); real C4D may count angles the other way round, which `fitSigns` absorbs.
 - The dumper writes enums as words since `mb-ae-dump/0.2` (`blendingMode: "normal"`, `trackMatteType: "none"`, `justification: "left"`); anything else is treated as unsupported and reported.
 - `test/fixtures/aeLowerThird.ts` is hand-made, because the dumper hasn't run in After Effects yet. When a real dump exists, add it as a fixture and fix what it shows; expect property names or value shapes to differ from the guess.
-- Step B's gate is not met until a real AE comp's import renders like its `source/reference.mp4`.
+- Step B's gate is not met until a real AE comp's import renders like its `source/reference.mp4` (and the same for a C4D scene).

@@ -11,6 +11,7 @@
  */
 import { validateDoc, type Key, type Network, type Node, type Param, type Promoted, type Role, type SceneDoc, type Value, type Wire } from "../scene";
 import { bezierToEase, linearSide, segmentBezier, type AeEase } from "./aeEase";
+import { hex, ids, r4, slug, weightOf } from "./util";
 
 /* ---------- the dump (only what the importer reads) ---------- */
 
@@ -80,24 +81,6 @@ export interface AeImport {
   notes: string[];
 }
 
-/* ---------- small helpers ---------- */
-
-const slug = (s: string, fallback: string) => {
-  const x = s.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-  return (/^[a-z]/.test(x) ? x : x ? `${fallback}-${x}` : fallback).slice(0, 48).replace(/-+$/, "");
-};
-
-/** Hands out ids that are unique within one network. */
-function ids() {
-  const used = new Set<string>();
-  return (wanted: string) => {
-    let id = wanted, n = 2;
-    while (used.has(id)) id = `${wanted}-${n++}`;
-    used.add(id);
-    return id;
-  };
-}
-
 const find = (props: AeProp[] | undefined, ...path: string[]): AeProp | undefined => {
   let list = props, hit: AeProp | undefined;
   for (const m of path) {
@@ -108,16 +91,8 @@ const find = (props: AeProp[] | undefined, ...path: string[]): AeProp | undefine
   return hit;
 };
 
-const hex2 = (x: number) => Math.round(Math.min(1, Math.max(0, x)) * 255).toString(16).padStart(2, "0").toUpperCase();
-/** AE colour [r, g, b(, a)] 0..1 → #RRGGBB, with alpha only when it isn't opaque. */
-const hex = (c: unknown, alpha = 1): string => {
-  const [r = 0, g = 0, b = 0] = Array.isArray(c) ? (c as number[]) : [];
-  return `#${hex2(r)}${hex2(g)}${hex2(b)}${alpha < 0.999 ? hex2(alpha) : ""}`;
-};
-
 const num = (v: unknown, d = 0): number => (typeof v === "number" && isFinite(v) ? v : d);
 const vec = (v: unknown): number[] => (Array.isArray(v) ? (v as unknown[]).map((x) => num(x)) : [num(v)]);
-const r4 = (x: number) => Math.round(x * 1e4) / 1e4 || 0;
 const dist = (a: number[], b: number[]) => Math.hypot(...a.map((x, i) => (b[i] ?? 0) - x));
 const close = (a: number[], b: number[], eps = 0.02) => a.every((x, i) => Math.abs(x - (b[i] ?? 0)) <= eps);
 
@@ -202,12 +177,10 @@ interface Built {
 
 const wire = (from: string, to: string): Wire => ({ from: { node: from, port: "out" }, to: { node: to, port: "in" } });
 
-const WEIGHTS: [RegExp, number][] = [[/thin|hairline/, 100], [/extra-?light|ultra-?light/, 200], [/light/, 300], [/medium/, 500], [/semi-?bold|demi/, 600], [/extra-?bold|ultra-?bold/, 800], [/black|heavy/, 900], [/bold/, 700]];
-
 /** "Inter-SemiBold" → Inter, 600. AE reports PostScript names, so this is a best guess and is noted. */
 function fontOf(ps: string): { family: string; weight: number } {
   const [base = ps, style = ""] = ps.split("-");
-  const weight = WEIGHTS.find(([re]) => re.test(style.toLowerCase()))?.[1] ?? 400;
+  const weight = weightOf(style);
   return { family: base.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/\s*(Variable|VF)$/i, "").trim() || ps, weight };
 }
 

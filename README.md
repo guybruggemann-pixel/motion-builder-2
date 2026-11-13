@@ -50,6 +50,8 @@ Needs Google Chrome. Rules: `tools/render/AGENTS.md`.
 Packages live in `library/<slug>/` (`asset.json` + `doc.json`, format in `docs/asset-library.md`).
 `bun run library:import-ae library/_inbox/<slug>` turns an After Effects dump (`source/ae.json`,
 written by `tools/ae/mb-export.jsx`) into `doc.json` and lists what it couldn't carry over.
+`bun run library:import-c4d` does the same for a Cinema 4D dump (`source/c4d.json`, written by
+`tools/c4d/mb_export.py`).
 `bun run library:index` checks every package and writes `library/index.json`.
 
 ## Known limits
