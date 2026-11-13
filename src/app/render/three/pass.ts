@@ -11,6 +11,7 @@ import { SVGLoader } from "three/examples/jsm/loaders/SVGLoader.js";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { GTAOPass } from "three/examples/jsm/postprocessing/GTAOPass.js";
+import { SimplexNoise } from "three/examples/jsm/math/SimplexNoise.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { deformPoint } from "@core/scene";
 import type { Light3D, Material3D, Object3D, Scene3D, Shape3D, Text3D } from "@core/scene";
@@ -35,6 +36,28 @@ void main() { float g = 1.0 - clamp((vDepth - near) / max(far - near, 1e-3), 0.0
 
 /** Largest side of the pass in device px (memory and speed). */
 const MAX_PX = 4096;
+
+/**
+ * The denoise pattern GTAOPass builds for itself, but from a fixed Park-Miller seed: the same doc
+ * must render the same pixels in every session (viewer, batch, headless), and three's own is random.
+ */
+function seededNoise(size = 64): THREE.DataTexture {
+  let seed = 20261113;
+  const simplex = new SimplexNoise({ random: () => (seed = (seed * 16807) % 2147483647) / 2147483647 });
+  const data = new Uint8Array(size * size * 4);
+  for (let i = 0; i < size; i++)
+    for (let j = 0; j < size; j++) {
+      const o = (i * size + j) * 4;
+      data[o] = (simplex.noise(i, j) * 0.5 + 0.5) * 255;
+      data[o + 1] = (simplex.noise(i + size, j) * 0.5 + 0.5) * 255;
+      data[o + 2] = (simplex.noise(i, j + size) * 0.5 + 0.5) * 255;
+      data[o + 3] = (simplex.noise(i + size, j + size) * 0.5 + 0.5) * 255;
+    }
+  const t = new THREE.DataTexture(data, size, size, THREE.RGBAFormat, THREE.UnsignedByteType);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.needsUpdate = true;
+  return t;
+}
 
 export class ScenePass {
   readonly canvas = new OffscreenCanvas(2, 2);
@@ -118,6 +141,10 @@ export class ScenePass {
       const render = new RenderPass(scene, cam);
       render.clearAlpha = 0;
       const gtao = new GTAOPass(scene, cam, pw, ph);
+      // three seeds this texture with Math.random, so the AO grain differed on every page load.
+      gtao.pdNoiseTexture.dispose();
+      gtao.pdNoiseTexture = seededNoise();
+      gtao.pdMaterial.uniforms.tNoise!.value = gtao.pdNoiseTexture;
       composer.addPass(render);
       composer.addPass(gtao);
       composer.addPass(new OutputPass());
