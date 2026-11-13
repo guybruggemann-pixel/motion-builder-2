@@ -15,7 +15,9 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "render": "bun tools/render/render.ts",
-    "render:check": "bun tools/render/check.ts"
+    "render:check": "bun tools/render/check.ts",
+    "library:index": "bun tools/library/index.ts",
+    "library:import-ae": "bun tools/library/importAe.ts"
   },
   "overrides": {
     "rolldown": "1.2.1"

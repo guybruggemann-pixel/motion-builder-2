@@ -45,6 +45,13 @@ browser: MP4 by default, `--format prores` for ProRes 4444 with alpha, `--frame 
 lists everything. `bun run render:check` compares background renders with a real browser window.
 Needs Google Chrome. Rules: `tools/render/AGENTS.md`.
 
+## Asset library
+
+Packages live in `library/<slug>/` (`asset.json` + `doc.json`, format in `docs/asset-library.md`).
+`bun run library:import-ae library/_inbox/<slug>` turns an After Effects dump (`source/ae.json`,
+written by `tools/ae/mb-export.jsx`) into `doc.json` and lists what it couldn't carry over.
+`bun run library:index` checks every package and writes `library/index.json`.
+
 ## Known limits
 
 The AI features ("Describe the motion", prompt drafts, picture and video rebuilds) go through one

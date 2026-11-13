@@ -12,6 +12,17 @@ export const MENU_EASES = [
 ] as const;
 export type MenuEase = (typeof MENU_EASES)[number];
 
+/** Closest cubic-bezier for each menu ease (standard approximations), used by "Make editable" and by importers that snap a curve to a menu ease. */
+export const BEZIER_OF: Record<string, [number, number, number, number]> = {
+  linear: [0, 0, 1, 1],
+  outQuad: [0.5, 1, 0.89, 1], outCubic: [0.33, 1, 0.68, 1], outQuart: [0.25, 1, 0.5, 1], outQuint: [0.22, 1, 0.36, 1],
+  outExpo: [0.16, 1, 0.3, 1], outCirc: [0, 0.55, 0.45, 1], outSine: [0.61, 1, 0.88, 1], outBack: [0.34, 1.56, 0.64, 1],
+  inQuad: [0.11, 0, 0.5, 0], inCubic: [0.32, 0, 0.67, 0], inQuart: [0.5, 0, 0.75, 0], inExpo: [0.7, 0, 0.84, 0],
+  inSine: [0.12, 0, 0.39, 0], inCirc: [0.55, 0, 1, 0.45], inBack: [0.36, 0, 0.66, -0.56],
+  inOutQuad: [0.45, 0, 0.55, 1], inOutCubic: [0.65, 0, 0.35, 1], inOutQuart: [0.76, 0, 0.24, 1], inOutExpo: [0.87, 0, 0.13, 1],
+  inOutSine: [0.37, 0, 0.63, 1], inOutBack: [0.68, -0.6, 0.32, 1.6],
+};
+
 /** Eases where the "Overshoot / bounce" amount (0-100) changes the curve. */
 export const AMOUNT_EASES: ReadonlySet<string> = new Set(["outBack", "outElastic", "spring", "inOutBack", "inBack"]);
 
