@@ -10,8 +10,10 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "test": "vitest run && vitest run -c vitest.mb.config.ts",
+    "test:engine": "vitest run -c vitest.mb.config.ts",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
   },
   "overrides": {
     "rolldown": "1.2.1"
