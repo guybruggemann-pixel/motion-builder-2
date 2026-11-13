@@ -1,4 +1,4 @@
-/*  Motion Builder 2.0 · After Effects asset dumper · v0.1 (untested in AE: check the first runs)
+/*  Motion Builder 2.0 · After Effects asset dumper · v0.2 (untested in AE: check the first runs)
     Writes the raw data of one comp (and every precomp it uses) to ae.json, for the app's importer.
     No conversion happens here: values, keyframes and temporal eases are written as AE reports them.
 
@@ -9,7 +9,7 @@ var MB_COMP_NAME = "";      // exact comp name; "" = active comp
 var MB_OUT_FOLDER = "";     // absolute folder path; "" = ask
 
 (function () {
-  var VERSION = "mb-ae-dump/0.1";
+  var VERSION = "mb-ae-dump/0.2";
 
   /* ---------- tiny JSON writer (ExtendScript has no JSON) ---------- */
   function q(s) {
@@ -44,6 +44,18 @@ var MB_OUT_FOLDER = "";     // absolute folder path; "" = ask
     return "{" + parts.join(",") + "}";
   }
 
+  /* ---------- enums as words (String() of an AE enum is a bare number) ---------- */
+  function blendName(m) { try { if (m === BlendingMode.NORMAL) return "normal"; } catch (e) {} return String(m); }
+  function matteName(m) { try { if (m === TrackMatteType.NO_TRACK_MATTE) return "none"; } catch (e) {} return String(m); }
+  function justName(j) {
+    try {
+      if (j === ParagraphJustification.LEFT_JUSTIFY) return "left";
+      if (j === ParagraphJustification.CENTER_JUSTIFY) return "center";
+      if (j === ParagraphJustification.RIGHT_JUSTIFY) return "right";
+    } catch (e) {}
+    return String(j);
+  }
+
   /* ---------- values ---------- */
   function colorOf(c) { return c ? [c[0], c[1], c[2]] : null; }
 
@@ -54,7 +66,7 @@ var MB_OUT_FOLDER = "";     // absolute folder path; "" = ask
     try { o.tracking = td.tracking; } catch (e) {}
     try { o.leading = td.leading; } catch (e) {}
     try { o.autoLeading = td.autoLeading; } catch (e) {}
-    try { o.justification = String(td.justification); } catch (e) {}
+    try { o.justification = justName(td.justification); } catch (e) {}
     try { o.applyFill = td.applyFill; if (td.applyFill) o.fillColor = colorOf(td.fillColor); } catch (e) {}
     try { o.applyStroke = td.applyStroke; if (td.applyStroke) { o.strokeColor = colorOf(td.strokeColor); o.strokeWidth = td.strokeWidth; } } catch (e) {}
     try { o.allCaps = td.allCaps; } catch (e) {}
@@ -158,8 +170,8 @@ var MB_OUT_FOLDER = "";     // absolute folder path; "" = ask
       enabled: l.enabled, parent: l.parent ? l.parent.index : null, label: l.label
     };
     try { o.threeD = l.threeDLayer; } catch (e) {}
-    try { o.blendingMode = String(l.blendingMode); } catch (e) {}
-    try { o.trackMatteType = String(l.trackMatteType); } catch (e) {}
+    try { o.blendingMode = blendName(l.blendingMode); } catch (e) {}
+    try { o.trackMatteType = matteName(l.trackMatteType); } catch (e) {}
     try { o.stretch = l.stretch; } catch (e) {}
     try { o.motionBlur = l.motionBlur; } catch (e) {}
     try { o.timeRemapEnabled = l.timeRemapEnabled; } catch (e) {}
